@@ -1,0 +1,15 @@
+[package]
+name = "playerversus"
+author = "danny"
+version = "1.1"
+description = "PLAYER VERSUS: a 3D arena fighter prototype (character select, 24 fighters, merging supers, a CPU opponent)"
+main = "playerversus.fw"
+
+[dependencies]
+aperture = "polymorphia.aperture"
+
+[dev-dependencies]
+
+[scripts]
+test = "flywheel --test"
+start = "flywheel playerversus.fw"

@@ -1,0 +1,169 @@
+# The roster is plain data, so it can be checked without opening a window.
+import testing
+import "../roster.fw" as roster
+
+function test_roster_has_the_nine
+    var cast = roster.build()
+    testing.assert(cast.length >= 9)
+    var names = ["FANGS", "ASTER", "ANACONDA", "RAPIER", "QUICKDRAW", "VOID", "SHERMAN", "SHEPHERD", "DON"]
+    for name in names do
+        var found = false
+        for c in cast do
+            if c.name == name do
+                found = true
+            end
+        end
+        testing.assert(found)
+    end
+end
+
+function test_names_are_unique
+    var cast = roster.build()
+    for i, a in cast do
+        for j, b in cast do
+            testing.assert(i == j or a.name != b.name)
+        end
+    end
+end
+
+function test_every_fighter_can_fight
+    for c in roster.build() do
+        testing.assert(c.health > 0 and c.speed > 0 and c.armor > 0)
+        testing.assert(c.bar_name != "" and c.bar_max > 0)
+        testing.assert(c.bar_start >= 0 and c.bar_start <= c.bar_max)
+        # A basic chain, four skills and a super, each of which can be paid for and ends.
+        testing.assert(c.basics.length >= 1)
+        testing.assert(c.skills.length == 4)
+        testing.assert(c.ultimate.name != "" and c.ultimate.cost == 0)
+        var moves = [c.ultimate]
+        for a in c.basics do
+            moves.push(a)
+        end
+        for a in c.skills do
+            moves.push(a)
+            testing.assert(a.note != "")
+        end
+        for a in moves do
+            testing.assert(a.name != "")
+            testing.assert(a.cost <= c.bar_max)
+            testing.assert(a.startup > 0 and a.recovery > 0 and a.hits >= 1 and a.interval > 0)
+        end
+    end
+end
+
+function test_combos_are_possible
+    # Each hit of the basic chain stuns for longer than the next one takes to come out.
+    for c in roster.build() do
+        for i in 0..<c.basics.length - 1 do
+            var a = c.basics[i]
+            var next = c.basics[i + 1]
+            if a.shot == roster.SHOT_NONE do
+                testing.assert(a.stun > next.startup + 3)
+            end
+        end
+    end
+end
+
+function test_skills_differ
+    for c in roster.build() do
+        for i, a in c.skills do
+            for j, b in c.skills do
+                testing.assert(i == j or a.name != b.name)
+            end
+        end
+    end
+end
+
+function test_eagle_has_revolver_rounds
+    var found = false
+    for c in roster.build() do
+        if c.name == "EAGLE" do
+            found = true
+            testing.assert(c.bar_max == 6 and c.bar_icon == roster.ICON_WHEEL)
+            testing.assert(c.look.weapon == roster.WEAPON_REVOLVER)
+            testing.assert(c.basics.length == 3 and c.basics[0].beam > 0)
+        end
+    end
+    testing.assert(found)
+end
+
+function test_every_fighter_has_a_hud_icon
+    for c in roster.build() do
+        testing.assert(c.bar_icon != roster.ICON_NONE)
+    end
+end
+
+function find(string name) returns roster.Character
+    for c in roster.build() do
+        if c.name == name do
+            return c
+        end
+    end
+    return roster.Character("", "")
+end
+
+function test_new_fighters_are_in
+    for name in ["COMBATANT", "PHANTOM", "CARBON", "MONOPOLIST", "MIRRORMAN", "BOB", "TELEMAN"] do
+        testing.assert(find(name).name == name)
+    end
+end
+
+function test_every_super_has_a_place_to_show
+    # The select screen stands each fighter in their super's place.
+    for c in roster.build() do
+        testing.assert(c.maximum.place != "" and c.maximum.seconds > 0 and c.maximum.cut_ticks > 0)
+    end
+end
+
+function test_phantom_super_is_short_and_fast
+    var m = find("PHANTOM").maximum
+    testing.assert(m.seconds == 5 and m.vanish and m.mono and m.cut_ticks < 170)
+    testing.assert(find("PHANTOM").super_steal > 0)
+end
+
+function test_teleman_only_breaks_supers
+    var t = find("TELEMAN")
+    testing.assert(t.maximum.jammer)
+    for c in roster.build() do
+        testing.assert(c.name == "TELEMAN" or not c.maximum.jammer)
+    end
+end
+
+function test_combatant_has_three_weapons
+    var c = find("COMBATANT")
+    testing.assert(c.arsenal.length == 3)
+    for arm in c.arsenal do
+        testing.assert(arm.basics.length >= 1 and arm.skills.length == 3)
+    end
+    testing.assert(c.skills[3].kind == roster.KIND_SWAP)
+end
+
+function test_monopolist_never_refills
+    var m = find("MONOPOLIST")
+    testing.assert(m.bar_regen == 0 and m.bankrupt > 0 and m.greed > 1)
+    testing.assert(m.maximum.free_bar and m.maximum.power < 1)
+end
+
+function test_cat_pools_are_full_and_safe
+    var cast = roster.build()
+    var pool = roster.move_pool(cast)
+    testing.assert(pool.length > 40)
+    for a in pool do
+        testing.assert(roster.portable(a))
+        var b = roster.adapt(a, 20)
+        testing.assert(not b.per_hit and b.kind != roster.KIND_FAN and b.kind != roster.KIND_RELOAD)
+    end
+    testing.assert(roster.ultimate_pool(cast).length > 10)
+    testing.assert(roster.chain_pool(cast).length > 10)
+end
+
+function test_items_are_distinct_and_described
+    var list = roster.items()
+    testing.assert(list.length >= 2)
+    for i, a in list do
+        testing.assert(a.name != "" and a.note != "")
+        for j, b in list do
+            testing.assert(i == j or (a.kind != b.kind and a.name != b.name))
+        end
+    end
+end

@@ -1,0 +1,2509 @@
+# The roster of PLAYER VERSUS: every fighter's numbers, moves, special bar and look.
+#
+# To add a fighter, write a function like the ones below and add it to `build()`: the
+# character select grid, the HUD and the CPU all read from ROSTER, so nothing else needs
+# to change unless the fighter needs a brand new kind of special, head or weapon.
+#
+# Nothing here opens a window, so tests can import it on their own.
+import aperture as ap
+import math
+
+# --- How a move is animated ------------------------------------------------------------------
+const int ANIM_SWING = 0      # a slash down across the body
+const int ANIM_THRUST = 1     # a straight stab
+const int ANIM_PUNCH = 2      # a straight punch (alternating fists on multi-hit moves)
+const int ANIM_SHOOT = 3      # arm level, recoil per shot
+const int ANIM_CAST = 4       # both arms up, then thrown open
+const int ANIM_SLAM = 5       # both arms overhead, then down
+const int ANIM_BITE = 6       # a grab with both arms
+const int ANIM_SPIT = 7       # head back, then forward
+const int ANIM_BACKSWING = 8  # the slash coming back the other way
+const int ANIM_CROSS = 9      # a punch with the other hand
+const int ANIM_HOOK = 10      # a wide swinging punch
+const int ANIM_UPPERCUT = 11  # from the knees, upward
+const int ANIM_SPIN = 12      # a full turn, weapon out
+const int ANIM_POUNCE = 13    # a leap, arms wide
+const int ANIM_CHARGE = 14    # shoulder down, running
+const int ANIM_THROW = 15     # an overarm lob
+const int ANIM_ROLL = 16      # tucked and tumbling
+const int ANIM_COUNTER = 17   # a still guard, then a stab
+const int ANIM_PLANT = 18     # kneeling to set something down
+const int ANIM_FOCUS = 19     # arms pulled in, then flung down: powering up
+const int ANIM_TWIRL = 20     # the gun spun in the hand; set off, it snaps level and fires
+
+# --- What a move launches (0 is a melee hit) ---------------------------------------------------
+const int SHOT_NONE = 0
+const int SHOT_BULLET = 1
+const int SHOT_VENOM = 2
+const int SHOT_ROCKET = 3
+const int SHOT_BOLT = 4
+const int SHOT_BATS = 5
+const int SHOT_WAVE = 6
+const int SHOT_BOMB = 7
+const int SHOT_MINE = 8
+const int SHOT_METEOR = 9
+const int SHOT_CAR = 10
+const int SHOT_KNIFE = 11
+const int SHOT_FIST = 12
+const int SHOT_RING = 13     # a phone ringing in the victim's pocket
+const int SHOT_ROCK = 14     # a chunk torn out of the floor
+const int SHOT_COIN = 15     # a gold coin, flicked
+const int SHOT_FEATHER = 16  # a black feather, sharp as glass
+const int SHOT_SPIKE = 17    # a ridge of stone that runs along the ground
+
+# --- What kind of thing a move is ---------------------------------------------------------------
+const int KIND_STRIKE = 0    # an attack: a melee hit or a shot
+const int KIND_CLOAK = 1     # toggles invisibility, draining the bar
+const int KIND_FAN = 2       # fires every bullet left
+const int KIND_RELOAD = 3    # refills the bar after a pause
+const int KIND_BUFF = 4      # puts `buff` on the user for `buff_time` seconds
+const int KIND_BLINK = 5     # an instant teleport `blink` meters the way the stick points
+const int KIND_PORTAL = 6    # opens one end of a pair of portals a few steps ahead
+const int KIND_LOCK = 7      # keeps skill 1 as it is, or lets it be copied again (CAT)
+const int KIND_SWAP = 8      # the next weapon of the fighter's arsenal (COMBATANT)
+const int KIND_RECALL = 9    # every thrown dagger lying about flies back to the hand
+const int KIND_MIRROR = 10   # mirrored copies of the user appear around the opponent
+const int KIND_GLASS = 11    # trades places with one of the user's mirror copies
+const int KIND_SHATTER = 12  # the user's mirror copies burst, cutting whoever is near
+const int KIND_WALL = 13     # a pillar of stone rises a few steps ahead
+const int KIND_SWITCH = 14   # the user and the opponent trade places
+
+const int BUFF_NONE = 0
+const int BUFF_MIST = 1      # cannot be hit, moves faster
+const int BUFF_HASTE = 2     # moves faster, the bar refills quicker
+const int BUFF_GUARD = 3     # takes far less damage and cannot be staggered
+const int BUFF_REGEN = 4     # heals `heal` health a second
+const int BUFF_POWER = 5     # the next shot fired hits far harder
+const int BUFF_PARRY = 6     # every block is a parry
+
+# --- Heads and weapons (see puppet.fw) ---------------------------------------------------------
+const int HEAD_SLICK = 0     # slicked hair and a high collar
+const int HEAD_BAND = 1      # a headband with tails
+const int HEAD_COBRA = 2     # a flared snake hood
+const int HEAD_PLUME = 3     # a wide hat with a feather
+const int HEAD_COWBOY = 4    # a cowboy hat and a bandana
+const int HEAD_MASK = 5      # a dark mask with one glowing slit, and a scarf
+const int HEAD_HELMET = 6    # a steel helmet
+const int HEAD_HOOD = 7      # a deep cloak hood
+const int HEAD_WIZARD = 8    # a pointed hat and a beard
+const int HEAD_HEADSET = 9   # big hair and a headset with a microphone
+const int HEAD_CAP = 10      # a peaked cap pulled low
+const int HEAD_BEANIE = 11   # a knitted cap and a cloth over the mouth
+const int HEAD_HAZMAT = 12   # a sealed hood with a glowing faceplate
+const int HEAD_CAT = 13      # ears and whiskers
+const int HEAD_ROBOT = 14    # a metal box with an antenna
+const int HEAD_VISOR = 15    # a smooth helmet with one glowing band
+const int HEAD_EAGLE = 16    # a white-feathered cowl and a yellow beak
+const int HEAD_TV = 17       # an old television set, rabbit-ear antennas and all
+const int HEAD_TOPHAT = 18   # a tall silk hat and a monocle
+const int HEAD_GOGGLES = 19  # wild white hair and brass goggles
+const int HEAD_MIRROR = 20   # a smooth face of mirror glass
+const int HEAD_PONYTAIL = 21 # a high ponytail and a stone circlet
+const int HEAD_VEIL = 22     # long hair under a torn black veil
+const int HEAD_CREST = 23    # an open helm with a crest
+const int HEAD_STITCHED = 24 # a bald, stitched-up skull with a hanging jaw
+const int HEAD_TOPKNOT = 25  # hair in a topknot and a cloth headband
+
+const int WEAPON_CLAWS = 0
+const int WEAPON_FISTS = 1
+const int WEAPON_DAGGER = 2
+const int WEAPON_RAPIER = 3
+const int WEAPON_GUN = 4
+const int WEAPON_KATANA = 5
+const int WEAPON_CANNON = 6  # gauntlets and a rocket pod on the shoulder
+const int WEAPON_CROOK = 7
+const int WEAPON_STAFF = 8
+const int WEAPON_PHONE = 9   # a handset on a curly cord
+const int WEAPON_SHOTGUN = 10
+const int WEAPON_DEVICE = 11 # a hand-held emitter with a glowing tip
+const int WEAPON_SABER = 12  # a blade of light
+const int WEAPON_REVOLVER = 13 # a long-barrelled hand cannon
+const int WEAPON_GREATSWORD = 14 # a blade as long as the fighter is tall
+const int WEAPON_AXE = 15    # a small hand axe
+const int WEAPON_SYRINGE = 16 # an oversized syringe full of something green
+const int WEAPON_CANE = 17   # a black cane with a gold knob
+const int WEAPON_SHARD = 18  # a blade of mirror glass
+const int WEAPON_BIGAXE = 19 # a huge two-headed axe, and a hooked chain in the other hand
+const int WEAPON_BO = 20     # a long plain staff held in the middle
+
+# --- How a fighter stands when idle (see puppet.fw) -------------------------------------------
+const int STANCE_GUARD = 0     # a plain guard, for fighters without a stance of their own
+const int STANCE_PROWL = 1     # hunched, claws spread wide
+const int STANCE_BOXER = 2     # side on, fists up, bouncing on the toes
+const int STANCE_SERPENT = 3   # low and swaying, blades down
+const int STANCE_EN_GARDE = 4  # sword arm leading, the other held back
+const int STANCE_HOLSTER = 5   # loose at the hip, spinning the gun now and then
+const int STANCE_IAI = 6       # deep and still, the blade trailing behind
+const int STANCE_BULWARK = 7   # feet planted wide, knocking the fists together
+const int STANCE_WATCH = 8     # leaning on the crook, head turning
+const int STANCE_LEVITATE = 9  # hanging just off the ground, staff upright
+const int STANCE_CALL = 10     # on the phone, tapping a foot
+const int STANCE_SHOULDER = 11 # the gun resting on a shoulder
+const int STANCE_KNIVES = 12   # low, shifting from foot to foot, blades turning
+const int STANCE_TINKER = 13   # studying the device in hand
+const int STANCE_CAT = 14      # down on the haunches, tail-end swaying
+const int STANCE_ROBOT = 15    # bolt upright, head ticking from side to side
+const int STANCE_ARMS = 16     # floating a little, blade low, perfectly calm
+const int STANCE_AIM = 17      # side on like a duellist, the gun raised by the cheek
+const int STANCE_HOVER = 18    # floating on slow wingbeats, arms trailing
+const int STANCE_SHAMBLE = 19  # lopsided and hunched, the axe dragging, the head lolling
+const int STANCE_BO = 20       # low, the staff across the body, perfectly still
+
+# --- The little picture beside a fighter's bar on the HUD ----------------------------------------
+const int ICON_NONE = 0
+const int ICON_DROP = 1
+const int ICON_BOLT = 2
+const int ICON_FANG = 3
+const int ICON_EYE = 4       # open when the bar is at least half full, shut below
+const int ICON_WHEEL = 5     # a revolver's cylinder: one chamber per bullet
+const int ICON_SWIRL = 6
+const int ICON_ROCKETS = 7   # one rocket per pip
+const int ICON_HOOD = 8
+const int ICON_STAR = 9
+const int ICON_SIGNAL = 10   # reception bars that light with the bar
+const int ICON_SHELLS = 11   # one shotgun shell per pip
+const int ICON_KNIFE = 12
+const int ICON_ATOM = 13
+const int ICON_PAW = 14
+const int ICON_BATTERY = 15  # a cell that drains with the bar
+const int ICON_SUN = 16
+const int ICON_WING = 17
+const int ICON_ROCK = 18
+const int ICON_COIN = 19     # a stack of coins that shrinks with the bar
+const int ICON_MIRROR = 20
+const int ICON_FLASK = 21
+const int ICON_TV = 22
+const int ICON_BLADES = 23
+const int ICON_SKULL = 24
+const int ICON_LEAF = 25
+
+# --- The effects and sounds a move sets off (see playerversus.fw) ------------------------------
+const int FX_NONE = 0
+const int FX_FEAST = 1
+const int FX_RUSH = 2
+const int FX_SPIT = 3
+const int FX_FLECHE = 4
+const int FX_FAN = 5
+const int FX_FLASH = 6
+const int FX_ROCKET = 7
+const int FX_NOVA = 8
+const int FX_BOLT = 9
+const int FX_CHAIN = 10      # a hooked chain flung out to the move's reach
+
+# One move. Times are ticks (60 a second): `startup` before it hits, `recovery` after.
+class Attack
+    string name
+    double damage = 5
+    int startup = 8
+    int recovery = 12
+    double reach = 1.8        # meters, for melee
+    double arc = 100          # degrees in front that a melee hit covers (the full angle)
+    double lunge = 0          # meters stepped forward while striking
+    int stun = 15             # ticks the victim cannot act
+    double push = 3           # how hard the victim is knocked away (negative pulls them in)
+    double cost = 0           # special bar spent
+    bool per_hit = false      # the cost is paid for each hit (bullets) instead of once
+    double gain = 0           # special bar gained when it lands
+    int hits = 1              # how many times it strikes
+    int interval = 6          # ticks between strikes
+    int shot = SHOT_NONE      # what it fires, if anything
+    double shot_speed = 20
+    double blast = 0          # explosion radius of the shot
+    double poison = 0         # seconds of poison it adds
+    double heal = 0           # health the attacker gets back when it lands
+    bool teleport = false     # appear behind the opponent just before striking
+    bool radial = false       # hits all around instead of in front
+    int anim = ANIM_SWING
+    int fx = FX_NONE
+    int cooldown = 0          # ticks before it can be used again
+    int kind = KIND_STRIKE
+    string note = ""          # one line for the select screen
+    double launch = 0         # throws the victim into the air (meters a second, upward)
+    double slow = 0           # seconds the victim moves at half speed
+    bool unblockable = false  # a block does not stop it (a parry still does)
+    bool counter = false      # struck while winding up, it parries and hits back far harder
+    bool on_trigger = false   # a counter that does nothing unless set off (it restocks instead)
+    bool evade = false        # cannot be hit while winding up; `lunge` goes where the stick points
+    bool sturdy = false       # cannot be staggered out of it
+    double finish = 0         # extra damage on the last hit of a multi-hit move
+    double restock = 0        # special bar gained just for doing it
+    bool shroud = false       # the user turns invisible as it goes off
+    int volley = 1            # shots fired at once...
+    double spread = 10        # ...this many degrees apart
+    double homing = 0         # degrees a second the shot can turn after its target
+    bool lob = false          # thrown in an arc to where the opponent stands
+    bool skyfall = false      # falls on the opponent from above
+    double pool = 0           # seconds a pool of it lies where the shot lands
+    double shot_life = 2.5    # seconds before the shot gives out
+    int buff = BUFF_NONE
+    double buff_time = 0
+    double blink = 0
+    double summon = 0         # the shot starts this many meters behind the user and drives through
+    double recoil = 0         # how hard firing it throws the user backward
+    double beam = 0           # over 0: no shot, but a ray this long that hits at once
+    bool inject = false       # a dose: enough of them and a clone of the victim joins the user (BOB)
+    double steal = 0          # super bar taken from the victim when it lands
+    bool crater = false       # torn out of the floor: leaves a hole where the user stood
+end
+
+class Look
+    ap.Color skin = ap.Color(232, 190, 160)
+    ap.Color body = ap.GRAY          # torso and sleeves
+    ap.Color legs = ap.DARK_GRAY
+    ap.Color trim = ap.WHITE         # belt, headgear details
+    ap.Color accent = ap.WHITE       # the fighter's signature color: glows, effects, UI
+    ap.Color metal = ap.LIGHT_GRAY   # the weapon
+    ap.Color eyes = ap.Color(20, 20, 28)
+    double bulk = 1                  # how wide
+    double tall = 1                  # how tall
+    int head = HEAD_BAND
+    int weapon = WEAPON_FISTS
+    int stance = STANCE_GUARD
+    bool cape = false
+    ap.Color cape_color = ap.BLACK
+    bool glowing_eyes = false
+    bool glowing_weapon = false
+    bool wings = false               # a pair of wings on the back
+    ap.Color wing_color = ap.BLACK
+    double hover = 0                 # meters off the ground, always
+end
+
+# --- Supers ------------------------------------------------------------------------------------
+# A fighter's super (G with a full super bar, in any mode): the arena crumbles and becomes
+# somewhere of their own, which works in their favor for thirty seconds. Inside it, G once more
+# is the fighter's `ultimate` move. The game reads these numbers; `scene` picks the scenery.
+const int SCENE_CASTLE = 0
+const int SCENE_RING = 1
+const int SCENE_SWAMP = 2
+const int SCENE_HALL = 3
+const int SCENE_TOWN = 4
+const int SCENE_ABYSS = 5
+const int SCENE_TRENCHES = 6
+const int SCENE_GRAVEYARD = 7
+const int SCENE_TOWER = 8
+const int SCENE_CITY = 9
+const int SCENE_WAREHOUSE = 10
+const int SCENE_ALLEY = 11
+const int SCENE_REACTOR = 12
+const int SCENE_FACTORY = 13
+const int SCENE_SUN = 14
+const int SCENE_CANYON = 15
+const int SCENE_BOX = 16
+const int SCENE_COLOSSEUM = 17
+const int SCENE_FOREST = 18
+const int SCENE_QUARRY = 19
+const int SCENE_BANK = 20
+const int SCENE_MIRRORS = 21
+const int SCENE_LAB = 22
+const int SCENE_STUDIO = 23
+const int SCENE_PIT = 24
+const int SCENE_GROVE = 25
+
+class Maximum
+    string name = "SUPER"
+    string place = ""                 # the name of where the arena becomes
+    string note = ""                  # one line for the select screen
+    int anim = ANIM_FOCUS             # what the fighter does in the cutscene
+    int scene = SCENE_CASTLE
+    ap.Color sky = ap.Color(10, 8, 16)
+    ap.Color ambient = ap.Color(70, 70, 90)
+    ap.Color sun = ap.Color(200, 200, 220)
+    ap.Color ground = ap.Color(50, 46, 60)   # the stone of the floor's edge
+    ap.Color floor = ap.WHITE                # a tint over the painted floor
+    ap.Color glow = ap.Color(255, 255, 255)  # lamps and the arena's rim
+    ap.Color mote = ap.Color(255, 255, 255)  # what drifts in the air...
+    double drift = 0.3                       # ...and how fast it rises (or falls)
+    double fog_near = 18
+    double fog_far = 80
+    # What it does, for the user (self_) and against the other fighter (foe_).
+    double foe_dps = 0                # health a second, no block or stagger
+    double drain = 0                  # share of foe_dps the user drinks back
+    double foe_poison = 0             # seconds of poison added each second
+    bool foe_slow = false
+    double foe_vulnerable = 1         # damage the foe takes is multiplied by this
+    double regen = 0                  # health a second for the user
+    double power = 1                  # the user's damage
+    double armor = 1                  # damage the user takes
+    double speed = 1
+    int cool_rate = 1                 # cooldowns tick this many times as fast
+    double bar_regen = 0              # special bar a second
+    bool perfect_guard = false        # every block is a parry
+    bool portals = false              # wild portals that come and go, leading anywhere
+    Attack strike = Attack("")        # something sent at the foe now and then (no name: nothing)
+    double strike_every = 0           # seconds between them
+    bool strike_ground = false        # comes along the ground from the edge (else from the sky)
+    double seconds = 30               # how long the place lasts
+    int cut_ticks = 170               # how long its cutscene takes
+    bool vanish = false               # the user cannot be seen at all
+    bool mono = false                 # the whole place is drained of color
+    bool randomize = false            # every move the user has is a random one from the game, reshuffled on use
+    bool free_bar = false             # moves cost nothing from the special bar
+    int clones = 0                    # mirror copies of the user kept around the foe
+    bool labs = false                 # extra machines; every dose makes a clone (BOB)
+    bool jammer = false               # not a place: used inside the foe's super, it switches it off (TELEMAN)
+    double parry_heal = 0             # health the user gets back from every parry
+end
+
+# One weapon of a fighter who carries several (COMBATANT): its basic chain, skills 1-3 and fallback.
+class Arsenal
+    string name
+    int weapon
+    Attack[] basics
+    Attack[] skills
+    Attack fallback
+    double ai_range = 1.8
+end
+
+class Character
+    string name
+    string title
+    string blurb = ""
+    string style = ""                # two or three words on how they play
+    double health = 100
+    double speed = 5.5               # meters a second
+    double armor = 1                 # damage taken is multiplied by this
+    bool poise = false               # light hits do not stagger
+    double lifesteal = 0             # share of damage dealt that comes back as health
+    double toxic_bonus = 1           # damage multiplier against a poisoned opponent
+    double backstab = 1              # damage multiplier for melee hits from behind
+    string dot_name = "POISONED"     # what this fighter's poison is called on the opponent's HUD
+    bool machine = false             # cannot be poisoned or slowed
+    bool copycat = false             # skill 1 becomes the last move that hit them
+    bool reload_all = false          # the reload puts every bullet in at once, at the end
+    # The special bar.
+    string bar_name = "ENERGY"
+    string bar_note = ""
+    double bar_max = 100
+    double bar_start = 100
+    double bar_regen = 0             # per second
+    double bar_drain = 0             # per second while cloaked
+    double parry_gain = 15           # bar gained from a parry
+    bool bar_pips = false            # shown as separate pips (bullets, rockets)
+    int bar_icon = ICON_NONE
+    # Moves: the basic attack is a chain (press again to go on), then four skills and a super.
+    Attack[] basics = []
+    Attack[] skills = []
+    Attack ultimate = Attack("Super")
+    Attack fallback = Attack("")     # the basic attack when the bar cannot pay for it (no name: none)
+    double ai_range = 1.7            # the distance the CPU likes to fight at
+    double super_steal = 0           # super bar taken from the opponent by every hit that lands
+    double greed = 1                 # damage dealt is multiplied by this
+    int bankrupt = 0                 # over 0: the bar never refills; at zero, stunned this many ticks
+    Arsenal[] arsenal = []           # weapons switched between with KIND_SWAP; the first is held at the start
+    bool lab = false                 # a machine stands behind them at the start of every round (BOB)
+    int inject_need = 3              # doses that make a clone
+    double clone_cool = 10           # seconds after a clone dies before another can be made
+    double revive = 0                # over 0: the first knockout of a round, they get up with this share of health
+    Look look = Look()
+    Maximum maximum = Maximum()
+end
+
+const double POISON_DPS = 2.2        # health lost per second while poisoned
+const double POISON_LIMIT = 10       # the most seconds of poison that can stack up
+const double CLOAK_BONUS = 1.6       # damage multiplier striking out of invisibility...
+const double AMBUSH_BONUS = 2.2      # ...and from behind
+const double COUNTER_BONUS = 4       # damage multiplier of a counter that was set off
+const int RELOAD_TICKS = 10             # ticks to load one bullet
+const int SPEEDLOAD_TICKS = 45          # ticks for a reload_all reload to drop every bullet in
+const double SUPER_MAX = 100
+# The super is a late-match weapon: kept from round to round, it is meant to be ready around the
+# second round, not the first.
+const double SUPER_PER_SECOND = 0.5  # the super bar fills on its own in over three minutes...
+const double SUPER_PER_DEALT = 0.1   # ...faster for damage dealt...
+const double SUPER_PER_TAKEN = 0.15  # ...and a little faster for damage taken, so the one behind gets theirs first
+
+# A melee move: the numbers every one of them needs.
+function hit(string name, double damage, int startup, int recovery, double reach, double arc, double lunge,
+        int stun, double push, int anim) returns Attack
+    var a = Attack(name, damage, startup, recovery, reach, arc, lunge, stun, push)
+    a.anim = anim
+    return a
+end
+# A move that fires something.
+function fire(string name, double damage, int startup, int recovery, int shot, double speed, int stun,
+        double push, int anim) returns Attack
+    var a = Attack(name, damage, startup, recovery)
+    a.shot = shot
+    a.shot_speed = speed
+    a.stun = stun
+    a.push = push
+    a.anim = anim
+    return a
+end
+# A move that is not an attack.
+function trick(string name, int kind, int anim) returns Attack
+    var a = Attack(name, 0, 10, 14)
+    a.kind = kind
+    a.anim = anim
+    return a
+end
+# Sets what every skill has: its cooldown in seconds, bar cost, and a line for the select screen.
+function skill(Attack a, double seconds, double cost, string note) returns Attack
+    a.cooldown = int(seconds * 60)
+    a.cost = cost
+    a.note = note
+    return a
+end
+
+function fangs() returns Character
+    var c = Character("FANGS", "THE VAMPIRE")
+    c.blurb = "Rushdown. Heals 12% of damage dealt; Blood fills on hits."
+    c.style = "Rushdown, lifesteal"
+    c.health = 140
+    c.speed = 5.6
+    c.lifesteal = 0.12
+    c.bar_name = "BLOOD"
+    c.bar_icon = ICON_DROP
+    c.bar_note = "Fills as hits land"
+    c.bar_start = 0
+    c.basics = [hit("Claw", 5, 7, 12, 1.9, 100, 0.5, 18, 2, ANIM_SWING),
+        hit("Claw", 5, 7, 12, 1.9, 100, 0.5, 18, 2, ANIM_BACKSWING),
+        hit("Rend", 9, 10, 18, 2.1, 110, 0.8, 24, 5, ANIM_SLAM)]
+    c.basics[0].gain = 10
+    c.basics[1].gain = 10
+    c.basics[2].gain = 16
+    var pounce = skill(hit("Pounce", 10, 12, 20, 2.0, 90, 4.2, 26, 3, ANIM_POUNCE), 5, 0, "Leaps 4 m into a claw strike")
+    pounce.gain = 15
+    var bats = skill(fire("Bat Swarm", 7, 14, 18, SHOT_BATS, 10, 16, 1, ANIM_CAST), 6, 0, "Slow homing bats; heal 6 on hit")
+    bats.homing = 150
+    bats.heal = 6
+    bats.shot_life = 3.2
+    var feast = skill(hit("Blood Feast", 12, 12, 26, 2.0, 80, 3.2, 34, 2, ANIM_BITE), 8, 50, "A bite that heals 20")
+    feast.heal = 20
+    feast.fx = FX_FEAST
+    var mist = skill(trick("Mist Form", KIND_BUFF, ANIM_FOCUS), 11, 20, "1.5s untouchable and faster")
+    mist.buff = BUFF_MIST
+    mist.buff_time = 1.5
+    c.skills = [pounce, bats, feast, mist]
+    c.ultimate = hit("Crimson Banquet", 6, 14, 30, 2.2, 100, 4.5, 20, 1, ANIM_BITE)
+    c.ultimate.hits = 6
+    c.ultimate.heal = 5
+    c.ultimate.finish = 8
+    c.ultimate.fx = FX_FEAST
+    c.ultimate.note = "Six bites, each heals 5"
+    var l = c.look
+    l.skin = ap.Color(214, 208, 220)
+    l.body = ap.Color(46, 16, 28)
+    l.legs = ap.Color(24, 18, 28)
+    l.trim = ap.Color(150, 20, 40)
+    l.accent = ap.Color(230, 40, 70)
+    l.metal = ap.Color(235, 230, 240)
+    l.eyes = ap.Color(255, 60, 80)
+    l.glowing_eyes = true
+    l.head = HEAD_SLICK
+    l.weapon = WEAPON_CLAWS
+    l.stance = STANCE_PROWL
+    l.cape = true
+    l.cape_color = ap.Color(110, 14, 30)
+    return c
+end
+
+function aster() returns Character
+    var c = Character("ASTER", "THE BRAWLER")
+    c.blurb = "Fast combos on stamina. Uppercut launches for juggles."
+    c.style = "Combos, juggles"
+    c.health = 135
+    c.speed = 6.6
+    c.bar_name = "STAMINA"
+    c.bar_icon = ICON_BOLT
+    c.bar_note = "Punches cost it; refills fast"
+    c.bar_regen = 26
+    c.basics = [hit("Jab", 4, 5, 9, 1.6, 90, 0.4, 16, 1.5, ANIM_PUNCH),
+        hit("Cross", 5, 6, 10, 1.7, 90, 0.5, 17, 2, ANIM_CROSS),
+        hit("Hook", 8, 9, 16, 1.7, 120, 0.6, 24, 6, ANIM_HOOK)]
+    c.basics[0].cost = 6
+    c.basics[1].cost = 7
+    c.basics[2].cost = 10
+    var straight = skill(hit("Dash Straight", 9, 9, 18, 1.9, 70, 3.8, 22, 6, ANIM_PUNCH), 3, 15, "A punch that dashes 4 m")
+    var upper = skill(hit("Uppercut", 10, 8, 22, 1.7, 90, 0.5, 30, 1, ANIM_UPPERCUT), 5, 20, "Launches them for a juggle")
+    upper.launch = 8.5
+    var fists = skill(hit("Hundred Fists", 3.2, 8, 22, 1.8, 100, 2.4, 14, 1.5, ANIM_PUNCH), 7, 40, "A seven-hit rush")
+    fists.hits = 7
+    fists.interval = 5
+    fists.fx = FX_RUSH
+    var wind = skill(trick("Second Wind", KIND_BUFF, ANIM_FOCUS), 14, 0, "5s faster; stamina refills 2.5x")
+    wind.buff = BUFF_HASTE
+    wind.buff_time = 5
+    c.skills = [straight, upper, fists, wind]
+    c.ultimate = hit("Meteor Rush", 4.2, 10, 30, 1.9, 110, 3.6, 16, 1, ANIM_PUNCH)
+    c.ultimate.hits = 10
+    c.ultimate.interval = 4
+    c.ultimate.finish = 12
+    c.ultimate.fx = FX_RUSH
+    c.ultimate.note = "Ten blows and a finisher"
+    c.ai_range = 1.4
+    var l = c.look
+    l.skin = ap.Color(205, 150, 110)
+    l.body = ap.Color(240, 236, 225)
+    l.legs = ap.Color(40, 60, 120)
+    l.trim = ap.Color(250, 190, 40)
+    l.accent = ap.Color(255, 200, 50)
+    l.metal = ap.Color(200, 50, 50)
+    l.head = HEAD_BAND
+    l.weapon = WEAPON_FISTS
+    l.stance = STANCE_BOXER
+    return c
+end
+
+function anaconda() returns Character
+    var c = Character("ANACONDA", "THE VENOMOUS")
+    c.blurb = "Poisons with every hit; poisoned foes take 25% more."
+    c.style = "Poison, slows, traps"
+    c.health = 140
+    c.speed = 5.2
+    c.toxic_bonus = 1.25
+    c.bar_name = "VENOM"
+    c.bar_icon = ICON_FANG
+    c.bar_note = "Refills slowly; pays for venom"
+    c.bar_start = 50
+    c.bar_regen = 8
+    c.basics = [hit("Fang", 4, 7, 11, 1.8, 100, 0.5, 17, 2, ANIM_SWING),
+        hit("Fang", 4, 7, 11, 1.8, 100, 0.5, 17, 2, ANIM_BACKSWING),
+        hit("Coil Strike", 8, 11, 18, 2.4, 140, 0.8, 24, 4, ANIM_SPIN)]
+    c.basics[0].poison = 1.5
+    c.basics[1].poison = 1.5
+    c.basics[2].poison = 3
+    var spit = skill(fire("Venom Spit", 6, 12, 20, SHOT_VENOM, 16, 14, 2, ANIM_SPIT), 4, 30, "Shot that adds 6s of poison")
+    spit.poison = 6
+    spit.fx = FX_SPIT
+    var grab = skill(hit("Constrict", 6, 14, 24, 1.7, 80, 1.2, 55, 0, ANIM_BITE), 8, 0, "Unblockable grab; slows 3s")
+    grab.unblockable = true
+    grab.slow = 3
+    var pool = skill(fire("Venom Pool", 4, 16, 22, SHOT_VENOM, 12, 10, 1, ANIM_THROW), 10, 40, "Leaves a pool that poisons and slows")
+    pool.lob = true
+    pool.pool = 6
+    pool.poison = 2
+    var slither = skill(hit("Slither", 5, 8, 16, 1.8, 120, 4.5, 16, 2, ANIM_THRUST), 5, 0, "Untouchable slide that poisons")
+    slither.evade = true
+    slither.poison = 3
+    c.skills = [spit, grab, pool, slither]
+    c.ultimate = fire("Neurotoxin", 8, 16, 30, SHOT_VENOM, 18, 50, 3, ANIM_SPIT)
+    c.ultimate.volley = 5
+    c.ultimate.spread = 9
+    c.ultimate.poison = 10
+    c.ultimate.slow = 4
+    c.ultimate.fx = FX_SPIT
+    c.ultimate.note = "5 venom shots: heavy poison, long stun"
+    c.ai_range = 1.8
+    var l = c.look
+    l.skin = ap.Color(170, 200, 140)
+    l.body = ap.Color(30, 90, 50)
+    l.legs = ap.Color(24, 50, 36)
+    l.trim = ap.Color(210, 190, 60)
+    l.accent = ap.Color(130, 240, 60)
+    l.metal = ap.Color(150, 230, 120)
+    l.eyes = ap.Color(240, 220, 40)
+    l.glowing_eyes = true
+    l.head = HEAD_COBRA
+    l.weapon = WEAPON_DAGGER
+    l.stance = STANCE_SERPENT
+    l.tall = 1.04
+    l.bulk = 0.92
+    return c
+end
+
+function rapier() returns Character
+    var c = Character("RAPIER", "THE DUELIST")
+    c.blurb = "Long, narrow reach. Parries fill Focus; Riposte counters."
+    c.style = "Spacing, counters"
+    c.health = 140
+    c.speed = 5.8
+    c.bar_name = "FOCUS"
+    c.bar_icon = ICON_EYE
+    c.bar_note = "Fills on hits, +50 per parry"
+    c.bar_start = 30
+    c.parry_gain = 50
+    c.basics = [hit("Thrust", 5, 6, 11, 2.5, 40, 0.5, 17, 2, ANIM_THRUST),
+        hit("Thrust", 5, 6, 11, 2.5, 40, 0.5, 17, 2, ANIM_THRUST),
+        hit("Cut", 9, 10, 18, 2.4, 110, 0.4, 24, 4, ANIM_SWING)]
+    c.basics[0].gain = 10
+    c.basics[1].gain = 10
+    c.basics[2].gain = 16
+    var flurry = skill(hit("Flurry", 3.4, 8, 20, 2.6, 40, 1.6, 13, 1, ANIM_THRUST), 5, 0, "Five quick thrusts")
+    flurry.hits = 5
+    flurry.interval = 5
+    flurry.gain = 4
+    flurry.finish = 4
+    var riposte = skill(hit("Riposte", 5, 26, 20, 2.6, 60, 0.6, 20, 3, ANIM_COUNTER), 7, 0, "Counter: if hit, strikes back 4x")
+    riposte.counter = true
+    var fleche = skill(hit("Fleche", 20, 14, 28, 2.6, 45, 5, 32, 6, ANIM_THRUST), 7, 50, "Lunges 5 m; 20 damage")
+    fleche.fx = FX_FLECHE
+    var hop = skill(hit("Balestra", 0, 10, 8, 0, 0, 3.4, 0, 0, ANIM_ROLL), 4, 0, "Untouchable hop back; +15 Focus")
+    hop.evade = true
+    hop.restock = 15
+    c.skills = [flurry, riposte, fleche, hop]
+    c.ultimate = hit("Coup de Grace", 36, 18, 34, 3.0, 50, 7, 40, 10, ANIM_THRUST)
+    c.ultimate.unblockable = true
+    c.ultimate.fx = FX_FLECHE
+    c.ultimate.note = "Unblockable 36-damage thrust"
+    c.ai_range = 2.2
+    var l = c.look
+    l.skin = ap.Color(238, 200, 175)
+    l.body = ap.Color(40, 70, 150)
+    l.legs = ap.Color(230, 225, 215)
+    l.trim = ap.Color(220, 180, 70)
+    l.accent = ap.Color(110, 170, 255)
+    l.metal = ap.Color(225, 230, 240)
+    l.head = HEAD_PLUME
+    l.weapon = WEAPON_RAPIER
+    l.stance = STANCE_EN_GARDE
+    l.bulk = 0.94
+    return c
+end
+
+function shot_basic() returns Attack
+    var a = fire("Shot", 6, 6, 12, SHOT_BULLET, 45, 12, 2, ANIM_SHOOT)
+    a.cost = 1
+    a.per_hit = true
+    return a
+end
+
+function quickdraw() returns Character
+    var c = Character("QUICKDRAW", "THE GUNSLINGER")
+    c.blurb = "Six-shot pistol that reloads one bullet at a time."
+    c.style = "Ranged, ammo"
+    c.health = 125
+    c.speed = 5.6
+    c.bar_name = "BULLETS"
+    c.bar_icon = ICON_WHEEL
+    c.bar_note = "Empty: R becomes a melee whip"
+    c.bar_max = 6
+    c.bar_start = 6
+    c.bar_pips = true
+    c.parry_gain = 0
+    c.basics = [shot_basic(), shot_basic(), shot_basic()]
+    c.fallback = hit("Pistol Whip", 9, 11, 18, 1.7, 110, 0.6, 24, 7, ANIM_SWING)
+    var fan = skill(fire("Fan the Hammer", 6, 10, 26, SHOT_BULLET, 45, 10, 2, ANIM_SHOOT), 5, 1, "Fires every bullet left")
+    fan.kind = KIND_FAN
+    fan.per_hit = true
+    fan.interval = 5
+    fan.fx = FX_FAN
+    var reload = skill(trick("Reload", KIND_RELOAD, ANIM_SHOOT), 12, 0, "Loads bullets one at a time")
+    var tumble = skill(hit("Tumble", 0, 12, 6, 0, 0, 4, 0, 0, ANIM_ROLL), 6, 0, "Untouchable roll; reloads 1 bullet")
+    tumble.evade = true
+    tumble.restock = 1
+    var bomb = skill(fire("Dynamite", 14, 16, 22, SHOT_BOMB, 12, 28, 8, ANIM_THROW), 9, 0, "Lobbed; 2.4 m blast")
+    bomb.lob = true
+    bomb.blast = 2.4
+    c.skills = [fan, reload, tumble, bomb]
+    c.ultimate = fire("High Noon", 9, 22, 30, SHOT_BULLET, 60, 16, 1, ANIM_SHOOT)
+    c.ultimate.hits = 6
+    c.ultimate.interval = 6
+    c.ultimate.finish = 8
+    c.ultimate.fx = FX_FAN
+    c.ultimate.note = "Six heavy shots that need no bullets"
+    c.ai_range = 7
+    var l = c.look
+    l.skin = ap.Color(220, 175, 140)
+    l.body = ap.Color(120, 80, 50)
+    l.legs = ap.Color(60, 70, 100)
+    l.trim = ap.Color(190, 50, 40)
+    l.accent = ap.Color(255, 170, 60)
+    l.metal = ap.Color(170, 175, 190)
+    l.head = HEAD_COWBOY
+    l.weapon = WEAPON_GUN
+    l.stance = STANCE_HOLSTER
+    l.cape = true
+    l.cape_color = ap.Color(150, 105, 70)
+    return c
+end
+
+function void_blade() returns Character
+    var c = Character("VOID", "THE EMPTY BLADE")
+    c.blurb = "Katana and teleports: Flash Step lands behind them."
+    c.style = "Teleports, mix-ups"
+    c.health = 135
+    c.speed = 5.8
+    c.bar_name = "VOID"
+    c.bar_icon = ICON_SWIRL
+    c.bar_note = "Refills slowly and on hits"
+    c.bar_start = 40
+    c.bar_regen = 7
+    c.basics = [hit("Iai", 6, 7, 12, 2.3, 110, 0.4, 17, 3, ANIM_SWING),
+        hit("Iai", 6, 7, 12, 2.3, 110, 0.4, 17, 3, ANIM_BACKSWING),
+        hit("Crescent", 10, 11, 20, 2.6, 150, 0.8, 25, 5, ANIM_SPIN)]
+    c.basics[0].gain = 8
+    c.basics[1].gain = 8
+    c.basics[2].gain = 12
+    var step = skill(hit("Flash Step", 15, 16, 24, 2.4, 120, 0, 30, 5, ANIM_SWING), 6, 40, "Teleports behind them and cuts")
+    step.teleport = true
+    step.fx = FX_FLASH
+    var wave = skill(fire("Void Wave", 8, 13, 18, SHOT_WAVE, 17, 18, 3, ANIM_SWING), 5, 20, "A slash projectile")
+    var moon = skill(hit("Rising Moon", 9, 9, 22, 2.3, 100, 0.6, 30, 1, ANIM_UPPERCUT), 6, 0, "An upward cut that launches")
+    moon.launch = 8
+    var blink = skill(trick("Blink", KIND_BLINK, ANIM_FOCUS), 4, 15, "Teleports 4.5 m the way you steer")
+    blink.blink = 4.5
+    c.skills = [step, wave, moon, blink]
+    c.ultimate = hit("Thousand Cuts", 4.5, 16, 34, 2.6, 360, 0, 16, 0.5, ANIM_SPIN)
+    c.ultimate.teleport = true
+    c.ultimate.hits = 8
+    c.ultimate.interval = 4
+    c.ultimate.finish = 10
+    c.ultimate.fx = FX_FLASH
+    c.ultimate.note = "Appear behind them and cut eight times"
+    c.ai_range = 2.1
+    var l = c.look
+    l.skin = ap.Color(26, 22, 36)
+    l.body = ap.Color(28, 24, 44)
+    l.legs = ap.Color(18, 16, 28)
+    l.trim = ap.Color(90, 60, 170)
+    l.accent = ap.Color(170, 90, 255)
+    l.metal = ap.Color(190, 150, 255)
+    l.eyes = ap.Color(200, 130, 255)
+    l.glowing_eyes = true
+    l.glowing_weapon = true
+    l.head = HEAD_MASK
+    l.weapon = WEAPON_KATANA
+    l.stance = STANCE_IAI
+    return c
+end
+
+function sherman() returns Character
+    var c = Character("SHERMAN", "THE TANK")
+    c.blurb = "Tough and slow. Light hits don't stagger; 3 rockets."
+    c.style = "Armor, explosives"
+    c.health = 180
+    c.speed = 3.9
+    c.armor = 0.9
+    c.poise = true
+    c.bar_name = "ROCKETS"
+    c.bar_icon = ICON_ROCKETS
+    c.bar_note = "One reloads every eight seconds"
+    c.bar_max = 3
+    c.bar_start = 3
+    c.bar_regen = 0.125
+    c.bar_pips = true
+    c.parry_gain = 0
+    c.basics = [hit("Backhand", 8, 11, 16, 1.9, 110, 0.3, 22, 6, ANIM_SWING),
+        hit("Backhand", 8, 11, 16, 1.9, 110, 0.3, 22, 6, ANIM_BACKSWING),
+        hit("Slam", 12, 18, 28, 2.3, 130, 0.5, 30, 10, ANIM_SLAM)]
+    var rocket = skill(fire("Rocket", 13, 18, 30, SHOT_ROCKET, 15, 26, 8, ANIM_SHOOT), 4, 1, "Explodes on impact; 2.2 m blast")
+    rocket.blast = 2.2
+    rocket.fx = FX_ROCKET
+    var rush = skill(hit("Bull Rush", 10, 16, 28, 1.8, 120, 4.5, 30, 10, ANIM_CHARGE), 9, 0, "Unstaggerable 4.5 m charge")
+    rush.sturdy = true
+    var brace = skill(trick("Brace", KIND_BUFF, ANIM_FOCUS), 14, 0, "3s: take 55% less, no stagger")
+    brace.buff = BUFF_GUARD
+    brace.buff_time = 3
+    var mine = skill(fire("Mine", 15, 10, 16, SHOT_MINE, 0, 30, 9, ANIM_PLANT), 10, 1, "Floor mine; explodes when they near")
+    mine.blast = 2.1
+    mine.shot_life = 25
+    c.skills = [rocket, rush, brace, mine]
+    c.ultimate = fire("Barrage", 9, 20, 34, SHOT_ROCKET, 15, 22, 6, ANIM_SHOOT)
+    c.ultimate.blast = 2.0
+    c.ultimate.hits = 6
+    c.ultimate.interval = 7
+    c.ultimate.fx = FX_ROCKET
+    c.ultimate.note = "Six rockets, one after another"
+    c.ai_range = 2.4
+    var l = c.look
+    l.skin = ap.Color(200, 160, 130)
+    l.body = ap.Color(90, 105, 70)
+    l.legs = ap.Color(60, 66, 54)
+    l.trim = ap.Color(50, 52, 48)
+    l.accent = ap.Color(255, 120, 40)
+    l.metal = ap.Color(120, 126, 120)
+    l.head = HEAD_HELMET
+    l.weapon = WEAPON_CANNON
+    l.stance = STANCE_BULWARK
+    l.bulk = 1.42
+    l.tall = 1.08
+    return c
+end
+
+function shepherd() returns Character
+    var c = Character("SHEPHERD", "THE UNSEEN")
+    c.blurb = "Turns invisible; stealth hits do 1.6x, 2.2x from behind."
+    c.style = "Stealth, set-ups"
+    c.health = 125
+    c.speed = 5.9
+    c.bar_name = "SHROUD"
+    c.bar_icon = ICON_HOOD
+    c.bar_note = "Drains while invisible"
+    c.bar_regen = 12
+    c.bar_drain = 16
+    c.basics = [hit("Crook Jab", 5, 7, 12, 2.2, 70, 0.4, 17, 3, ANIM_THRUST),
+        hit("Crook Jab", 5, 7, 12, 2.2, 70, 0.4, 17, 3, ANIM_THRUST),
+        hit("Hook Sweep", 9, 11, 20, 2.5, 140, 0.5, 25, 5, ANIM_SPIN)]
+    var vanish = skill(trick("Vanish", KIND_CLOAK, ANIM_FOCUS), 3, 25, "Invisible until you attack or are hit")
+    var hook = skill(hit("Crook Hook", 5, 12, 22, 4.6, 30, 0, 30, -26, ANIM_THRUST), 6, 0, "4.6 m hook that pulls them in")
+    var smoke = skill(hit("Smoke Bomb", 4, 8, 16, 2.6, 360, 0, 22, 4, ANIM_PLANT), 10, 20, "Hits around you; turns invisible")
+    smoke.radial = true
+    smoke.shroud = true
+    var dust = skill(hit("Sleep Dust", 1, 14, 22, 2.8, 80, 0, 80, 0, ANIM_CAST), 12, 0, "No damage; a very long stun")
+    c.skills = [vanish, hook, smoke, dust]
+    c.ultimate = hit("Reaping", 30, 16, 30, 2.6, 140, 0, 40, 9, ANIM_SWING)
+    c.ultimate.teleport = true
+    c.ultimate.unblockable = true
+    c.ultimate.fx = FX_FLASH
+    c.ultimate.note = "Teleport behind; unblockable 30 dmg"
+    c.ai_range = 2.0
+    var l = c.look
+    l.skin = ap.Color(190, 170, 150)
+    l.body = ap.Color(92, 100, 96)
+    l.legs = ap.Color(54, 58, 60)
+    l.trim = ap.Color(150, 140, 110)
+    l.accent = ap.Color(150, 230, 220)
+    l.metal = ap.Color(130, 100, 70)
+    l.head = HEAD_HOOD
+    l.weapon = WEAPON_CROOK
+    l.stance = STANCE_WATCH
+    l.cape = true
+    l.cape_color = ap.Color(70, 78, 76)
+    return c
+end
+
+function don() returns Character
+    var c = Character("DON", "THE WIZARD")
+    c.blurb = "Ranged spells on mana; Nova knocks back anyone close."
+    c.style = "Zoning, spells"
+    c.health = 125
+    c.speed = 4.9
+    c.bar_name = "MANA"
+    c.bar_icon = ICON_STAR
+    c.bar_note = "Spells cost mana; it flows back"
+    c.bar_regen = 11
+    c.basics = [hit("Staff", 5, 9, 13, 2.3, 100, 0.3, 17, 4, ANIM_SWING),
+        hit("Staff", 5, 9, 13, 2.3, 100, 0.3, 17, 4, ANIM_BACKSWING),
+        hit("Staff Slam", 8, 12, 20, 2.4, 110, 0.3, 24, 8, ANIM_SLAM)]
+    var bolt = skill(fire("Arcane Bolt", 8, 11, 16, SHOT_BOLT, 20, 16, 3, ANIM_CAST), 1.2, 15, "A straight, quick bolt")
+    bolt.fx = FX_BOLT
+    var seekers = skill(fire("Seekers", 5, 14, 22, SHOT_BOLT, 11, 14, 2, ANIM_CAST), 6, 30, "Three slow homing bolts")
+    seekers.volley = 3
+    seekers.spread = 30
+    seekers.homing = 200
+    seekers.shot_life = 3.2
+    seekers.fx = FX_BOLT
+    var nova = skill(hit("Nova", 16, 20, 30, 3.6, 360, 0, 30, 13, ANIM_CAST), 8, 45, "Hits all around; big knockback")
+    nova.radial = true
+    nova.fx = FX_NOVA
+    var blink = skill(trick("Blink", KIND_BLINK, ANIM_FOCUS), 5, 20, "Teleports 5 m the way you steer")
+    blink.blink = 5
+    c.skills = [bolt, seekers, nova, blink]
+    c.ultimate = fire("Meteor", 34, 24, 36, SHOT_METEOR, 15, 40, 12, ANIM_CAST)
+    c.ultimate.skyfall = true
+    c.ultimate.blast = 4
+    c.ultimate.fx = FX_NOVA
+    c.ultimate.note = "Meteor on their spot; 4 m blast"
+    c.ai_range = 6.5
+    var l = c.look
+    l.skin = ap.Color(225, 190, 165)
+    l.body = ap.Color(60, 50, 140)
+    l.legs = ap.Color(44, 38, 100)
+    l.trim = ap.Color(230, 200, 90)
+    l.accent = ap.Color(90, 200, 255)
+    l.metal = ap.Color(120, 90, 60)
+    l.head = HEAD_WIZARD
+    l.weapon = WEAPON_STAFF
+    l.stance = STANCE_LEVITATE
+    l.cape = true
+    l.cape_color = ap.Color(48, 40, 116)
+    return c
+end
+
+function hotline() returns Character
+    var c = Character("HOTLINE", "THE OPERATOR")
+    c.blurb = "Calls in air strikes and cabs from range on Signal."
+    c.style = "Call-ins, delays"
+    c.health = 125
+    c.speed = 5.4
+    c.bar_name = "SIGNAL"
+    c.bar_icon = ICON_SIGNAL
+    c.bar_note = "Calls cost signal; it comes back"
+    c.bar_regen = 10
+    c.basics = [hit("Handset", 4, 7, 12, 1.9, 100, 0.4, 17, 2, ANIM_SWING),
+        hit("Cord Whip", 4, 7, 12, 2.4, 110, 0.4, 17, 2, ANIM_BACKSWING),
+        hit("Hang Up", 8, 11, 18, 1.9, 110, 0.5, 24, 6, ANIM_SLAM)]
+    var strike = skill(fire("Air Strike", 9, 16, 22, SHOT_METEOR, 17, 26, 6, ANIM_CAST), 7, 35, "Three shells drop on their spot")
+    strike.skyfall = true
+    strike.blast = 1.9
+    strike.hits = 3
+    strike.interval = 9
+    var cab = skill(fire("Taxi", 13, 14, 22, SHOT_CAR, 22, 34, 12, ANIM_THROW), 8, 30, "A cab drives through from behind you")
+    cab.summon = 9
+    cab.launch = 6
+    cab.shot_life = 1.4
+    var prank = skill(fire("Wrong Number", 2, 14, 20, SHOT_RING, 30, 60, 0, ANIM_FOCUS), 12, 25, "Homing ring; no damage, long stun")
+    prank.homing = 400
+    prank.shot_life = 1.2
+    var food = skill(trick("Takeout", KIND_BUFF, ANIM_FOCUS), 14, 20, "Heals 6 a second for 4s")
+    food.buff = BUFF_REGEN
+    food.buff_time = 4
+    food.heal = 6
+    c.skills = [strike, cab, prank, food]
+    c.ultimate = fire("Conference Call", 9, 20, 34, SHOT_METEOR, 18, 26, 6, ANIM_CAST)
+    c.ultimate.skyfall = true
+    c.ultimate.blast = 2.2
+    c.ultimate.hits = 9
+    c.ultimate.interval = 6
+    c.ultimate.note = "Nine shells rain on their area"
+    c.ai_range = 6
+    var l = c.look
+    l.skin = ap.Color(228, 180, 150)
+    l.body = ap.Color(230, 70, 130)
+    l.legs = ap.Color(40, 40, 70)
+    l.trim = ap.Color(250, 230, 90)
+    l.accent = ap.Color(255, 90, 170)
+    l.metal = ap.Color(240, 60, 70)
+    l.head = HEAD_HEADSET
+    l.weapon = WEAPON_PHONE
+    l.stance = STANCE_CALL
+    l.bulk = 0.94
+    return c
+end
+
+function pellets(string name, double damage, int count) returns Attack
+    var a = fire(name, damage, 8, 16, SHOT_BULLET, 42, 13, 3, ANIM_SHOOT)
+    a.volley = count
+    a.spread = 6
+    a.shot_life = 0.15
+    return a
+end
+
+function buckshot() returns Character
+    var c = Character("BUCKSHOT", "THE BREACHER")
+    c.blurb = "Close-range shotgun, 2 shells. Kickback powers next shot."
+    c.style = "Point blank, recoil"
+    c.health = 150
+    c.speed = 5.2
+    c.bar_name = "SHELLS"
+    c.bar_icon = ICON_SHELLS
+    c.bar_note = "2 shells; each reloads in 2s"
+    c.bar_max = 2
+    c.bar_start = 2
+    c.bar_regen = 0.5
+    c.bar_pips = true
+    c.parry_gain = 0
+    c.basics = [pellets("Barrel", 3.2, 5), pellets("Barrel", 3.2, 5)]
+    c.basics[0].cost = 1
+    c.basics[1].cost = 1
+    c.fallback = hit("Stock", 8, 10, 16, 1.8, 110, 0.5, 22, 6, ANIM_BACKSWING)
+    var kick = skill(hit("Kickback", 0, 9, 8, 0, 0, 5, 0, 0, ANIM_ROLL), 6, 0, "Untouchable hop; next shot +80%")
+    kick.evade = true
+    kick.buff = BUFF_POWER
+    kick.buff_time = 6
+    kick.restock = 1
+    var slug = skill(fire("Slug", 14, 12, 20, SHOT_BULLET, 55, 24, 9, ANIM_SHOOT), 5, 1, "One long-range heavy round")
+    var breach = skill(hit("Breach", 9, 12, 22, 1.9, 100, 1.2, 28, 13, ANIM_CHARGE), 7, 0, "Unblockable shove")
+    breach.unblockable = true
+    var both = skill(pellets("Both Barrels", 3.4, 10), 8, 2, "10 pellets; knocks you back")
+    both.recoil = 12
+    both.push = 5
+    both.stun = 18
+    c.skills = [kick, slug, breach, both]
+    c.ultimate = pellets("Dragon's Breath", 3, 7)
+    c.ultimate.hits = 4
+    c.ultimate.interval = 9
+    c.ultimate.poison = 1
+    c.ultimate.shot_life = 0.2
+    c.ultimate.note = "Four blasts that burn"
+    c.ai_range = 2.6
+    var l = c.look
+    l.skin = ap.Color(190, 140, 105)
+    l.body = ap.Color(150, 50, 40)
+    l.legs = ap.Color(70, 60, 50)
+    l.trim = ap.Color(40, 36, 34)
+    l.accent = ap.Color(255, 130, 50)
+    l.metal = ap.Color(90, 80, 76)
+    l.head = HEAD_CAP
+    l.weapon = WEAPON_SHOTGUN
+    l.stance = STANCE_SHOULDER
+    l.bulk = 1.12
+    return c
+end
+
+function stab() returns Character
+    var c = Character("STAB", "THE CUTPURSE")
+    c.blurb = "Fast knives that bleed; 1.5x damage from behind."
+    c.style = "Speed, bleed, backstabs"
+    c.health = 120
+    c.speed = 6.4
+    c.backstab = 1.5
+    c.dot_name = "BLEEDING"
+    c.bar_name = "EDGE"
+    c.bar_icon = ICON_KNIFE
+    c.bar_note = "Fills as hits land"
+    c.bar_start = 20
+    c.basics = [hit("Stick", 3, 4, 8, 1.6, 80, 0.4, 14, 1, ANIM_THRUST),
+        hit("Stick", 3, 4, 8, 1.6, 80, 0.4, 14, 1, ANIM_CROSS),
+        hit("Slice", 4, 5, 9, 1.7, 110, 0.4, 15, 1.5, ANIM_BACKSWING),
+        hit("Twist", 7, 8, 16, 1.6, 80, 0.6, 22, 4, ANIM_THRUST)]
+    for a in c.basics do
+        a.gain = 8
+        a.poison = 1
+    end
+    var toss = skill(fire("Knife Toss", 7, 8, 14, SHOT_KNIFE, 34, 15, 2, ANIM_THROW), 3, 0, "Thrown knife; bleeds 2.5s")
+    toss.poison = 2.5
+    var shank = skill(hit("Shank", 8, 7, 16, 1.7, 70, 3.6, 22, 3, ANIM_THRUST), 4, 0, "Dashes 3.6 m into a stab")
+    shank.poison = 2
+    shank.gain = 10
+    var behind = skill(hit("Behind You", 7, 12, 18, 1.8, 120, 0, 24, 2, ANIM_THRUST), 7, 30, "Teleports behind them and stabs")
+    behind.teleport = true
+    behind.fx = FX_FLASH
+    var frenzy = skill(hit("Frenzy", 2.4, 6, 20, 1.7, 100, 1.8, 12, 0.5, ANIM_PUNCH), 8, 40, "Eight stabs that each bleed")
+    frenzy.hits = 8
+    frenzy.interval = 4
+    frenzy.poison = 0.8
+    frenzy.finish = 5
+    frenzy.fx = FX_RUSH
+    c.skills = [toss, shank, behind, frenzy]
+    c.ultimate = hit("Vital Point", 8, 14, 30, 1.9, 120, 0, 30, 2, ANIM_THRUST)
+    c.ultimate.teleport = true
+    c.ultimate.hits = 3
+    c.ultimate.interval = 7
+    c.ultimate.finish = 16
+    c.ultimate.poison = 3
+    c.ultimate.fx = FX_FLASH
+    c.ultimate.note = "Teleport behind: 3 stabs, big last"
+    c.ai_range = 1.4
+    var l = c.look
+    l.skin = ap.Color(215, 175, 145)
+    l.body = ap.Color(56, 60, 66)
+    l.legs = ap.Color(38, 40, 46)
+    l.trim = ap.Color(160, 30, 36)
+    l.accent = ap.Color(235, 60, 60)
+    l.metal = ap.Color(210, 215, 225)
+    l.head = HEAD_BEANIE
+    l.weapon = WEAPON_DAGGER
+    l.stance = STANCE_KNIVES
+    l.bulk = 0.9
+    l.tall = 0.96
+    return c
+end
+
+function atomic() returns Character
+    var c = Character("ATOMIC", "THE PHYSICIST")
+    c.blurb = "Places linked portals that burn foes who pass through."
+    c.style = "Portals, traps"
+    c.health = 125
+    c.speed = 5.3
+    c.bar_name = "ISOTOPE"
+    c.bar_icon = ICON_ATOM
+    c.bar_note = "Refills steadily"
+    c.bar_regen = 11
+    c.basics = [hit("Zap", 5, 8, 12, 2.0, 100, 0.4, 17, 2, ANIM_THRUST),
+        hit("Zap", 5, 8, 12, 2.0, 100, 0.4, 17, 2, ANIM_BACKSWING),
+        hit("Discharge", 8, 11, 18, 2.1, 120, 0.4, 24, 7, ANIM_SLAM)]
+    var door = skill(trick("Portal", KIND_PORTAL, ANIM_THRUST), 2, 15, "Places a portal; 2 link. Burns foes")
+    door.blink = 3.5
+    var repulse = skill(hit("Repulse", 5, 9, 18, 2.4, 110, 0.3, 26, 17, ANIM_CAST), 5, 15, "Huge knockback shove")
+    var trap = skill(fire("Fission Trap", 16, 10, 16, SHOT_MINE, 0, 32, 9, ANIM_PLANT), 9, 25, "Floor mine; portals can feed it")
+    trap.blast = 2.2
+    trap.shot_life = 25
+    var orb = skill(fire("Decay", 6, 14, 20, SHOT_BOLT, 9, 16, 2, ANIM_CAST), 6, 25, "Slow homing orb; poisons and slows")
+    orb.homing = 170
+    orb.poison = 4
+    orb.slow = 3
+    orb.shot_life = 3.5
+    orb.fx = FX_BOLT
+    c.skills = [door, repulse, trap, orb]
+    c.ultimate = hit("Critical Mass", 26, 24, 34, 4.4, 360, 0, 40, 15, ANIM_CAST)
+    c.ultimate.radial = true
+    c.ultimate.poison = 5
+    c.ultimate.fx = FX_NOVA
+    c.ultimate.note = "4.4 m blast all around; poisons"
+    c.ai_range = 3.4
+    var l = c.look
+    l.skin = ap.Color(230, 215, 80)
+    l.body = ap.Color(235, 215, 70)
+    l.legs = ap.Color(200, 180, 50)
+    l.trim = ap.Color(40, 40, 46)
+    l.accent = ap.Color(120, 255, 120)
+    l.metal = ap.Color(170, 175, 185)
+    l.eyes = ap.Color(120, 255, 140)
+    l.glowing_eyes = true
+    l.glowing_weapon = true
+    l.head = HEAD_HAZMAT
+    l.weapon = WEAPON_DEVICE
+    l.stance = STANCE_TINKER
+    c.dot_name = "IRRADIATED"
+    return c
+end
+
+function cat() returns Character
+    var c = Character("CAT", "THE COPYCAT")
+    c.blurb = "Skill 1 copies the last move that hit it; skill 4 is random."
+    c.style = "Copies, chaos"
+    c.health = 125
+    c.speed = 6.2
+    c.copycat = true
+    c.bar_name = "MISCHIEF"
+    c.bar_icon = ICON_PAW
+    c.bar_note = "Pays for copied and random moves"
+    c.bar_regen = 12
+    c.bar_drain = 16
+    c.basics = [hit("Scratch", 4, 5, 9, 1.6, 100, 0.4, 16, 1.5, ANIM_SWING),
+        hit("Scratch", 4, 5, 9, 1.6, 100, 0.4, 16, 1.5, ANIM_BACKSWING),
+        hit("Swat", 8, 9, 16, 1.7, 120, 0.6, 24, 6, ANIM_HOOK)]
+    # Skill 1 is whatever last hit it; until something does, a pounce.
+    var mimic = skill(hit("Copy: Pounce", 9, 11, 18, 1.9, 90, 4.2, 24, 3, ANIM_POUNCE), 5, 0, "Becomes the last move that hit you")
+    var lock = skill(trick("Lock", KIND_LOCK, ANIM_FOCUS), 0.5, 0, "Toggle: freezes skill 1 or frees it")
+    lock.startup = 4
+    lock.recovery = 6
+    var dash = skill(hit("Dash Scratch", 5, 9, 16, 1.9, 110, 5.2, 20, 3, ANIM_POUNCE), 4, 0, "A dash across the room, claws first")
+    dash.hits = 2
+    dash.interval = 5
+    dash.finish = 3
+    # Replaced by a random move from anyone at the start of a round, and again after every use.
+    var wild = skill(hit("Wild Card", 6, 10, 16, 1.8, 100, 0.5, 18, 2, ANIM_SWING), 3, 15, "A random move from anyone; reshuffles")
+    c.skills = [mimic, lock, dash, wild]
+    c.ultimate = hit("Nine Lives", 5, 12, 30, 1.9, 120, 3, 16, 1, ANIM_PUNCH)
+    c.ultimate.hits = 9
+    c.ultimate.interval = 4
+    c.ultimate.heal = 3
+    c.ultimate.finish = 8
+    c.ultimate.fx = FX_RUSH
+    c.ultimate.note = "Any super move in the game"
+    c.ai_range = 1.6
+    var l = c.look
+    l.skin = ap.Color(240, 170, 90)
+    l.body = ap.Color(236, 160, 80)
+    l.legs = ap.Color(220, 140, 66)
+    l.trim = ap.Color(250, 240, 225)
+    l.accent = ap.Color(255, 220, 110)
+    l.metal = ap.Color(250, 250, 240)
+    l.eyes = ap.Color(120, 230, 120)
+    l.glowing_eyes = true
+    l.head = HEAD_CAT
+    l.weapon = WEAPON_CLAWS
+    l.stance = STANCE_CAT
+    l.bulk = 0.9
+    l.tall = 0.92
+    return c
+end
+
+function droid() returns Character
+    var c = Character("DROID", "THE MACHINE")
+    c.blurb = "Immune to poison and slow. Can repair itself."
+    c.style = "Steady, self-repair"
+    c.health = 160
+    c.speed = 4.8
+    c.machine = true
+    c.bar_name = "BATTERY"
+    c.bar_icon = ICON_BATTERY
+    c.bar_note = "Recharges steadily"
+    c.bar_regen = 9
+    c.basics = [hit("Piston", 6, 8, 13, 1.8, 90, 0.4, 18, 3, ANIM_PUNCH),
+        hit("Piston", 6, 8, 13, 1.8, 90, 0.4, 18, 3, ANIM_CROSS),
+        hit("Hammer", 10, 12, 20, 2.0, 120, 0.5, 26, 8, ANIM_SLAM)]
+    var fist = skill(fire("Rocket Fist", 10, 12, 20, SHOT_FIST, 24, 24, 10, ANIM_PUNCH), 4, 20, "Fires its fist as a projectile")
+    var shock = skill(hit("Shock Field", 5, 12, 22, 2.8, 360, 0, 44, 3, ANIM_FOCUS), 8, 30, "Hits all around; long stun")
+    shock.radial = true
+    var jets = skill(hit("Thrusters", 9, 10, 22, 1.8, 110, 6, 26, 9, ANIM_CHARGE), 6, 25, "Unstaggerable 6 m charge")
+    jets.sturdy = true
+    var repair = skill(trick("Repair", KIND_BUFF, ANIM_PLANT), 14, 30, "Heals 7 a second for 4s")
+    repair.buff = BUFF_REGEN
+    repair.buff_time = 4
+    repair.heal = 7
+    c.skills = [fist, shock, jets, repair]
+    c.ultimate = fire("Missile Swarm", 6, 18, 34, SHOT_ROCKET, 12, 20, 5, ANIM_FOCUS)
+    c.ultimate.blast = 1.6
+    c.ultimate.hits = 4
+    c.ultimate.interval = 8
+    c.ultimate.volley = 2
+    c.ultimate.spread = 50
+    c.ultimate.homing = 150
+    c.ultimate.shot_life = 3.5
+    c.ultimate.fx = FX_ROCKET
+    c.ultimate.note = "Eight small missiles that steer"
+    c.ai_range = 2.2
+    var l = c.look
+    l.skin = ap.Color(150, 160, 175)
+    l.body = ap.Color(120, 130, 150)
+    l.legs = ap.Color(80, 86, 104)
+    l.trim = ap.Color(250, 200, 60)
+    l.accent = ap.Color(90, 220, 255)
+    l.metal = ap.Color(170, 180, 195)
+    l.eyes = ap.Color(90, 230, 255)
+    l.glowing_eyes = true
+    l.head = HEAD_ROBOT
+    l.weapon = WEAPON_FISTS
+    l.stance = STANCE_ROBOT
+    l.bulk = 1.2
+    l.tall = 1.04
+    return c
+end
+
+function laser() returns Character
+    var c = Character("LASER", "THE BRIGHT ONE")
+    c.blurb = "Instant-hit beams; Lance can't be blocked."
+    c.style = "Instant beams"
+    c.health = 120
+    c.speed = 5.5
+    c.bar_name = "CHARGE"
+    c.bar_icon = ICON_SUN
+    c.bar_note = "Beams drain it; it builds back"
+    c.bar_regen = 12
+    c.basics = [hit("Arc", 5, 7, 12, 2.2, 110, 0.4, 17, 2, ANIM_SWING),
+        hit("Arc", 5, 7, 12, 2.2, 110, 0.4, 17, 2, ANIM_BACKSWING),
+        hit("Flare", 9, 10, 18, 2.4, 140, 0.5, 24, 5, ANIM_SPIN)]
+    var pulse = skill(hit("Pulse", 7, 9, 14, 0, 0, 0, 15, 2, ANIM_SHOOT), 1.5, 15, "Instant beam, 13 m")
+    pulse.beam = 13
+    var sweep = skill(hit("Sweep", 2.6, 12, 22, 0, 0, 0, 12, 0.5, ANIM_SHOOT), 7, 35, "7-hit beam that tracks them")
+    sweep.beam = 11
+    sweep.hits = 7
+    sweep.interval = 4
+    var step = skill(trick("Light Step", KIND_BLINK, ANIM_FOCUS), 5, 20, "Teleports 5 m the way you steer")
+    step.blink = 5
+    var lance = skill(hit("Lance", 21, 32, 28, 0, 0, 0, 34, 10, ANIM_SHOOT), 10, 50, "Slow to charge; no block stops it")
+    lance.beam = 16
+    lance.unblockable = true
+    c.skills = [pulse, sweep, step, lance]
+    c.ultimate = hit("Sunbeam", 3.4, 20, 34, 0, 0, 0, 14, 0.5, ANIM_CAST)
+    c.ultimate.beam = 16
+    c.ultimate.hits = 12
+    c.ultimate.interval = 4
+    c.ultimate.finish = 10
+    c.ultimate.note = "A beam held for three seconds"
+    c.ai_range = 6.5
+    var l = c.look
+    l.skin = ap.Color(230, 232, 240)
+    l.body = ap.Color(236, 238, 245)
+    l.legs = ap.Color(190, 195, 210)
+    l.trim = ap.Color(255, 70, 110)
+    l.accent = ap.Color(255, 80, 120)
+    l.metal = ap.Color(255, 130, 160)
+    l.eyes = ap.Color(255, 90, 130)
+    l.glowing_weapon = true
+    l.head = HEAD_VISOR
+    l.weapon = WEAPON_SABER
+    l.stance = STANCE_ARMS
+    l.bulk = 0.95
+    return c
+end
+
+function eagle_shot() returns Attack
+    var a = hit("Shot", 8, 9, 15, 0, 0, 0, 14, 3, ANIM_SHOOT)
+    a.beam = 14
+    a.cost = 1
+    a.per_hit = true
+    return a
+end
+
+function eagle() returns Character
+    var c = Character("EAGLE", "THE MARKSMAN")
+    c.blurb = "Instant-hit revolver; all 6 rounds reload at once."
+    c.style = "Precision, hitscan"
+    c.health = 125
+    c.speed = 5.4
+    c.bar_name = "ROUNDS"
+    c.bar_icon = ICON_WHEEL
+    c.bar_note = "Six rounds; all reload at once"
+    c.bar_max = 6
+    c.bar_start = 6
+    c.bar_pips = true
+    c.reload_all = true
+    c.parry_gain = 0
+    c.basics = [eagle_shot(), eagle_shot(), eagle_shot()]
+    c.fallback = hit("Talon", 9, 11, 18, 1.7, 110, 0.6, 24, 7, ANIM_BACKSWING)
+    var eye = skill(trick("Hawk Eye", KIND_BUFF, ANIM_FOCUS), 7, 0, "Next shot deals +80%")
+    eye.buff = BUFF_POWER
+    eye.buff_time = 6
+    var piercer = skill(hit("Piercer", 15, 15, 22, 0, 0, 0, 26, 10, ANIM_SHOOT), 6, 2, "Unblockable shot; uses 2 rounds")
+    piercer.beam = 18
+    piercer.unblockable = true
+    # Struck mid-spin, the gun comes level and answers for free; left alone, a round goes in.
+    var twirl = skill(hit("Gun Spin", 12, 40, 10, 0, 0, 0, 24, 12, ANIM_TWIRL), 6, 0, "Counter shot if hit; else +1 round")
+    twirl.beam = 20
+    twirl.counter = true
+    twirl.on_trigger = true
+    twirl.restock = 1
+    var loader = skill(trick("Speed Loader", KIND_RELOAD, ANIM_SHOOT), 12, 0, "Reloads all 6 unless interrupted")
+    c.skills = [eye, piercer, twirl, loader]
+    c.ultimate = hit("Six Feathers", 8, 20, 32, 0, 0, 0, 16, 1, ANIM_SHOOT)
+    c.ultimate.beam = 18
+    c.ultimate.hits = 6
+    c.ultimate.interval = 8
+    c.ultimate.finish = 10
+    c.ultimate.note = "Six aimed shots that need no rounds"
+    c.ai_range = 7
+    var l = c.look
+    l.skin = ap.Color(222, 184, 150)
+    l.body = ap.Color(112, 72, 42)
+    l.legs = ap.Color(58, 50, 46)
+    l.trim = ap.Color(246, 246, 240)
+    l.accent = ap.Color(255, 206, 70)
+    l.metal = ap.Color(200, 205, 216)
+    l.eyes = ap.Color(40, 30, 20)
+    l.head = HEAD_EAGLE
+    l.weapon = WEAPON_REVOLVER
+    l.stance = STANCE_AIM
+    return c
+end
+
+function dagger_throw() returns Attack
+    var a = fire("Throw", 5, 6, 11, SHOT_KNIFE, 34, 14, 2, ANIM_THROW)
+    a.cost = 1
+    a.per_hit = true
+    return a
+end
+
+function combatant() returns Character
+    var c = Character("COMBATANT", "THE ARMSMAN")
+    c.blurb = "Skill 4 cycles greatsword, axe and 6 throwing daggers."
+    c.style = "Three weapons"
+    c.health = 145
+    c.speed = 5.4
+    c.bar_name = "DAGGERS"
+    c.bar_icon = ICON_BLADES
+    c.bar_note = "Thrown daggers can be picked up"
+    c.bar_max = 6
+    c.bar_start = 6
+    c.bar_pips = true
+    c.parry_gain = 0
+    # The greatsword: slow, wide and heavy.
+    Attack[] sword = [hit("Cleave", 9, 12, 18, 2.6, 130, 0.5, 24, 5, ANIM_SWING),
+        hit("Backcut", 9, 12, 18, 2.6, 130, 0.5, 24, 5, ANIM_BACKSWING),
+        hit("Overhead", 15, 17, 26, 2.7, 90, 0.8, 32, 9, ANIM_SLAM)]
+    var whirl = skill(hit("Whirlwind", 6, 14, 24, 2.8, 360, 0.6, 18, 4, ANIM_SPIN), 7, 0, "Three spinning cuts all around")
+    whirl.radial = true
+    whirl.hits = 3
+    whirl.interval = 8
+    whirl.sturdy = true
+    var sunder = skill(hit("Sunder", 20, 24, 28, 2.7, 70, 1.2, 36, 10, ANIM_SLAM), 8, 0, "Slow unblockable 20-damage slam")
+    sunder.unblockable = true
+    var lift = skill(hit("Uplift", 11, 13, 24, 2.5, 100, 0.6, 30, 1, ANIM_UPPERCUT), 6, 0, "A rising cut that launches")
+    lift.launch = 8.5
+    # The hand axe: quick and mean.
+    Attack[] axe = [hit("Hack", 5, 6, 10, 1.8, 100, 0.5, 16, 2, ANIM_SWING),
+        hit("Hack", 5, 6, 10, 1.8, 100, 0.5, 16, 2, ANIM_BACKSWING),
+        hit("Chop", 8, 9, 15, 1.9, 110, 0.6, 22, 5, ANIM_SLAM)]
+    var chops = skill(hit("Axe Flurry", 3.2, 8, 20, 1.9, 100, 2.0, 13, 1, ANIM_HOOK), 6, 0, "Five fast chops")
+    chops.hits = 5
+    chops.interval = 5
+    chops.finish = 4
+    chops.fx = FX_RUSH
+    var beard = skill(hit("Beard Hook", 5, 11, 20, 3.0, 50, 0, 26, -14, ANIM_HOOK), 6, 0, "Hooks them and drags them in")
+    var gash = skill(hit("Gash", 8, 9, 18, 1.9, 110, 1.0, 22, 3, ANIM_SWING), 5, 0, "A cut that bleeds for 6s")
+    gash.poison = 6
+    # The daggers: thrown, and only six of them.
+    Attack[] knives = [dagger_throw(), dagger_throw(), dagger_throw()]
+    var fan = skill(fire("Knife Fan", 5, 10, 18, SHOT_KNIFE, 30, 14, 2, ANIM_THROW), 5, 3, "Three daggers at once")
+    fan.volley = 3
+    fan.spread = 14
+    var pin = skill(fire("Pinning Throw", 6, 12, 16, SHOT_KNIFE, 38, 18, 1, ANIM_THROW), 5, 1, "Thrown dagger that slows 3s")
+    pin.slow = 3
+    var recall = skill(trick("Recall", KIND_RECALL, ANIM_CAST), 6, 0, "Pulls back thrown daggers; they hit")
+    var swap = skill(trick("Swap Weapon", KIND_SWAP, ANIM_FOCUS), 0.6, 0, "Greatsword, then axe, then daggers")
+    swap.startup = 6
+    swap.recovery = 8
+    c.arsenal = [Arsenal("GREATSWORD", WEAPON_GREATSWORD, sword, [whirl, sunder, lift], Attack(""), 2.4),
+        Arsenal("AXE", WEAPON_AXE, axe, [chops, beard, gash], Attack(""), 1.6),
+        Arsenal("DAGGERS", WEAPON_DAGGER, knives, [fan, pin, recall],
+            hit("Pommel", 6, 8, 14, 1.6, 100, 0.4, 20, 4, ANIM_PUNCH), 6)]
+    c.basics = sword
+    c.skills = [whirl, sunder, lift, swap]
+    c.ultimate = hit("Armory", 7, 14, 30, 2.6, 360, 1.0, 18, 3, ANIM_SPIN)
+    c.ultimate.radial = true
+    c.ultimate.hits = 6
+    c.ultimate.interval = 6
+    c.ultimate.finish = 10
+    c.ultimate.note = "Every weapon: six cuts all around"
+    c.ai_range = 2.4
+    var l = c.look
+    l.skin = ap.Color(215, 170, 135)
+    l.body = ap.Color(130, 40, 40)
+    l.legs = ap.Color(70, 60, 56)
+    l.trim = ap.Color(190, 160, 90)
+    l.accent = ap.Color(240, 90, 60)
+    l.metal = ap.Color(205, 210, 220)
+    l.head = HEAD_CREST
+    l.weapon = WEAPON_GREATSWORD
+    l.bulk = 1.1
+    return c
+end
+
+function phantom() returns Character
+    var c = Character("PHANTOM", "THE WINGED SHADE")
+    c.blurb = "Low health, floats. Her hits steal the foe's super meter."
+    c.style = "Super theft, hit and run"
+    c.health = 100
+    c.speed = 6.0
+    c.super_steal = 2.5
+    c.bar_name = "SOUL"
+    c.bar_icon = ICON_WING
+    c.bar_note = "Flows back; her hits steal super"
+    c.bar_regen = 10
+    c.basics = [hit("Wing Cut", 5, 6, 11, 2.0, 120, 0.5, 17, 2, ANIM_SWING),
+        hit("Wing Cut", 5, 6, 11, 2.0, 120, 0.5, 17, 2, ANIM_BACKSWING),
+        hit("Wingbeat", 8, 10, 18, 2.3, 150, 0.7, 24, 6, ANIM_CAST)]
+    var storm = skill(fire("Feather Storm", 3.5, 10, 18, SHOT_FEATHER, 26, 12, 1, ANIM_CAST), 4, 20, "Five-feather spread shot")
+    storm.volley = 5
+    storm.spread = 11
+    var siphon = skill(hit("Siphon", 6, 10, 20, 1.9, 90, 2.5, 26, 1, ANIM_BITE), 8, 25, "Steals 18 super meter; heals 4")
+    siphon.steal = 18
+    siphon.heal = 4
+    var glide = skill(hit("Glide", 6, 9, 14, 1.9, 120, 4.6, 18, 3, ANIM_POUNCE), 5, 0, "Untouchable dash that hits")
+    glide.evade = true
+    var gale = skill(hit("Gale", 5, 12, 22, 3.2, 360, 0, 24, 14, ANIM_CAST), 9, 25, "Hits all around; big knockback")
+    gale.radial = true
+    gale.fx = FX_NOVA
+    c.skills = [storm, siphon, glide, gale]
+    c.ultimate = hit("Requiem", 7, 12, 30, 2.4, 140, 0, 20, 3, ANIM_SWING)
+    c.ultimate.teleport = true
+    c.ultimate.unblockable = true
+    c.ultimate.hits = 4
+    c.ultimate.interval = 6
+    c.ultimate.finish = 10
+    c.ultimate.fx = FX_FLASH
+    c.ultimate.note = "Teleport behind: 4 unblockable cuts"
+    c.ai_range = 2.0
+    var l = c.look
+    l.skin = ap.Color(226, 224, 232)
+    l.body = ap.Color(32, 30, 40)
+    l.legs = ap.Color(22, 20, 28)
+    l.trim = ap.Color(190, 190, 205)
+    l.accent = ap.Color(190, 205, 255)
+    l.metal = ap.Color(225, 230, 245)
+    l.eyes = ap.Color(200, 220, 255)
+    l.glowing_eyes = true
+    l.head = HEAD_VEIL
+    l.weapon = WEAPON_CLAWS
+    l.stance = STANCE_HOVER
+    l.wings = true
+    l.wing_color = ap.Color(36, 34, 44)
+    l.cape_color = ap.Color(20, 18, 26)
+    l.hover = 0.3
+    l.bulk = 0.88
+    l.tall = 1.02
+    return c
+end
+
+function carbon() returns Character
+    var c = Character("CARBON", "THE TECTONIC")
+    c.blurb = "Throws chunks of floor and raises walls that block shots."
+    c.style = "Terrain, heavy throws"
+    c.health = 140
+    c.speed = 5.0
+    c.bar_name = "EARTH"
+    c.bar_icon = ICON_ROCK
+    c.bar_note = "Refills steadily"
+    c.bar_regen = 10
+    c.basics = [hit("Stone Jab", 5, 7, 12, 1.8, 90, 0.4, 18, 2, ANIM_PUNCH),
+        hit("Stone Cross", 5, 7, 12, 1.8, 90, 0.5, 18, 2, ANIM_CROSS),
+        hit("Rockfall", 9, 12, 20, 2.1, 120, 0.5, 26, 7, ANIM_SLAM)]
+    var hurl = skill(fire("Uproot", 12, 16, 22, SHOT_ROCK, 17, 26, 8, ANIM_THROW), 3, 20, "Throws a chunk of floor; small blast")
+    hurl.blast = 1.3
+    hurl.crater = true
+    var wall = skill(trick("Earth Wall", KIND_WALL, ANIM_SLAM), 7, 25, "Raises a wall 3 m ahead for 8s")
+    wall.damage = 6
+    wall.launch = 7
+    wall.stun = 30
+    wall.blink = 3
+    var fault = skill(fire("Fault Line", 9, 12, 20, SHOT_SPIKE, 13, 28, 3, ANIM_SLAM), 6, 20, "Ground wave that launches")
+    fault.launch = 6.5
+    fault.shot_life = 1.4
+    var quake = skill(hit("Quake", 8, 14, 24, 4.0, 360, 0, 30, 5, ANIM_SLAM), 9, 30, "Hits all around; slows 2.5s")
+    quake.radial = true
+    quake.slow = 2.5
+    c.skills = [hurl, wall, fault, quake]
+    c.ultimate = fire("Landslide", 9, 18, 32, SHOT_ROCK, 18, 24, 6, ANIM_THROW)
+    c.ultimate.volley = 5
+    c.ultimate.spread = 13
+    c.ultimate.blast = 1.2
+    c.ultimate.crater = true
+    c.ultimate.note = "Throws five boulders in a fan"
+    c.ai_range = 4.5
+    var l = c.look
+    l.skin = ap.Color(200, 158, 128)
+    l.body = ap.Color(118, 98, 78)
+    l.legs = ap.Color(78, 64, 52)
+    l.trim = ap.Color(200, 150, 60)
+    l.accent = ap.Color(255, 150, 60)
+    l.metal = ap.Color(128, 118, 108)
+    l.eyes = ap.Color(60, 40, 30)
+    l.head = HEAD_PONYTAIL
+    l.weapon = WEAPON_FISTS
+    l.stance = STANCE_BULWARK
+    l.bulk = 0.96
+    return c
+end
+
+function monopolist() returns Character
+    var c = Character("MONOPOLIST", "THE TYCOON")
+    c.blurb = "+35% damage, but moves spend capital that never refills."
+    c.style = "Huge damage, bankruptcy"
+    c.health = 130
+    c.speed = 5.2
+    c.greed = 1.35
+    c.bankrupt = 300
+    c.bar_name = "CAPITAL"
+    c.bar_icon = ICON_COIN
+    c.bar_note = "Never refills. At zero: bankrupt"
+    c.bar_regen = 0
+    c.parry_gain = 0
+    c.basics = [hit("Cane Rap", 6, 7, 12, 2.0, 100, 0.4, 18, 3, ANIM_SWING),
+        hit("Cane Rap", 6, 7, 12, 2.0, 100, 0.4, 18, 3, ANIM_BACKSWING),
+        hit("Gold Knob", 10, 11, 20, 2.1, 110, 0.5, 26, 7, ANIM_SLAM)]
+    c.basics[0].cost = 4
+    c.basics[1].cost = 4
+    c.basics[2].cost = 6
+    var buyout = skill(hit("Buyout", 16, 12, 22, 1.9, 90, 4.2, 30, 8, ANIM_CHARGE), 5, 18, "4 m charge, 16 base damage")
+    var rain = skill(fire("Make It Rain", 3.6, 10, 18, SHOT_COIN, 30, 12, 1, ANIM_THROW), 5, 15, "Five-coin spread shot")
+    rain.volley = 5
+    rain.spread = 12
+    var takeover = skill(hit("Hostile Takeover", 14, 14, 24, 1.8, 80, 1.2, 44, 2, ANIM_BITE), 8, 20, "Unblockable grab, long stun")
+    takeover.unblockable = true
+    var chute = skill(hit("Golden Parachute", 0, 10, 8, 0, 0, 4.2, 0, 0, ANIM_ROLL), 5, 10, "Untouchable roll away")
+    chute.evade = true
+    c.skills = [buyout, rain, takeover, chute]
+    c.ultimate = fire("Market Crash", 5, 16, 32, SHOT_COIN, 34, 14, 2, ANIM_THROW)
+    c.ultimate.hits = 5
+    c.ultimate.interval = 6
+    c.ultimate.volley = 3
+    c.ultimate.spread = 14
+    c.ultimate.finish = 6
+    c.ultimate.note = "Five volleys of three coins"
+    c.ai_range = 1.9
+    var l = c.look
+    l.skin = ap.Color(232, 196, 170)
+    l.body = ap.Color(34, 34, 40)
+    l.legs = ap.Color(26, 26, 32)
+    l.trim = ap.Color(220, 180, 60)
+    l.accent = ap.Color(110, 220, 110)
+    l.metal = ap.Color(30, 30, 34)
+    l.head = HEAD_TOPHAT
+    l.weapon = WEAPON_CANE
+    l.stance = STANCE_WATCH
+    l.bulk = 1.15
+    return c
+end
+
+function mirrorman() returns Character
+    var c = Character("MIRRORMAN", "THE REFLECTION")
+    c.blurb = "Makes decoy copies around the foe; hits break them."
+    c.style = "Decoys, confusion"
+    c.health = 130
+    c.speed = 5.7
+    c.bar_name = "GLEAM"
+    c.bar_icon = ICON_MIRROR
+    c.bar_note = "Refills steadily"
+    c.bar_regen = 11
+    c.basics = [hit("Shard Cut", 5, 7, 12, 2.2, 110, 0.4, 17, 2, ANIM_SWING),
+        hit("Shard Cut", 5, 7, 12, 2.2, 110, 0.4, 17, 2, ANIM_BACKSWING),
+        hit("Splinter", 9, 10, 18, 2.4, 60, 0.6, 24, 4, ANIM_THRUST)]
+    # `volley` copies, lasting `shot_life` seconds.
+    var image = skill(trick("Mirror Image", KIND_MIRROR, ANIM_CAST), 9, 30, "Two decoys for 8s; hits break them")
+    image.volley = 2
+    image.shot_life = 8
+    var reflect = skill(hit("Reflect", 6, 26, 20, 2.4, 80, 0.4, 22, 4, ANIM_COUNTER), 7, 0, "Counter: if hit, strikes back 4x")
+    reflect.counter = true
+    var glass = skill(trick("Glass Swap", KIND_GLASS, ANIM_FOCUS), 3, 15, "Swap places with a decoy")
+    glass.blink = 4.5
+    var shatter = skill(hit("Shatter", 10, 10, 18, 2.6, 360, 0, 26, 6, ANIM_CAST), 6, 10, "Decoys burst; hit foes within 2.6 m")
+    shatter.kind = KIND_SHATTER
+    c.skills = [image, reflect, glass, shatter]
+    c.ultimate = hit("Kaleidoscope", 5, 14, 30, 3.0, 360, 0, 16, 2, ANIM_SPIN)
+    c.ultimate.radial = true
+    c.ultimate.hits = 6
+    c.ultimate.interval = 5
+    c.ultimate.finish = 8
+    c.ultimate.note = "Six hits all around you"
+    c.ai_range = 2.2
+    var l = c.look
+    l.skin = ap.Color(205, 220, 232)
+    l.body = ap.Color(160, 182, 200)
+    l.legs = ap.Color(112, 128, 146)
+    l.trim = ap.Color(236, 246, 255)
+    l.accent = ap.Color(160, 230, 255)
+    l.metal = ap.Color(200, 240, 255)
+    l.eyes = ap.Color(230, 250, 255)
+    l.glowing_weapon = true
+    l.head = HEAD_MIRROR
+    l.weapon = WEAPON_SHARD
+    l.stance = STANCE_EN_GARDE
+    return c
+end
+
+function bob() returns Character
+    var c = Character("BOB", "THE MAD SCIENTIST")
+    c.blurb = "3 Inject hits make a weak clone of the foe to fight for him."
+    c.style = "Clones, chemistry"
+    c.health = 130
+    c.speed = 5.2
+    c.lab = true
+    c.inject_need = 3
+    c.clone_cool = 10
+    c.bar_name = "SERUM"
+    c.bar_icon = ICON_FLASK
+    c.bar_note = "Refills steadily"
+    c.bar_regen = 9
+    c.basics = [hit("Needle", 4, 6, 11, 1.9, 80, 0.4, 16, 2, ANIM_THRUST),
+        hit("Needle", 4, 6, 11, 1.9, 80, 0.4, 16, 2, ANIM_THRUST),
+        hit("Flask Smash", 8, 10, 18, 2.0, 110, 0.5, 24, 6, ANIM_SLAM)]
+    c.basics[2].poison = 1.5
+    var inject = skill(hit("Inject", 7, 10, 18, 1.9, 80, 1.6, 22, 2, ANIM_THRUST), 3, 15, "3 hits make a clone of the foe")
+    inject.inject = true
+    inject.poison = 2
+    var flask = skill(fire("Acid Flask", 5, 14, 20, SHOT_VENOM, 12, 12, 1, ANIM_THROW), 7, 25, "Lobbed; leaves a poison pool 5s")
+    flask.lob = true
+    flask.pool = 5
+    flask.poison = 2
+    var prod = skill(hit("Shock Prod", 6, 9, 20, 2.0, 80, 0.8, 50, 2, ANIM_THRUST), 8, 20, "Short stab with a long stun")
+    var stim = skill(trick("Stimulant", KIND_BUFF, ANIM_FOCUS), 14, 20, "4s faster; bar refills 2.5x")
+    stim.buff = BUFF_HASTE
+    stim.buff_time = 4
+    c.skills = [inject, flask, prod, stim]
+    c.ultimate = hit("Overdose", 4, 12, 30, 2.0, 100, 2.0, 16, 1, ANIM_THRUST)
+    c.ultimate.hits = 5
+    c.ultimate.interval = 6
+    c.ultimate.inject = true
+    c.ultimate.finish = 6
+    c.ultimate.note = "Five Injects in a row"
+    c.ai_range = 1.9
+    var l = c.look
+    l.skin = ap.Color(236, 202, 178)
+    l.body = ap.Color(232, 236, 238)
+    l.legs = ap.Color(60, 60, 80)
+    l.trim = ap.Color(120, 200, 120)
+    l.accent = ap.Color(120, 255, 120)
+    l.metal = ap.Color(200, 230, 255)
+    l.eyes = ap.Color(40, 40, 50)
+    l.head = HEAD_GOGGLES
+    l.weapon = WEAPON_SYRINGE
+    l.stance = STANCE_TINKER
+    l.cape = true
+    l.cape_color = ap.Color(222, 226, 230)
+    return c
+end
+
+function teleman() returns Character
+    var c = Character("TELEMAN", "THE BROADCAST")
+    c.blurb = "Teleports on a bar. His super only works inside theirs."
+    c.style = "Teleports, super breaker"
+    c.health = 125
+    c.speed = 5.6
+    c.bar_name = "RECEPTION"
+    c.bar_icon = ICON_TV
+    c.bar_note = "Jumps cost it; it comes back"
+    c.bar_regen = 9
+    c.basics = [hit("Antenna Jab", 5, 6, 11, 2.1, 80, 0.4, 17, 2, ANIM_THRUST),
+        hit("Remote Rap", 5, 6, 11, 1.9, 100, 0.4, 17, 2, ANIM_BACKSWING),
+        hit("Static Shock", 8, 10, 18, 2.0, 120, 0.5, 24, 6, ANIM_SLAM)]
+    var jump = skill(trick("Channel Hop", KIND_BLINK, ANIM_SHOOT), 1.5, 25, "Teleports 5.5 m the way you steer")
+    jump.blink = 5.5
+    var rerun = skill(hit("Rerun", 11, 14, 22, 2.2, 120, 0, 28, 5, ANIM_SWING), 5, 30, "Teleports behind and swings")
+    rerun.teleport = true
+    rerun.fx = FX_FLASH
+    var flip = skill(trick("Change Channel", KIND_SWITCH, ANIM_SHOOT), 9, 35, "Swap places with the foe; brief stun")
+    var snow = skill(hit("Static", 6, 12, 22, 2.8, 360, 0, 45, 3, ANIM_CAST), 8, 20, "Hits all around; long stun")
+    snow.radial = true
+    c.skills = [jump, rerun, flip, snow]
+    # Not a move he can pick: it is what his super does to someone else's.
+    c.ultimate = hit("Switch Off", 60, 1, 1, 0, 0, 0, 200, 0, ANIM_SHOOT)
+    c.ultimate.unblockable = true
+    c.ultimate.note = "A huge hit and a long stun"
+    c.ai_range = 2.4
+    var l = c.look
+    l.skin = ap.Color(206, 186, 170)
+    l.body = ap.Color(64, 62, 74)
+    l.legs = ap.Color(42, 40, 52)
+    l.trim = ap.Color(200, 196, 190)
+    l.accent = ap.Color(150, 255, 210)
+    l.metal = ap.Color(58, 58, 64)
+    l.eyes = ap.Color(150, 255, 210)
+    l.glowing_eyes = true
+    l.head = HEAD_TV
+    l.weapon = WEAPON_DEVICE
+    l.stance = STANCE_TINKER
+    return c
+end
+
+function dismantle() returns Character
+    var c = Character("DISMANTLE", "THE UNBURIED")
+    c.blurb = "Slow axe and chain. Revives once a round at 30% health."
+    c.style = "Slow, heavy, gets back up"
+    c.health = 145
+    c.speed = 4.6
+    c.poise = true
+    c.revive = 0.3
+    c.bar_name = "HUNGER"
+    c.bar_icon = ICON_SKULL
+    c.bar_note = "Grows as his hits land"
+    c.bar_start = 20
+    c.basics = [hit("Hack", 9, 12, 18, 2.4, 120, 0.4, 24, 5, ANIM_SWING),
+        hit("Hack", 9, 12, 18, 2.4, 120, 0.4, 24, 5, ANIM_BACKSWING),
+        hit("Butcher", 15, 18, 28, 2.6, 100, 0.6, 32, 10, ANIM_SLAM)]
+    c.basics[0].gain = 12
+    c.basics[1].gain = 12
+    c.basics[2].gain = 18
+    var hook = skill(hit("Chain Hook", 6, 13, 22, 5.6, 26, 0, 32, -28, ANIM_THROW), 5, 0, "5.6 m chain that pulls them in")
+    hook.fx = FX_CHAIN
+    var sweep = skill(hit("Chain Sweep", 5, 12, 24, 3.6, 360, 0, 18, 6, ANIM_SPIN), 7, 25, "The chain whirls round, three times")
+    sweep.radial = true
+    sweep.hits = 3
+    sweep.interval = 7
+    sweep.fx = FX_CHAIN
+    var cleave = skill(hit("Grave Cleave", 22, 26, 30, 2.6, 70, 1.0, 40, 12, ANIM_SLAM), 8, 40, "Very slow unblockable 22 dmg")
+    cleave.unblockable = true
+    var lurch = skill(hit("Lurch", 10, 14, 26, 1.9, 120, 4.6, 28, 9, ANIM_CHARGE), 7, 20, "Unstaggerable 4.6 m charge")
+    lurch.sturdy = true
+    c.skills = [hook, sweep, cleave, lurch]
+    c.ultimate = hit("Dismemberment", 8, 16, 34, 2.8, 140, 1.0, 22, 3, ANIM_SWING)
+    c.ultimate.hits = 4
+    c.ultimate.interval = 9
+    c.ultimate.finish = 16
+    c.ultimate.heal = 6
+    c.ultimate.fx = FX_RUSH
+    c.ultimate.note = "Four chops; each heals 6"
+    c.ai_range = 2.4
+    var l = c.look
+    l.skin = ap.Color(128, 148, 112)
+    l.body = ap.Color(70, 62, 52)
+    l.legs = ap.Color(48, 44, 40)
+    l.trim = ap.Color(110, 98, 80)
+    l.accent = ap.Color(170, 230, 90)
+    l.metal = ap.Color(150, 148, 140)
+    l.eyes = ap.Color(210, 255, 120)
+    l.glowing_eyes = true
+    l.head = HEAD_STITCHED
+    l.weapon = WEAPON_BIGAXE
+    l.stance = STANCE_SHAMBLE
+    l.bulk = 1.25
+    l.tall = 1.08
+    return c
+end
+
+function spruce() returns Character
+    var c = Character("SPRUCE", "THE STILL WATER")
+    c.blurb = "Bo staff. Two counter skills, and a buff: blocks parry."
+    c.style = "Counters, parries"
+    c.health = 135
+    c.speed = 6.0
+    c.bar_name = "CALM"
+    c.bar_icon = ICON_LEAF
+    c.bar_note = "Refills slowly; +40 per parry"
+    c.bar_start = 40
+    c.bar_regen = 5
+    c.parry_gain = 40
+    c.basics = [hit("Staff Jab", 5, 7, 12, 2.6, 60, 0.4, 17, 2, ANIM_THRUST),
+        hit("Staff Sweep", 5, 7, 12, 2.6, 130, 0.4, 17, 3, ANIM_BACKSWING),
+        hit("Staff Spin", 9, 11, 18, 2.7, 360, 0.3, 24, 5, ANIM_SPIN)]
+    c.basics[2].radial = true
+    var deflect = skill(hit("Deflect", 6, 26, 20, 2.6, 90, 0.5, 26, 6, ANIM_COUNTER), 5, 0, "Counter: if hit, strikes back 4x")
+    deflect.counter = true
+    var sweep = skill(hit("Leg Sweep", 5, 24, 22, 2.6, 120, 0.3, 30, 1, ANIM_COUNTER), 7, 15, "Counter: if hit, launches them")
+    sweep.counter = true
+    sweep.launch = 8.5
+    var vault = skill(hit("Pole Vault", 8, 10, 16, 2.0, 110, 4.6, 22, 4, ANIM_POUNCE), 5, 15, "Untouchable leap that hits")
+    vault.evade = true
+    var still = skill(trick("Still Water", KIND_BUFF, ANIM_FOCUS), 12, 30, "4s: every block is a parry")
+    still.buff = BUFF_PARRY
+    still.buff_time = 4
+    c.skills = [deflect, sweep, vault, still]
+    c.ultimate = hit("Hundred Rings", 3.6, 10, 30, 2.7, 120, 2.0, 14, 1, ANIM_THRUST)
+    c.ultimate.hits = 9
+    c.ultimate.interval = 4
+    c.ultimate.finish = 12
+    c.ultimate.fx = FX_RUSH
+    c.ultimate.note = "Nine blows, the last a big one"
+    c.ai_range = 2.4
+    var l = c.look
+    l.skin = ap.Color(222, 184, 146)
+    l.body = ap.Color(56, 100, 68)
+    l.legs = ap.Color(38, 56, 42)
+    l.trim = ap.Color(206, 176, 116)
+    l.accent = ap.Color(150, 225, 120)
+    l.metal = ap.Color(156, 112, 66)
+    l.eyes = ap.Color(40, 30, 24)
+    l.head = HEAD_TOPKNOT
+    l.weapon = WEAPON_BO
+    l.stance = STANCE_BO
+    l.bulk = 0.94
+    return c
+end
+
+# A copy of a move, for a fighter that steals them.
+function copy(Attack a) returns Attack
+    var b = Attack(a.name, a.damage, a.startup, a.recovery, a.reach, a.arc, a.lunge, a.stun, a.push)
+    b.cost = a.cost
+    b.per_hit = a.per_hit
+    b.gain = a.gain
+    b.hits = a.hits
+    b.interval = a.interval
+    b.shot = a.shot
+    b.shot_speed = a.shot_speed
+    b.blast = a.blast
+    b.poison = a.poison
+    b.heal = a.heal
+    b.teleport = a.teleport
+    b.radial = a.radial
+    b.anim = a.anim
+    b.fx = a.fx
+    b.cooldown = a.cooldown
+    b.kind = a.kind
+    b.note = a.note
+    b.launch = a.launch
+    b.slow = a.slow
+    b.unblockable = a.unblockable
+    b.counter = a.counter
+    b.on_trigger = a.on_trigger
+    b.evade = a.evade
+    b.sturdy = a.sturdy
+    b.finish = a.finish
+    b.restock = a.restock
+    b.shroud = a.shroud
+    b.volley = a.volley
+    b.spread = a.spread
+    b.homing = a.homing
+    b.lob = a.lob
+    b.skyfall = a.skyfall
+    b.pool = a.pool
+    b.shot_life = a.shot_life
+    b.buff = a.buff
+    b.buff_time = a.buff_time
+    b.blink = a.blink
+    b.summon = a.summon
+    b.recoil = a.recoil
+    b.beam = a.beam
+    b.inject = a.inject
+    b.steal = a.steal
+    b.crater = a.crater
+    return b
+end
+
+# A move taken from someone else, re-priced for the bar of the one using it (CAT).
+function adapt(Attack from, double price) returns Attack
+    var a = copy(from)
+    a.cost = price if a.cost > 0 or a.kind == KIND_RELOAD else 0.0
+    a.per_hit = false
+    a.gain = 0
+    a.restock = 0
+    a.steal = 0
+    a.cooldown = math.max(a.cooldown + a.cooldown // 4, 60)
+    if a.kind == KIND_FAN do
+        # Bullets mean nothing to it: four shots, paid for once.
+        a.kind = KIND_STRIKE
+        a.hits = 4
+    else if a.kind == KIND_RELOAD do
+        # Nothing to reload: it takes a nap instead.
+        a = skill(trick("Catnap", KIND_BUFF, ANIM_PLANT), 14, price, "Heals 6 a second for 3s")
+        a.buff = BUFF_REGEN
+        a.buff_time = 3
+        a.heal = 6
+    end
+    return a
+end
+
+# Whether a move still means something in someone else's hands.
+function portable(Attack a) returns bool
+    return a.name != "" and a.startup > 1 and not a.inject and a.kind != KIND_SWAP and a.kind != KIND_RECALL and
+        a.kind != KIND_LOCK
+end
+
+# Every skill in the game that a copycat could be handed at random.
+function move_pool(Character[] cast) returns Attack[]
+    Attack[] pool = []
+    for c in cast do
+        if c.copycat do
+            continue
+        end
+        for a in c.skills do
+            if portable(a) do
+                pool.push(a)
+            end
+        end
+        for arm in c.arsenal do
+            for a in arm.skills do
+                if portable(a) do
+                    pool.push(a)
+                end
+            end
+        end
+    end
+    return pool
+end
+
+# Every super move in the game, for the same.
+function ultimate_pool(Character[] cast) returns Attack[]
+    Attack[] pool = []
+    for c in cast do
+        if not c.copycat and not c.maximum.jammer and portable(c.ultimate) do
+            pool.push(c.ultimate)
+        end
+    end
+    return pool
+end
+
+# Every basic chain in the game: a copycat in its super borrows a whole one at a time.
+function chain_pool(Character[] cast) returns Attack[][]
+    Attack[][] pool = []
+    for c in cast do
+        if c.copycat do
+            continue
+        end
+        pool.push(c.basics)
+        for i, arm in c.arsenal do
+            if i > 0 do
+                pool.push(arm.basics)
+            end
+        end
+    end
+    return pool
+end
+
+# Everyone who can be picked, in the order the select screen shows them.
+function build() returns Character[]
+    Character[] cast = [fangs(), aster(), anaconda(), rapier(), quickdraw(), void_blade(), sherman(), shepherd(), don(),
+        hotline(), buckshot(), stab(), atomic(), cat(), droid(), laser(), eagle(), combatant(), phantom(), carbon(),
+        monopolist(), mirrorman(), bob(), teleman(), dismantle(), spruce()]
+    for c in cast do
+        c.maximum = maximum_of(c.name)
+        c.health *= 2
+    end
+    return cast
+end
+
+# Every fighter's super: where it takes the fight and what it does there.
+function maximum_of(string who) returns Maximum
+    var m = Maximum()
+    if who == "FANGS" do
+        m.name = "BLOOD MOON"
+        m.place = "THE CASTLE"
+        m.note = "Drains 1.4 HP/s from them to you"
+        m.anim = ANIM_BITE
+        m.scene = SCENE_CASTLE
+        m.sky = ap.Color(30, 4, 10)
+        m.ambient = ap.Color(90, 40, 60)
+        m.sun = ap.Color(255, 90, 90)
+        m.ground = ap.Color(52, 40, 46)
+        m.floor = ap.Color(220, 170, 180)
+        m.glow = ap.Color(230, 30, 50)
+        m.mote = ap.Color(200, 20, 40)
+        m.drift = -0.4
+        m.foe_dps = 1.4
+        m.drain = 1
+    else if who == "ASTER" do
+        m.name = "MAIN EVENT"
+        m.place = "THE BIG RING"
+        m.note = "+20% speed; skills recharge 2x"
+        m.anim = ANIM_UPPERCUT
+        m.scene = SCENE_RING
+        m.sky = ap.Color(8, 8, 14)
+        m.ambient = ap.Color(80, 80, 100)
+        m.sun = ap.Color(255, 250, 230)
+        m.ground = ap.Color(40, 44, 70)
+        m.floor = ap.Color(210, 220, 255)
+        m.glow = ap.Color(255, 220, 90)
+        m.mote = ap.Color(255, 255, 255)
+        m.drift = 0.1
+        m.speed = 1.2
+        m.cool_rate = 2
+    else if who == "ANACONDA" do
+        m.name = "THE MIRE"
+        m.place = "THE SWAMP"
+        m.note = "They stay poisoned and slowed"
+        m.anim = ANIM_SPIT
+        m.scene = SCENE_SWAMP
+        m.sky = ap.Color(22, 34, 18)
+        m.ambient = ap.Color(70, 100, 60)
+        m.sun = ap.Color(190, 220, 140)
+        m.ground = ap.Color(40, 52, 30)
+        m.floor = ap.Color(160, 200, 130)
+        m.glow = ap.Color(130, 240, 60)
+        m.mote = ap.Color(160, 255, 90)
+        m.drift = 0.2
+        m.fog_near = 6
+        m.fog_far = 46
+        m.foe_poison = 0.6
+        m.foe_slow = true
+    else if who == "RAPIER" do
+        m.name = "SALLE D'ARMES"
+        m.place = "THE GRAND HALL"
+        m.note = "Every block parries; +20% damage"
+        m.anim = ANIM_COUNTER
+        m.scene = SCENE_HALL
+        m.sky = ap.Color(40, 32, 26)
+        m.ambient = ap.Color(120, 104, 90)
+        m.sun = ap.Color(255, 236, 200)
+        m.ground = ap.Color(150, 140, 130)
+        m.floor = ap.Color(255, 245, 230)
+        m.glow = ap.Color(255, 210, 120)
+        m.mote = ap.Color(255, 230, 160)
+        m.drift = -0.15
+        m.perfect_guard = true
+        m.power = 1.2
+    else if who == "QUICKDRAW" do
+        m.name = "HIGH NOON"
+        m.place = "THE GHOST TOWN"
+        m.note = "Bullets refill; skills recharge 2x"
+        m.anim = ANIM_SHOOT
+        m.scene = SCENE_TOWN
+        m.sky = ap.Color(230, 170, 90)
+        m.ambient = ap.Color(150, 120, 90)
+        m.sun = ap.Color(255, 230, 170)
+        m.ground = ap.Color(150, 110, 70)
+        m.floor = ap.Color(255, 220, 170)
+        m.glow = ap.Color(255, 180, 70)
+        m.mote = ap.Color(220, 180, 120)
+        m.drift = 0.05
+        m.bar_regen = 1.6
+        m.cool_rate = 2
+    else if who == "VOID" do
+        m.name = "THE ABYSS"
+        m.place = "NOWHERE"
+        m.note = "Thick darkness; +30% damage"
+        m.anim = ANIM_SPIN
+        m.scene = SCENE_ABYSS
+        m.sky = ap.Color(0, 0, 0)
+        m.ambient = ap.Color(40, 36, 60)
+        m.sun = ap.Color(120, 110, 170)
+        m.ground = ap.Color(10, 10, 14)
+        m.floor = ap.Color(120, 110, 150)
+        m.glow = ap.Color(200, 190, 255)
+        m.mote = ap.Color(255, 255, 255)
+        m.drift = -0.6
+        m.fog_near = 2
+        m.fog_far = 15
+        m.power = 1.3
+    else if who == "SHERMAN" do
+        m.name = "BOMBARDMENT"
+        m.place = "NO MAN'S LAND"
+        m.note = "Shells fall on them; take 20% less"
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_TRENCHES
+        m.sky = ap.Color(90, 84, 70)
+        m.ambient = ap.Color(100, 96, 84)
+        m.sun = ap.Color(210, 200, 170)
+        m.ground = ap.Color(70, 58, 44)
+        m.floor = ap.Color(190, 170, 140)
+        m.glow = ap.Color(255, 150, 60)
+        m.mote = ap.Color(140, 130, 120)
+        m.drift = 0.6
+        m.fog_near = 10
+        m.fog_far = 60
+        m.armor = 0.8
+        var shell = fire("Shell", 9, 1, 1, SHOT_METEOR, 18, 22, 6, ANIM_CAST)
+        shell.skyfall = true
+        shell.blast = 2.0
+        shell.shot_life = 2
+        m.strike = shell
+        m.strike_every = 2.6
+    else if who == "SHEPHERD" do
+        m.name = "THE LONG NIGHT"
+        m.place = "THE MOOR"
+        m.note = "Thick fog; shroud refills fast"
+        m.anim = ANIM_PLANT
+        m.scene = SCENE_GRAVEYARD
+        m.sky = ap.Color(46, 50, 58)
+        m.ambient = ap.Color(80, 86, 96)
+        m.sun = ap.Color(170, 180, 200)
+        m.ground = ap.Color(48, 54, 50)
+        m.floor = ap.Color(170, 180, 175)
+        m.glow = ap.Color(160, 200, 255)
+        m.mote = ap.Color(200, 210, 220)
+        m.drift = 0.1
+        m.fog_near = 3
+        m.fog_far = 24
+        m.bar_regen = 30
+        m.power = 1.1
+    else if who == "DON" do
+        m.name = "STARFALL"
+        m.place = "THE TOWER TOP"
+        m.note = "Stars fall on them; mana refills"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_TOWER
+        m.sky = ap.Color(14, 12, 40)
+        m.ambient = ap.Color(70, 70, 130)
+        m.sun = ap.Color(190, 200, 255)
+        m.ground = ap.Color(60, 60, 90)
+        m.floor = ap.Color(190, 190, 255)
+        m.glow = ap.Color(150, 140, 255)
+        m.mote = ap.Color(255, 250, 200)
+        m.drift = -0.3
+        m.bar_regen = 12
+        var star = fire("Falling Star", 10, 1, 1, SHOT_METEOR, 16, 24, 6, ANIM_CAST)
+        star.skyfall = true
+        star.blast = 1.8
+        star.shot_life = 2
+        m.strike = star
+        m.strike_every = 3.0
+    else if who == "HOTLINE" do
+        m.name = "RUSH HOUR"
+        m.place = "DOWNTOWN"
+        m.note = "Cabs keep driving at them"
+        m.anim = ANIM_THROW
+        m.scene = SCENE_CITY
+        m.sky = ap.Color(16, 12, 30)
+        m.ambient = ap.Color(80, 70, 110)
+        m.sun = ap.Color(200, 180, 255)
+        m.ground = ap.Color(46, 46, 54)
+        m.floor = ap.Color(170, 170, 190)
+        m.glow = ap.Color(255, 90, 200)
+        m.mote = ap.Color(255, 220, 120)
+        m.drift = 0.05
+        var cab = fire("Rush Hour", 12, 1, 1, SHOT_CAR, 20, 30, 10, ANIM_THROW)
+        cab.launch = 6
+        cab.shot_life = 2.2
+        m.strike = cab
+        m.strike_every = 3.2
+        m.strike_ground = true
+    else if who == "BUCKSHOT" do
+        m.name = "BREACH AND CLEAR"
+        m.place = "THE WAREHOUSE"
+        m.note = "Shells refill; +20% damage"
+        m.anim = ANIM_CHARGE
+        m.scene = SCENE_WAREHOUSE
+        m.sky = ap.Color(20, 10, 10)
+        m.ambient = ap.Color(90, 60, 60)
+        m.sun = ap.Color(255, 120, 100)
+        m.ground = ap.Color(60, 56, 54)
+        m.floor = ap.Color(220, 190, 180)
+        m.glow = ap.Color(255, 40, 30)
+        m.mote = ap.Color(200, 190, 170)
+        m.drift = 0.1
+        m.fog_near = 10
+        m.fog_far = 50
+        m.bar_regen = 0.8
+        m.power = 1.2
+    else if who == "STAB" do
+        m.name = "PICKPOCKET"
+        m.place = "THE BACK ALLEY"
+        m.note = "+20% speed; they slowly bleed"
+        m.anim = ANIM_BACKSWING
+        m.scene = SCENE_ALLEY
+        m.sky = ap.Color(14, 18, 26)
+        m.ambient = ap.Color(70, 80, 100)
+        m.sun = ap.Color(170, 190, 220)
+        m.ground = ap.Color(40, 42, 48)
+        m.floor = ap.Color(160, 170, 190)
+        m.glow = ap.Color(255, 200, 110)
+        m.mote = ap.Color(170, 200, 255)
+        m.drift = -2.5
+        m.fog_near = 8
+        m.fog_far = 50
+        m.speed = 1.2
+        m.foe_dps = 0.8
+    else if who == "ATOMIC" do
+        m.name = "MELTDOWN"
+        m.place = "THE REACTOR"
+        m.note = "They lose HP; random portals open"
+        m.anim = ANIM_FOCUS
+        m.scene = SCENE_REACTOR
+        m.sky = ap.Color(220, 110, 40)
+        m.ambient = ap.Color(150, 100, 70)
+        m.sun = ap.Color(255, 190, 120)
+        m.ground = ap.Color(80, 70, 60)
+        m.floor = ap.Color(230, 200, 160)
+        m.glow = ap.Color(150, 255, 80)
+        m.mote = ap.Color(190, 255, 120)
+        m.drift = 0.25
+        m.fog_near = 14
+        m.fog_far = 70
+        m.foe_dps = 0.9
+        m.portals = true
+    else if who == "CAT" do
+        m.name = "WILD CARD"
+        m.place = "THE BIG BOX"
+        m.note = "Every move random, reshuffled on use"
+        m.anim = ANIM_POUNCE
+        m.scene = SCENE_BOX
+        m.sky = ap.Color(60, 44, 30)
+        m.ambient = ap.Color(130, 110, 90)
+        m.sun = ap.Color(255, 230, 190)
+        m.ground = ap.Color(150, 112, 70)
+        m.floor = ap.Color(255, 225, 180)
+        m.glow = ap.Color(255, 220, 110)
+        m.mote = ap.Color(255, 240, 220)
+        m.drift = 0.1
+        m.fog_near = 14
+        m.fog_far = 60
+        m.randomize = true
+    else if who == "DROID" do
+        m.name = "OVERDRIVE"
+        m.place = "THE FOUNDRY"
+        m.note = "Heals 2.5/s; takes 20% less"
+        m.anim = ANIM_HOOK
+        m.scene = SCENE_FACTORY
+        m.sky = ap.Color(26, 20, 16)
+        m.ambient = ap.Color(100, 86, 70)
+        m.sun = ap.Color(255, 200, 140)
+        m.ground = ap.Color(66, 62, 60)
+        m.floor = ap.Color(200, 190, 180)
+        m.glow = ap.Color(255, 130, 30)
+        m.mote = ap.Color(255, 170, 60)
+        m.drift = 1.2
+        m.regen = 2.5
+        m.armor = 0.8
+    else if who == "LASER" do
+        m.name = "SOLAR FLARE"
+        m.place = "THE SUN'S CROWN"
+        m.note = "Sunbeams hit them; bar refills fast"
+        m.anim = ANIM_THRUST
+        m.scene = SCENE_SUN
+        m.sky = ap.Color(255, 220, 140)
+        m.ambient = ap.Color(200, 170, 120)
+        m.sun = ap.Color(255, 250, 220)
+        m.ground = ap.Color(200, 160, 100)
+        m.floor = ap.Color(255, 240, 200)
+        m.glow = ap.Color(255, 255, 200)
+        m.mote = ap.Color(255, 255, 220)
+        m.drift = 0.8
+        m.bar_regen = 14
+        var ray = fire("Sunbeam", 9, 1, 1, SHOT_METEOR, 30, 20, 4, ANIM_CAST)
+        ray.skyfall = true
+        ray.blast = 1.5
+        ray.shot_life = 1.5
+        m.strike = ray
+        m.strike_every = 2.4
+    else if who == "EAGLE" do
+        m.name = "DEAD EYE"
+        m.place = "EAGLE'S PEAK"
+        m.note = "Rounds refill; they take 20% more"
+        m.anim = ANIM_TWIRL
+        m.scene = SCENE_CANYON
+        m.sky = ap.Color(240, 120, 70)
+        m.ambient = ap.Color(150, 100, 90)
+        m.sun = ap.Color(255, 200, 150)
+        m.ground = ap.Color(150, 80, 50)
+        m.floor = ap.Color(255, 200, 170)
+        m.glow = ap.Color(255, 206, 70)
+        m.mote = ap.Color(255, 230, 200)
+        m.drift = 0.15
+        m.bar_regen = 0.7
+        m.foe_vulnerable = 1.2
+    else if who == "COMBATANT" do
+        m.name = "ARMS RACE"
+        m.place = "THE COLOSSEUM"
+        m.note = "Daggers refill; skills recharge 2x"
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_COLOSSEUM
+        m.sky = ap.Color(120, 150, 200)
+        m.ambient = ap.Color(140, 130, 120)
+        m.sun = ap.Color(255, 240, 210)
+        m.ground = ap.Color(170, 140, 100)
+        m.floor = ap.Color(255, 230, 190)
+        m.glow = ap.Color(240, 90, 60)
+        m.mote = ap.Color(230, 210, 170)
+        m.drift = 0.2
+        m.fog_near = 20
+        m.fog_far = 90
+        m.bar_regen = 1.5
+        m.cool_rate = 2
+        m.power = 1.1
+    else if who == "PHANTOM" do
+        m.name = "VANISHING HOUR"
+        m.place = "THE BLACK WOOD"
+        m.note = "5s fully invisible; +20% damage"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_FOREST
+        m.seconds = 5
+        m.cut_ticks = 60
+        m.vanish = true
+        m.mono = true
+        m.sky = ap.Color(14, 14, 16)
+        m.ambient = ap.Color(90, 90, 96)
+        m.sun = ap.Color(170, 170, 176)
+        m.ground = ap.Color(30, 30, 32)
+        m.floor = ap.Color(120, 120, 124)
+        m.glow = ap.Color(220, 220, 226)
+        m.mote = ap.Color(200, 200, 205)
+        m.drift = -0.2
+        m.fog_near = 8
+        m.fog_far = 46
+        m.power = 1.2
+    else if who == "CARBON" do
+        m.name = "TECTONIC SHIFT"
+        m.place = "THE FAULT"
+        m.note = "Boulders fall on them; take 15% less"
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_QUARRY
+        m.sky = ap.Color(70, 46, 30)
+        m.ambient = ap.Color(120, 96, 76)
+        m.sun = ap.Color(255, 200, 150)
+        m.ground = ap.Color(96, 74, 56)
+        m.floor = ap.Color(220, 190, 160)
+        m.glow = ap.Color(255, 140, 50)
+        m.mote = ap.Color(180, 150, 120)
+        m.drift = 0.4
+        m.fog_near = 12
+        m.fog_far = 64
+        m.armor = 0.85
+        var boulder = fire("Boulder", 10, 1, 1, SHOT_ROCK, 17, 24, 6, ANIM_THROW)
+        boulder.skyfall = true
+        boulder.blast = 1.8
+        boulder.shot_life = 2
+        m.strike = boulder
+        m.strike_every = 2.4
+    else if who == "MONOPOLIST" do
+        m.name = "MONOPOLY"
+        m.place = "THE EXCHANGE"
+        m.note = "Moves cost nothing; -15% damage"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_BANK
+        m.sky = ap.Color(24, 20, 10)
+        m.ambient = ap.Color(120, 110, 80)
+        m.sun = ap.Color(255, 230, 160)
+        m.ground = ap.Color(120, 110, 96)
+        m.floor = ap.Color(255, 240, 200)
+        m.glow = ap.Color(255, 206, 70)
+        m.mote = ap.Color(255, 220, 90)
+        m.drift = -0.8
+        m.fog_near = 14
+        m.fog_far = 70
+        m.free_bar = true
+        m.power = 0.85
+    else if who == "MIRRORMAN" do
+        m.name = "HALL OF MIRRORS"
+        m.place = "THE MIRROR MAZE"
+        m.note = "Keeps 4 decoys up at all times"
+        m.anim = ANIM_SPIN
+        m.scene = SCENE_MIRRORS
+        m.sky = ap.Color(20, 26, 34)
+        m.ambient = ap.Color(110, 130, 150)
+        m.sun = ap.Color(220, 240, 255)
+        m.ground = ap.Color(90, 104, 120)
+        m.floor = ap.Color(210, 230, 250)
+        m.glow = ap.Color(160, 230, 255)
+        m.mote = ap.Color(230, 250, 255)
+        m.drift = 0.15
+        m.fog_near = 12
+        m.fog_far = 56
+        m.clones = 4
+        m.foe_vulnerable = 1.1
+    else if who == "BOB" do
+        m.name = "MASS PRODUCTION"
+        m.place = "THE LABORATORY"
+        m.note = "Each Inject makes a clone (max 2)"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_LAB
+        m.sky = ap.Color(10, 24, 14)
+        m.ambient = ap.Color(80, 110, 90)
+        m.sun = ap.Color(200, 255, 210)
+        m.ground = ap.Color(60, 70, 66)
+        m.floor = ap.Color(190, 220, 200)
+        m.glow = ap.Color(120, 255, 120)
+        m.mote = ap.Color(150, 255, 150)
+        m.drift = 0.5
+        m.fog_near = 10
+        m.fog_far = 54
+        m.labs = true
+    else if who == "TELEMAN" do
+        m.name = "OFF AIR"
+        m.place = "THE STUDIO"
+        m.note = "Only inside their super; ends it"
+        m.anim = ANIM_SHOOT
+        m.scene = SCENE_STUDIO
+        m.sky = ap.Color(8, 10, 12)
+        m.ambient = ap.Color(80, 90, 96)
+        m.sun = ap.Color(200, 220, 230)
+        m.ground = ap.Color(40, 40, 46)
+        m.floor = ap.Color(170, 180, 190)
+        m.glow = ap.Color(150, 255, 210)
+        m.mote = ap.Color(220, 230, 240)
+        m.drift = 0.05
+        m.jammer = true
+    else if who == "DISMANTLE" do
+        m.name = "THE DEAD RISE"
+        m.place = "THE CHARNEL PIT"
+        m.note = "They lose HP and slow; he heals"
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_PIT
+        m.sky = ap.Color(30, 16, 12)
+        m.ambient = ap.Color(120, 100, 80)
+        m.sun = ap.Color(230, 200, 160)
+        m.ground = ap.Color(64, 48, 38)
+        m.floor = ap.Color(200, 170, 150)
+        m.glow = ap.Color(170, 230, 90)
+        m.mote = ap.Color(160, 200, 100)
+        m.drift = 0.3
+        m.fog_near = 14
+        m.fog_far = 64
+        m.foe_dps = 0.7
+        m.foe_slow = true
+        m.regen = 1.5
+    else if who == "SPRUCE" do
+        m.name = "STILL GROVE"
+        m.place = "THE SPRUCE GROVE"
+        m.note = "Blocks parry; each parry heals 10"
+        m.anim = ANIM_COUNTER
+        m.scene = SCENE_GROVE
+        m.sky = ap.Color(180, 206, 214)
+        m.ambient = ap.Color(120, 140, 130)
+        m.sun = ap.Color(255, 246, 220)
+        m.ground = ap.Color(96, 110, 84)
+        m.floor = ap.Color(220, 236, 210)
+        m.glow = ap.Color(150, 225, 120)
+        m.mote = ap.Color(255, 255, 255)
+        m.drift = -0.5
+        m.fog_near = 16
+        m.fog_far = 70
+        m.perfect_guard = true
+        m.parry_heal = 10
+    end
+    return m
+end
+
+# Rough 0..1 ratings for the select screen.
+function rate_health(Character c) returns double
+    return c.health / c.armor / 530
+end
+function rate_speed(Character c) returns double
+    return c.speed / 7
+end
+function rate_power(Character c) returns double
+    var best = 0.0
+    for a in c.skills do
+        var total = a.damage * double(a.hits) + a.finish
+        if a.kind == KIND_FAN do
+            total = a.damage * c.bar_max
+        end
+        if total > best do
+            best = total
+        end
+    end
+    return best / 30
+end
+function rate_range(Character c) returns double
+    var far = 0.0
+    var shoots = false
+    for a in c.basics do
+        if a.reach > far do
+            far = a.reach
+        end
+        shoots = shoots or a.shot != SHOT_NONE or a.beam > 0
+    end
+    for a in c.skills do
+        shoots = shoots or a.shot != SHOT_NONE or a.beam > 0
+    end
+    if shoots do
+        far = far + 2.2
+    end
+    return far / 5
+end
+
+# --- Items -----------------------------------------------------------------------------------
+# Passive upgrades picked before a round (see the match options). Each lasts that round only.
+const int ITEM_IRON = 0      # damage taken
+const int ITEM_WHETSTONE = 1 # damage dealt
+const int ITEM_BOOTS = 2     # walking speed
+const int ITEM_HEART = 3     # health
+const int ITEM_HOURGLASS = 4 # skill cooldowns
+const int ITEM_BATTERY = 5   # the special bar refills
+const int ITEM_FANG = 6      # health back from damage dealt
+const int ITEM_CHARGER = 7   # the super bar fills
+const int ITEM_FEATHER = 8   # the dash comes back
+const int ITEM_THORNS = 9    # melee attackers are hurt too
+const int ITEM_MOSS = 10     # health grows back out of a fight
+const int ITEM_ANVIL = 11    # hits stun for longer
+
+class Item
+    int kind
+    string name
+    string note
+end
+
+function items() returns Item[]
+    return [Item(ITEM_IRON, "IRON SKIN", "Take 25% less damage"),
+        Item(ITEM_WHETSTONE, "WHETSTONE", "Deal 25% more damage"),
+        Item(ITEM_BOOTS, "SWIFT BOOTS", "Move 20% faster"),
+        Item(ITEM_HEART, "SECOND HEART", "35% more health"),
+        Item(ITEM_HOURGLASS, "HOURGLASS", "Skills recharge 35% faster"),
+        Item(ITEM_BATTERY, "WELLSPRING", "Your bar refills 75% faster"),
+        Item(ITEM_FANG, "LEECH FANG", "Heal 15% of damage you deal"),
+        Item(ITEM_CHARGER, "EMBER CORE", "Super bar fills 60% faster"),
+        Item(ITEM_FEATHER, "FEATHER STEP", "Dash comes back 4 times as fast"),
+        Item(ITEM_THORNS, "THORN MAIL", "Melee attackers take 35% back"),
+        Item(ITEM_MOSS, "MOSS", "Heal 5 a second when not hit for 2s"),
+        Item(ITEM_ANVIL, "ANVIL HANDS", "Your hits stun 35% longer")]
+end

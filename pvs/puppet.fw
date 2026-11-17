@@ -1,0 +1,1497 @@
+# The fighters' bodies: blocky figures built from cubes and posed in code, so the prototype
+# needs no model files. A Look (roster.fw) says what one looks like, a Pose how it stands.
+#
+# Angles are degrees. An arm hanging straight down is 0; -90 points it forward and -180
+# straight up. A weapon continues along the arm, turned by `wrist` the same way.
+import aperture as ap
+import math
+import "roster.fw" as roster
+
+const int ACT_IDLE = 0
+const int ACT_ATTACK = 1
+const int ACT_BLOCK = 2
+const int ACT_HURT = 3
+const int ACT_DOWN = 4
+const int ACT_DASH = 5
+const int ACT_WIN = 6
+const int ACT_RELOAD = 7
+const int ACT_AIR = 8        # knocked off the ground
+
+# The meshes every figure is made of. Make one after the window opens.
+class Rig
+    ap.Mesh box
+    ap.Mesh ball
+    ap.Mesh cone
+end
+function make_rig() returns Rig
+    return Rig(ap.cube(1, 1, 1), ap.sphere(0.5, 8, 12), ap.cone(0.5, 1, 10))
+end
+
+# How a figure stands. Limbs bend once: an elbow under 0 brings the forearm forward and up,
+# a knee over 0 folds the shin back. The lowest foot is always put on the ground.
+class Pose
+    double lean = 4          # the torso tipped forward
+    double twist = 0         # the torso turned (positive: right shoulder forward)
+    double roll = 0          # the torso tipped sideways (positive: toward the right hand)
+    double yaw = 0           # the whole body turned side on (positive: right side leading)
+    double flip = 0          # the whole body tumbled forward about its middle
+    double crouch = 0        # meters lower, by bending the knees
+    double lift = 0          # meters off the ground
+    double arm_r = -20
+    double arm_r_out = 8
+    double elbow_r = -75
+    double wrist = -25
+    double arm_l = -15
+    double arm_l_out = 8
+    double elbow_l = -60
+    double wrist_l = -25     # the left hand's weapon, for those who hold two
+    double leg_l = 0
+    double leg_r = 0
+    double knee_l = 0
+    double knee_r = 0
+    double spread = 0        # each leg angled outward
+    double head = 0          # a nod
+    double head_turn = 0     # the head turned (same way as `yaw`)
+    double head_tilt = 0     # the head tipped sideways
+    double fall = 0          # 0 standing to 1 flat on the back
+    double cape = 14         # how far the cape trails
+    double wing = 30         # how far back the wings are folded (0 spreads them wide)
+end
+
+function mix(double from, double to, double t) returns double
+    return from + (to - from) * math.clamp(t, 0.0, 1.0)
+end
+function ease(double t) returns double
+    var c = math.clamp(t, 0.0, 1.0)
+    return 1 - (1 - c) * (1 - c)
+end
+# Slow out of the start and into the end: a wind-up that gathers.
+function smooth(double t) returns double
+    var c = math.clamp(t, 0.0, 1.0)
+    return c * c * (3 - 2 * c)
+end
+# Fast, a little past the mark, and back: a blow that snaps.
+function snap(double t) returns double
+    var c = math.clamp(t, 0.0, 1.0) - 1
+    return 1 + 2.4 * c * c * c + 1.4 * c * c
+end
+function turn(double angle) returns double
+    var a = angle - math.floor(angle / 360) * 360
+    return a - 360 if a > 180 else a
+end
+# A value through a move: at rest, wound up, at the strike, and at rest again.
+private function key(double w, double s, double r, double rest, double wound, double struck) returns double
+    return mix(mix(mix(rest, wound, w), struck, s), rest, r)
+end
+
+# Part of the way from one pose to another. Turns go the short way round.
+function blend(Pose a, Pose b, double t) returns Pose
+    var p = Pose()
+    p.lean = mix(a.lean, b.lean, t)
+    p.twist = mix(a.twist, b.twist, t)
+    p.roll = mix(a.roll, b.roll, t)
+    p.yaw = a.yaw + turn(b.yaw - a.yaw) * math.clamp(t, 0.0, 1.0)
+    p.flip = a.flip + turn(b.flip - a.flip) * math.clamp(t, 0.0, 1.0)
+    p.crouch = mix(a.crouch, b.crouch, t)
+    p.lift = mix(a.lift, b.lift, t)
+    p.arm_r = mix(a.arm_r, b.arm_r, t)
+    p.arm_r_out = mix(a.arm_r_out, b.arm_r_out, t)
+    p.elbow_r = mix(a.elbow_r, b.elbow_r, t)
+    p.wrist = mix(a.wrist, b.wrist, t)
+    p.arm_l = mix(a.arm_l, b.arm_l, t)
+    p.arm_l_out = mix(a.arm_l_out, b.arm_l_out, t)
+    p.elbow_l = mix(a.elbow_l, b.elbow_l, t)
+    p.wrist_l = mix(a.wrist_l, b.wrist_l, t)
+    p.leg_l = mix(a.leg_l, b.leg_l, t)
+    p.leg_r = mix(a.leg_r, b.leg_r, t)
+    p.knee_l = mix(a.knee_l, b.knee_l, t)
+    p.knee_r = mix(a.knee_r, b.knee_r, t)
+    p.spread = mix(a.spread, b.spread, t)
+    p.head = mix(a.head, b.head, t)
+    p.head_turn = mix(a.head_turn, b.head_turn, t)
+    p.head_tilt = mix(a.head_tilt, b.head_tilt, t)
+    p.fall = mix(a.fall, b.fall, t)
+    p.cape = mix(a.cape, b.cape, t)
+    p.wing = mix(a.wing, b.wing, t)
+    return p
+end
+
+# How a fighter stands when nothing is happening: one stance per fighter, each with its own
+# small idle motion.
+private function stance_pose(roster.Look look, double time) returns Pose
+    var p = Pose()
+    var s = look.stance
+    var breath = math.sin(time * 2.2)
+    if s == roster.STANCE_PROWL do
+        # Hunched over, claws spread and flexing, looking up from under the brow.
+        var flex = math.sin(time * 3.1)
+        p.lean = 17 + breath * 1.5
+        p.head = -15
+        p.roll = math.sin(time * 1.1) * 2.5
+        p.arm_r = -30 + flex * 3
+        p.arm_l = -36 - flex * 3
+        p.arm_r_out = 34 + flex * 5
+        p.arm_l_out = 34 - flex * 5
+        p.elbow_r = -70 + flex * 8
+        p.elbow_l = -70 - flex * 8
+        p.wrist = -20 + flex * 9
+        p.wrist_l = -20 - flex * 9
+        p.spread = 9
+        p.leg_l = -10
+        p.leg_r = 8
+        p.cape = 20 + math.sin(time * 1.4) * 7
+        p.crouch = 0.12 + breath * 0.01
+    else if s == roster.STANCE_BOXER do
+        # Side on with the left leading, fists by the chin, bouncing and weaving.
+        var hop = math.abs(math.sin(time * 5.2))
+        var pump = math.sin(time * 5.2)
+        p.yaw = -26
+        p.lean = 9
+        p.roll = math.sin(time * 2.6) * 4
+        p.arm_r = -40
+        p.elbow_r = -118 + pump * 5
+        p.arm_r_out = -8
+        p.arm_l = -58
+        p.elbow_l = -95 - pump * 5
+        p.arm_l_out = 10
+        p.wrist = 0
+        p.wrist_l = 0
+        p.spread = 8
+        p.leg_l = -14
+        p.leg_r = 12
+        p.crouch = 0.08
+        p.lift = hop * 0.05
+    else if s == roster.STANCE_SERPENT do
+        # Low and never still: the body sways, the head follows a moment later.
+        var sway = math.sin(time * 1.7)
+        var late = math.sin(time * 1.7 - 0.9)
+        p.lean = 11
+        p.head = -8
+        p.roll = sway * 9
+        p.twist = late * 8
+        p.head_tilt = -late * 11
+        p.arm_r = -10 + late * 8
+        p.arm_l = -10 - late * 8
+        p.arm_r_out = 22 - sway * 6
+        p.arm_l_out = 22 + sway * 6
+        p.elbow_r = -50
+        p.elbow_l = -50
+        p.wrist = -40
+        p.wrist_l = -40
+        p.spread = 4
+        p.crouch = 0.14 + 0.02 * math.sin(time * 3.4)
+    else if s == roster.STANCE_EN_GARDE do
+        # Sword arm leading, the point drawing small circles; the other hand held up behind.
+        var circle = time * 3
+        p.yaw = 46
+        p.lean = 2
+        p.arm_r = -62 + math.sin(circle) * 2.5
+        p.elbow_r = -28
+        p.arm_r_out = 44 + math.cos(circle) * 2.5
+        p.wrist = -6
+        p.arm_l = 35
+        p.elbow_l = -110
+        p.arm_l_out = 25
+        p.spread = 14
+        p.leg_r = -14
+        p.knee_r = 22
+        p.leg_l = 10
+        p.crouch = 0.06
+        p.lift = math.abs(math.sin(time * 2.6)) * 0.015
+    else if s == roster.STANCE_HOLSTER do
+        # Loose and upright, hat brim down, the gun at the hip. Now and then it gets a spin.
+        var spin = time / 5.0 - math.floor(time / 5.0)
+        var itch = time / 2.3 - math.floor(time / 2.3)
+        p.yaw = -12
+        p.roll = 3
+        p.lean = -3
+        p.head = 11
+        p.arm_r = 4
+        p.elbow_r = -88
+        p.arm_r_out = 13
+        p.wrist = -5
+        if spin < 0.16 do
+            p.wrist -= 720 * ease(spin / 0.16)
+        end
+        p.arm_l = -5
+        p.elbow_l = -35
+        p.arm_l_out = 20
+        if itch < 0.25 do
+            p.elbow_l -= math.max(math.sin(time * 26), 0.0) * 8
+        end
+        p.spread = 10
+        p.cape = 12 + math.sin(time * 1.3) * 4
+    else if s == roster.STANCE_IAI do
+        # Deep, side on and almost perfectly still: the blade held low, a hand out in front.
+        p.yaw = -34
+        p.lean = 15
+        p.head = -12
+        p.arm_r = 10
+        p.arm_r_out = 34
+        p.elbow_r = -15
+        p.wrist = 35 + breath * 1.5
+        p.arm_l = -45
+        p.elbow_l = -50
+        p.arm_l_out = 8
+        p.spread = 16
+        p.leg_l = -26
+        p.leg_r = 22
+        p.crouch = 0.2
+    else if s == roster.STANCE_BULWARK do
+        # Planted wide and breathing slow. Every few seconds the fists knock together.
+        var slow = math.sin(time * 1.3)
+        var beat = time / 4.6 - math.floor(time / 4.6)
+        var knock = math.sin(beat / 0.2 * math.PI) if beat < 0.2 else 0.0
+        p.lean = 7 + slow
+        p.head = -3
+        p.arm_r = mix(-15 - slow * 2, -55, knock)
+        p.arm_l = p.arm_r
+        p.elbow_r = mix(-35, -70, knock)
+        p.elbow_l = p.elbow_r
+        p.arm_r_out = mix(18 + slow * 2, -28, knock)
+        p.arm_l_out = p.arm_r_out
+        p.wrist = 0
+        p.wrist_l = 0
+        p.spread = 16
+        p.crouch = 0.07 + slow * 0.012
+    else if s == roster.STANCE_WATCH do
+        # Leaning on the crook, hooded head turning slowly from side to side.
+        p.yaw = -8
+        p.lean = 13
+        p.roll = 3
+        p.head = 12
+        p.head_turn = 8 + math.sin(time * 0.8) * 24
+        p.arm_r = -15
+        p.elbow_r = -35
+        p.arm_r_out = 10
+        p.wrist = -180 - p.lean - p.arm_r - p.elbow_r
+        p.arm_l = -5
+        p.elbow_l = -20
+        p.arm_l_out = 5
+        p.spread = 4
+        p.cape = 10 + math.sin(time * 1.2) * 3
+        p.crouch = 0.05 + breath * 0.006
+    else if s == roster.STANCE_LEVITATE do
+        # Hanging just off the ground, staff upright, the free hand stirring the air.
+        var bob = math.sin(time * 1.7)
+        p.lift = 0.14 + bob * 0.035
+        p.lean = -3
+        p.head = -4
+        p.twist = math.sin(time * 0.9) * 4
+        p.leg_l = 6 + bob * 2
+        p.knee_l = 14
+        p.leg_r = -6
+        p.knee_r = 24
+        p.spread = 2
+        p.arm_r = -30
+        p.elbow_r = -40
+        p.arm_r_out = 9
+        p.wrist = -180 - p.lean - p.arm_r - p.elbow_r
+        p.arm_l = -40
+        p.elbow_l = -60 + math.sin(time * 2.3) * 10
+        p.arm_l_out = 28 + math.cos(time * 2.3) * 6
+        p.cape = 22 + math.sin(time * 1.5) * 8
+    else if s == roster.STANCE_CALL do
+        # On the phone: handset at the ear, a hand on the hip, a foot tapping.
+        p.yaw = -10
+        p.roll = 4
+        p.lean = 1
+        p.head = math.sin(time * 3) * 3
+        p.head_tilt = -10
+        p.arm_r = -30
+        p.elbow_r = -140
+        p.arm_r_out = 18
+        p.wrist = -20
+        p.arm_l = 10
+        p.elbow_l = -75
+        p.arm_l_out = 30
+        p.leg_l = -9
+        p.knee_l = 4 + math.max(math.sin(time * 8), 0.0) * 12
+        p.spread = 5
+    else if s == roster.STANCE_SHOULDER do
+        # The gun resting on a shoulder, a thumb in the belt, in no hurry at all.
+        p.lean = -2
+        p.roll = math.sin(time * 1.2) * 2
+        p.head_tilt = math.sin(time * 4) * 2
+        p.arm_r = -40
+        p.elbow_r = -120
+        p.arm_r_out = 6
+        p.wrist = -32
+        p.arm_l = 5
+        p.elbow_l = -60
+        p.arm_l_out = 22
+        p.spread = 12
+        p.crouch = 0.02 + breath * 0.006
+    else if s == roster.STANCE_KNIVES do
+        # Low, weight shifting from foot to foot, one blade turned over in the fingers.
+        var shift = math.sin(time * 4)
+        var flip = time / 3.0 - math.floor(time / 3.0)
+        p.yaw = -18
+        p.lean = 14
+        p.head = -10
+        p.roll = shift * 5
+        p.lift = math.abs(shift) * 0.03
+        p.arm_r = -20
+        p.elbow_r = -60
+        p.arm_r_out = 28
+        p.wrist = -30
+        if flip < 0.12 do
+            p.wrist -= 360 * ease(flip / 0.12)
+        end
+        p.arm_l = -35
+        p.elbow_l = -70
+        p.arm_l_out = 20
+        p.wrist_l = 100
+        p.spread = 10
+        p.leg_l = -12
+        p.leg_r = 10
+        p.crouch = 0.16
+    else if s == roster.STANCE_TINKER do
+        # Studying the device, fiddling with it, glancing up now and then.
+        var look_up = time / 4.0 - math.floor(time / 4.0)
+        var up = math.sin(look_up / 0.25 * math.PI) if look_up < 0.25 else 0.0
+        p.lean = 6
+        p.head = 14 - 16 * up
+        p.head_tilt = math.sin(time * 0.9) * 6
+        p.arm_r = -45
+        p.elbow_r = -100
+        p.arm_r_out = -6
+        p.wrist = -30
+        p.arm_l = -40
+        p.elbow_l = -110 + math.sin(time * 9) * 6 * (1 - up)
+        p.arm_l_out = -10
+        p.spread = 5
+        p.crouch = 0.02
+    else if s == roster.STANCE_CAT do
+        # Down on the haunches, rear end wiggling; now and then a paw gets licked.
+        var lick = time / 5.0 - math.floor(time / 5.0)
+        var paw = math.sin(lick / 0.3 * math.PI) if lick < 0.3 else 0.0
+        p.crouch = 0.34
+        p.lean = 30
+        p.head = -28 + 20 * paw
+        p.head_tilt = 12 * paw
+        p.roll = math.sin(time * 3) * 6 * (1 - paw)
+        p.twist = math.sin(time * 3 + 1) * 5 * (1 - paw)
+        p.arm_r = -50
+        p.elbow_r = -30
+        p.arm_r_out = 10
+        p.wrist = -40
+        p.arm_l = mix(-50, -72, paw)
+        p.elbow_l = mix(-30, -132, paw)
+        p.arm_l_out = mix(10, -12, paw)
+        p.wrist_l = -40
+        p.spread = 12
+    else if s == roster.STANCE_ROBOT do
+        # Bolt upright and not breathing. The head ticks round in steps; a servo dips now and then.
+        var dip = time / 5.0 - math.floor(time / 5.0)
+        p.lean = 0
+        p.head_turn = math.floor(math.sin(time * 0.9) * 3 + 0.5) / 3 * 42
+        p.arm_r = 0
+        p.arm_l = 0
+        p.elbow_r = -4
+        p.elbow_l = -4
+        p.arm_r_out = 7
+        p.arm_l_out = 7
+        p.wrist = 0
+        p.wrist_l = 0
+        p.spread = 6
+        p.crouch = 0.08 * math.sin(dip / 0.08 * math.PI) if dip < 0.08 else 0.0
+    else if s == roster.STANCE_ARMS do
+        # Hanging a hand's width off the floor, blade low, one arm behind the back.
+        var bob = math.sin(time * 1.5)
+        p.lift = 0.08 + bob * 0.02
+        p.lean = -2
+        p.head = -3
+        p.twist = math.sin(time * 0.7) * 5
+        p.arm_r = 5
+        p.elbow_r = -10
+        p.arm_r_out = 20
+        p.wrist = 22
+        p.arm_l = 25
+        p.elbow_l = -70
+        p.arm_l_out = -5
+        p.leg_l = 2
+        p.knee_l = 12
+        p.leg_r = -6
+        p.knee_r = 20
+        p.spread = 2
+    else if s == roster.STANCE_HOVER do
+        # Floating on slow wingbeats, arms trailing low, toes pointed down.
+        var bob = math.sin(time * 2.4)
+        p.lift = 0.06 + bob * 0.05
+        p.lean = 8
+        p.head = -6
+        p.arm_r = 18
+        p.elbow_r = -20
+        p.arm_r_out = 22
+        p.wrist = 10
+        p.arm_l = 18
+        p.elbow_l = -20
+        p.arm_l_out = 22
+        p.wrist_l = 10
+        p.leg_l = 10
+        p.knee_l = 30
+        p.leg_r = 2
+        p.knee_r = 42
+        p.spread = 3
+        p.cape = 26 + bob * 6
+    else if s == roster.STANCE_SHAMBLE do
+        # Lopsided, hunched, the axe hanging off one arm, the head lolling; now and then a twitch.
+        var twitch = time / 3.7 - math.floor(time / 3.7)
+        var jerk = math.sin(twitch / 0.06 * math.PI) if twitch < 0.06 else 0.0
+        p.lean = 20 + breath * 2
+        p.roll = -9 + math.sin(time * 0.8) * 3
+        p.head = 10 - 14 * jerk
+        p.head_tilt = 22 + math.sin(time * 0.6) * 6
+        p.arm_r = 4
+        p.elbow_r = -14
+        p.arm_r_out = 10
+        p.wrist = 18
+        p.arm_l = -26 + 10 * jerk
+        p.elbow_l = -40
+        p.arm_l_out = 22
+        p.wrist_l = 0
+        p.leg_l = -8
+        p.leg_r = 10
+        p.knee_r = 18
+        p.spread = 8
+        p.crouch = 0.06
+    else if s == roster.STANCE_BO do
+        # Low and wide, the staff level across the body; only the breath moves.
+        p.yaw = 30
+        p.lean = 6
+        p.head = -4
+        p.arm_r = -44
+        p.elbow_r = -70
+        p.arm_r_out = 16
+        p.wrist = -90 + breath * 2
+        p.arm_l = -50
+        p.elbow_l = -60
+        p.arm_l_out = 10
+        p.leg_l = -16
+        p.leg_r = 14
+        p.knee_r = 20
+        p.spread = 12
+        p.crouch = 0.2 + breath * 0.006
+    else if s == roster.STANCE_AIM do
+        # Side on like a duellist: the gun held up by the cheek, the other hand behind the back.
+        # Every so often the arm comes down and sights along the barrel.
+        var sight = time / 4.5 - math.floor(time / 4.5)
+        var down = smooth(math.sin(math.clamp(sight / 0.3, 0.0, 1.0) * math.PI))
+        p.yaw = 42
+        p.lean = 0
+        p.head = -2
+        p.arm_r = mix(-48, -84, down)
+        p.elbow_r = mix(-122, -6, down)
+        p.arm_r_out = mix(14, 42, down)
+        p.wrist = 0
+        p.arm_l = 30
+        p.elbow_l = -84
+        p.arm_l_out = -4
+        p.spread = 10
+        p.crouch = 0.02 + breath * 0.005
+    end
+    return p
+end
+
+# The pose for what a fighter is doing.
+#   phase   for attacks: 0..1 winding up, 1..2 striking, 2..3 recovering;
+#           for the other actions: 0..1 through it
+#   beat    which strike of a multi-hit move this is (for a roll: 1 means backward)
+#   cycle   the walk cycle in radians, and `moving` 0..1 how much of it to show
+#   settle  0..1 how far an idle fighter has settled back into their own stance
+function make_pose(roster.Look look, int action, int anim, double phase, int beat, double cycle,
+        double moving, double time, double settle = 1) returns Pose
+    var p = action_pose(look, action, anim, phase, beat, cycle, moving, time)
+    # Moves grow out of the fighter's own stance and fall back into it.
+    var k = 0.0
+    if look.stance != roster.STANCE_GUARD do
+        if action == ACT_IDLE do
+            k = math.clamp(settle, 0.0, 1.0)
+        else if action == ACT_ATTACK and phase < 1 do
+            k = 1 - math.clamp(phase / 0.4, 0.0, 1.0)
+        else if action == ACT_ATTACK and phase >= 2 do
+            k = math.clamp((phase - 2.4) / 0.6, 0.0, 1.0)
+        end
+    end
+    if k > 0 do
+        var s = stance_pose(look, time)
+        var upper = k * (1 - 0.55 * moving)
+        var lower = k * (1 - moving)
+        var side = k * (1 - 0.7 * moving)
+        var legs = blend(p, s, lower)
+        var turned = blend(p, s, side)
+        var stood = blend(p, s, upper)
+        stood.leg_l = legs.leg_l
+        stood.leg_r = legs.leg_r
+        stood.knee_l = legs.knee_l
+        stood.knee_r = legs.knee_r
+        stood.spread = legs.spread
+        stood.crouch = legs.crouch
+        stood.lift = legs.lift
+        stood.yaw = turned.yaw
+        stood.head_turn = turned.head_turn
+        p = stood
+    end
+    # The eyes stay on the opponent whatever the body is doing.
+    if action != ACT_HURT and action != ACT_DOWN and action != ACT_AIR do
+        p.head_turn += math.clamp(-(turn(p.yaw) + p.twist) * 0.85, -75.0, 75.0)
+    end
+    # Wings beat slowly at rest and spread wide to strike.
+    p.wing = 30 + 14 * math.sin(time * 4.8)
+    if action == ACT_ATTACK and phase >= 0.6 and phase < 2.4 do
+        p.wing = -12
+    else if action == ACT_DASH do
+        p.wing = 60
+    end
+    # Some fighters never quite touch the ground.
+    if look.hover > 0 and action != ACT_DOWN do
+        p.lift += look.hover + 0.04 * math.sin(time * 2.4)
+    end
+    # A crouch is the knees bending: thighs forward, shins back, feet where they were.
+    if p.crouch > 0 do
+        var bend = math.acos(math.clamp(1 - p.crouch / 0.84, 0.0, 1.0)) * 180 / math.PI
+        p.leg_l -= bend
+        p.leg_r -= bend
+        p.knee_l += bend * 2
+        p.knee_r += bend * 2
+        p.crouch = 0
+    end
+    return p
+end
+
+# The plain guard, walking, and every action: what all fighters share.
+private function action_pose(roster.Look look, int action, int anim, double phase, int beat, double cycle,
+        double moving, double time) returns Pose
+    var p = Pose()
+    var breath = math.sin(time * 2.2)
+    var weapon = look.weapon
+    var fists = weapon == roster.WEAPON_FISTS or weapon == roster.WEAPON_CLAWS or weapon == roster.WEAPON_CANNON
+    # The guard everything starts from and returns to.
+    var g_arm = -20.0
+    var g_elbow = -75.0
+    var g_wrist = -25.0
+    var g_arm_l = -15.0
+    var g_elbow_l = -60.0
+    if fists do
+        g_arm = -38
+        g_elbow = -108
+        g_wrist = 0
+        g_arm_l = -45
+        g_elbow_l = -100
+    else if weapon == roster.WEAPON_GUN or weapon == roster.WEAPON_SHOTGUN or weapon == roster.WEAPON_DEVICE or
+            weapon == roster.WEAPON_REVOLVER do
+        g_arm = -10
+        g_elbow = -62
+        g_wrist = -18
+    else if weapon == roster.WEAPON_CROOK or weapon == roster.WEAPON_STAFF or weapon == roster.WEAPON_CANE or
+            weapon == roster.WEAPON_BO do
+        g_arm = -25
+        g_elbow = -55
+        g_wrist = -85
+    else if weapon == roster.WEAPON_DAGGER do
+        g_arm_l = -20
+        g_elbow_l = -75
+    end
+    p.arm_r = g_arm + breath * 2
+    p.elbow_r = g_elbow
+    p.wrist = g_wrist
+    p.arm_l = g_arm_l - breath * 2
+    p.elbow_l = g_elbow_l
+    p.wrist_l = g_wrist
+    p.crouch = 0.03 + breath * 0.006
+
+    # Walking, under whatever the arms are doing: knees lift, the body bobs and turns a little.
+    var swing = math.sin(cycle) * 34 * moving
+    p.leg_l = swing
+    p.leg_r = -swing
+    p.knee_l = (0.5 + 0.5 * math.sin(cycle + 2.0)) * 52 * moving
+    p.knee_r = (0.5 - 0.5 * math.sin(cycle + 2.0)) * 52 * moving
+    p.lean = 4 + 9 * moving
+    p.twist = math.sin(cycle) * 7 * moving
+    p.cape = 14 + 28 * moving
+    p.arm_l += -swing * 0.5
+    p.elbow_l += -12 * moving
+    if not fists do
+        p.arm_r += swing * 0.2
+    end
+
+    if action == ACT_ATTACK do
+        var w = smooth(phase)
+        var s = snap(phase - 1)
+        var r = smooth(phase - 2)
+        var into = math.clamp(phase - 1, 0.0, 1.0)
+        if anim == roster.ANIM_SWING do
+            p.arm_r = key(w, s, r, g_arm, -150, -40)
+            p.elbow_r = key(w, s, r, g_elbow, -85, -6)
+            p.wrist = key(w, s, r, g_wrist, -30, -50)
+            p.arm_r_out = key(w, s, r, 8, 36, -26)
+            p.twist = key(w, s, r, 0, -40, 44)
+            p.lean = key(w, s, r, 4, -7, 17)
+            p.arm_l = key(w, s, r, g_arm_l, -50, 24)
+            p.leg_l = key(w, s, r, 0, 6, 18)
+            p.leg_r = key(w, s, r, 0, -4, -22)
+            p.knee_r = key(w, s, r, 0, 6, 26)
+        else if anim == roster.ANIM_BACKSWING do
+            p.arm_r = key(w, s, r, g_arm, -62, -94)
+            p.elbow_r = key(w, s, r, g_elbow, -100, -4)
+            p.wrist = key(w, s, r, g_wrist, -40, -12)
+            p.arm_r_out = key(w, s, r, 8, -46, 54)
+            p.twist = key(w, s, r, 0, 42, -38)
+            p.lean = key(w, s, r, 4, 10, 6)
+            p.arm_l = key(w, s, r, g_arm_l, -30, -60)
+            p.leg_l = key(w, s, r, 0, -6, -20)
+            p.knee_l = key(w, s, r, 0, 8, 24)
+            p.leg_r = key(w, s, r, 0, 4, 16)
+        else if anim == roster.ANIM_THRUST or anim == roster.ANIM_COUNTER do
+            var hold = anim == roster.ANIM_COUNTER
+            p.arm_r = key(w, s, r, g_arm, -60 if hold else -28, -90)
+            p.elbow_r = key(w, s, r, g_elbow, -85 if hold else -125, 0)
+            p.wrist = key(w, s, r, g_wrist, -35 if hold else -30, 0)
+            p.arm_r_out = key(w, s, r, 8, -14 if hold else 10, 4)
+            p.twist = key(w, s, r, 0, 20 if hold else -36, 40)
+            p.lean = key(w, s, r, 4, -2, 19)
+            p.arm_l = key(w, s, r, g_arm_l, 30 if hold else -40, 38)
+            p.elbow_l = key(w, s, r, g_elbow_l, -100 if hold else -70, -20)
+            p.leg_r = key(w, s, r, 0, 4, -40)
+            p.knee_r = key(w, s, r, 0, 10, 38)
+            p.leg_l = key(w, s, r, 0, -4, 28)
+        else if anim == roster.ANIM_PUNCH or anim == roster.ANIM_CROSS do
+            var left = beat % 2 == 1
+            if anim == roster.ANIM_CROSS do
+                left = not left
+            end
+            var reach = key(w, s, r, g_arm, -24, -90)
+            var bend = key(w, s, r, g_elbow, -135, 0)
+            var turned = key(w, s, r, 0, -28, 36)
+            if left do
+                p.arm_l = reach
+                p.elbow_l = bend
+                p.twist = -turned
+                p.arm_r = g_arm - 8 * into
+            else do
+                p.arm_r = reach
+                p.elbow_r = bend
+                p.twist = turned
+                p.arm_l = g_arm_l - 8 * into
+            end
+            p.lean = key(w, s, r, 4, 2, 15)
+            p.leg_l = key(w, s, r, 0, 0, -16)
+            p.knee_l = key(w, s, r, 0, 0, 20)
+            p.leg_r = key(w, s, r, 0, 0, 14)
+        else if anim == roster.ANIM_HOOK do
+            p.arm_r = key(w, s, r, g_arm, -70, -86)
+            p.elbow_r = key(w, s, r, g_elbow, -100, -80)
+            p.arm_r_out = key(w, s, r, 8, 72, -38)
+            p.twist = key(w, s, r, 0, -52, 62)
+            p.lean = key(w, s, r, 4, 4, 12)
+            p.roll = key(w, s, r, 0, 8, -8)
+            p.leg_r = key(w, s, r, 0, 6, -14)
+            p.knee_r = key(w, s, r, 0, 10, 26)
+            p.leg_l = key(w, s, r, 0, -6, 12)
+        else if anim == roster.ANIM_UPPERCUT do
+            p.arm_r = key(w, s, r, g_arm, 14, -152)
+            p.elbow_r = key(w, s, r, g_elbow, -95, -40)
+            p.wrist = key(w, s, r, g_wrist, -60, -15)
+            p.twist = key(w, s, r, 0, -32, 30)
+            p.lean = key(w, s, r, 4, 24, -10)
+            p.head = key(w, s, r, 0, 10, -14)
+            p.crouch = key(w, s, r, 0.03, 0.26, 0.0)
+            p.lift = key(w, s, r, 0, 0, 0.3)
+            p.arm_l = key(w, s, r, g_arm_l, -30, 30)
+        else if anim == roster.ANIM_SPIN do
+            p.yaw = mix(mix(0, -45, w), 360, s)
+            p.arm_r = key(w, s, r, g_arm, -60, -86)
+            p.elbow_r = key(w, s, r, g_elbow, -90, -4)
+            p.wrist = key(w, s, r, g_wrist, -30, -4)
+            p.arm_r_out = key(w, s, r, 8, -30, 74)
+            p.arm_l = key(w, s, r, g_arm_l, -30, -70)
+            p.arm_l_out = key(w, s, r, 8, 0, 60)
+            p.lean = key(w, s, r, 4, 12, 10)
+            p.spread = key(w, s, r, 0, 4, 12)
+            p.crouch = key(w, s, r, 0.03, 0.16, 0.1)
+        else if anim == roster.ANIM_POUNCE do
+            var air = math.sin(math.clamp((phase - 0.55) / 1.45, 0.0, 1.0) * math.PI)
+            p.lift = air * 0.65
+            p.crouch = key(w, s, r, 0.03, 0.3, 0.1)
+            p.lean = key(w, s, r, 4, 26, 34)
+            p.arm_r = key(w, s, r, g_arm, 46, -100)
+            p.arm_l = p.arm_r
+            p.elbow_r = key(w, s, r, g_elbow, -30, -50)
+            p.elbow_l = p.elbow_r
+            p.arm_r_out = key(w, s, r, 8, 30, 12)
+            p.arm_l_out = p.arm_r_out
+            p.leg_l = key(w, s, r, 0, 0, 26)
+            p.leg_r = key(w, s, r, 0, 0, 34)
+            p.knee_l = key(w, s, r, 0, 0, 50)
+            p.knee_r = key(w, s, r, 0, 0, 70)
+            p.head = key(w, s, r, 0, -10, -24)
+            p.cape = 60
+        else if anim == roster.ANIM_CHARGE do
+            var run = math.sin(time * 16) * 42
+            var go = math.clamp(phase * 2, 0.0, 1.0) * (1 - r)
+            p.lean = mix(4, 36, go)
+            p.twist = mix(0, -34, go) + key(w, s, r, 0, 0, 50)
+            p.arm_l = mix(g_arm_l, -70, go)
+            p.elbow_l = mix(g_elbow_l, -115, go) + key(w, s, r, 0, 0, 80)
+            p.arm_r = mix(g_arm, 34, go)
+            p.leg_l = run * go
+            p.leg_r = -run * go
+            p.knee_l = math.max(run, 0.0) * 1.4 * go
+            p.knee_r = math.max(-run, 0.0) * 1.4 * go
+            p.head = mix(0, -20, go)
+        else if anim == roster.ANIM_THROW do
+            p.arm_r = key(w, s, r, g_arm, -205, -66)
+            p.elbow_r = key(w, s, r, g_elbow, -95, -12)
+            p.wrist = key(w, s, r, g_wrist, -20, -30)
+            p.twist = key(w, s, r, 0, -34, 34)
+            p.lean = key(w, s, r, 4, -12, 18)
+            p.arm_l = key(w, s, r, g_arm_l, -80, 10)
+            p.elbow_l = key(w, s, r, g_elbow_l, -20, -40)
+            p.leg_l = key(w, s, r, 0, -10, -22)
+            p.knee_l = key(w, s, r, 0, 0, 24)
+            p.leg_r = key(w, s, r, 0, 8, 18)
+        else if anim == roster.ANIM_ROLL do
+            var through = smooth(math.clamp(phase / 2, 0.0, 1.0))
+            var tuck = math.sin(math.clamp(phase / 2, 0.0, 1.0) * math.PI)
+            p.flip = (-360.0 if beat == 1 else 360.0) * through
+            p.lift = tuck * 0.12
+            p.lean = mix(4, 40, tuck)
+            p.head = mix(0, 30, tuck)
+            p.arm_r = mix(g_arm, -60, tuck)
+            p.arm_l = mix(g_arm_l, -60, tuck)
+            p.elbow_r = mix(g_elbow, -125, tuck)
+            p.elbow_l = mix(g_elbow_l, -125, tuck)
+            p.leg_l = mix(0, -85, tuck)
+            p.leg_r = mix(0, -85, tuck)
+            p.knee_l = mix(0, 125, tuck)
+            p.knee_r = mix(0, 125, tuck)
+        else if anim == roster.ANIM_PLANT do
+            var down = math.sin(math.clamp(phase / 2.4, 0.0, 1.0) * math.PI)
+            p.crouch = 0.03 + 0.42 * down
+            p.lean = mix(4, 32, down)
+            p.head = mix(0, 18, down)
+            p.arm_r = mix(g_arm, -42, down)
+            p.elbow_r = mix(g_elbow, -8, down)
+            p.arm_l = mix(g_arm_l, -30, down)
+            p.elbow_l = mix(g_elbow_l, -80, down)
+        else if anim == roster.ANIM_FOCUS do
+            p.arm_r = key(w, s, r, g_arm, -62, 14)
+            p.arm_l = key(w, s, r, g_arm_l, -62, 14)
+            p.elbow_r = key(w, s, r, g_elbow, -128, -12)
+            p.elbow_l = key(w, s, r, g_elbow_l, -128, -12)
+            p.arm_r_out = key(w, s, r, 8, -22, 42)
+            p.arm_l_out = key(w, s, r, 8, -22, 42)
+            p.lean = key(w, s, r, 4, 16, -9)
+            p.head = key(w, s, r, 0, 14, -16)
+            p.crouch = key(w, s, r, 0.03, 0.16, 0.0)
+            p.lift = key(w, s, r, 0, 0, 0.06)
+            p.spread = key(w, s, r, 0, 2, 9)
+            p.cape = key(w, s, r, 14, 10, 50)
+        else if anim == roster.ANIM_TWIRL do
+            # The gun spun at chest height while waiting. Set off (beat 1), it snaps level and fires;
+            # left alone, it is caught muzzle-up and put away.
+            if phase < 1 do
+                var up = math.clamp(phase * 3, 0.0, 1.0)
+                p.arm_r = mix(g_arm, -42, up)
+                p.elbow_r = mix(g_elbow, -96, up)
+                p.arm_r_out = mix(8, -10, up)
+                p.wrist = g_wrist - 1080 * phase
+                p.twist = mix(0, 10, up)
+                p.head = mix(0, 10, up)
+            else if beat > 0 do
+                var level = mix(1, 0, r)
+                var kick = (1 - s) if phase < 2 else 0.0
+                p.arm_r = mix(g_arm, -88, level) - 20 * kick
+                p.elbow_r = mix(g_elbow, -3, level) - 26 * kick
+                p.wrist = mix(g_wrist, 0, level)
+                p.twist = mix(0, 24, level)
+                p.lean = mix(4, 1, level) - 4 * kick
+                p.head_tilt = mix(0, -6, level)
+            else do
+                p.arm_r = mix(-50, g_arm, r)
+                p.elbow_r = mix(-112, g_elbow, r)
+                p.arm_r_out = mix(-6, 8, r)
+                p.wrist = mix(-85, g_wrist, r)
+                p.twist = mix(10, 0, r)
+                p.head = mix(4, 0, r)
+            end
+        else if anim == roster.ANIM_SHOOT do
+            var level = mix(mix(0, 1, w), 0, r)
+            var kick = (1 - s) if phase >= 1 and phase < 2 else 0.0
+            p.arm_r = mix(g_arm, -88, level) - 20 * kick
+            p.elbow_r = mix(g_elbow, -3, level) - 26 * kick
+            p.wrist = mix(g_wrist, 0, level)
+            p.twist = mix(0, 24, level)
+            p.lean = mix(4, 1, level) - 4 * kick
+            p.head_tilt = mix(0, -6, level)
+            if weapon == roster.WEAPON_CANNON do
+                # Braced under the pod.
+                p.crouch = mix(0.03, 0.16, level)
+                p.lean = mix(4, 14, level) - 8 * kick
+                p.spread = mix(0, 12, level)
+                p.twist = 0
+            else if phase >= 1 and phase < 2 and beat > 0 do
+                # The other hand fanning the hammer.
+                p.arm_l = -62
+                p.elbow_l = -92 + 30 * kick
+                p.arm_l_out = -26
+            end
+        else if anim == roster.ANIM_CAST do
+            p.arm_r = key(w, s, r, g_arm, -155, -86)
+            p.arm_l = key(w, s, r, g_arm_l, -155, -86)
+            p.elbow_r = key(w, s, r, g_elbow, -34, -2)
+            p.elbow_l = key(w, s, r, g_elbow_l, -34, -2)
+            p.arm_r_out = key(w, s, r, 8, 24, 34)
+            p.arm_l_out = p.arm_r_out
+            p.wrist = key(w, s, r, g_wrist, -10, -10)
+            p.lean = key(w, s, r, 4, -9, 15)
+            p.head = key(w, s, r, 0, -12, 6)
+            p.lift = key(w, s, r, 0, 0.05, 0)
+            p.cape = key(w, s, r, 14, 30, 50)
+        else if anim == roster.ANIM_SLAM do
+            p.arm_r = key(w, s, r, g_arm, -172, -34)
+            p.arm_l = key(w, s, r, g_arm_l, -172, -34)
+            p.elbow_r = key(w, s, r, g_elbow, -42, -6)
+            p.elbow_l = key(w, s, r, g_elbow_l, -42, -6)
+            p.arm_r_out = key(w, s, r, 8, 6, -8)
+            p.arm_l_out = p.arm_r_out
+            p.wrist = key(w, s, r, g_wrist, -20, -40)
+            p.lean = key(w, s, r, 4, -15, 36)
+            p.head = key(w, s, r, 0, -12, 14)
+            p.lift = key(w, s, r, 0, 0.14, 0)
+            p.crouch = key(w, s, r, 0.03, 0.0, 0.24)
+        else if anim == roster.ANIM_BITE do
+            p.arm_r = key(w, s, r, g_arm, -70, -86)
+            p.arm_l = key(w, s, r, g_arm_l, -70, -86)
+            p.elbow_r = key(w, s, r, g_elbow, -30, -62)
+            p.elbow_l = key(w, s, r, g_elbow_l, -30, -62)
+            p.arm_r_out = key(w, s, r, 8, 52, -10)
+            p.arm_l_out = p.arm_r_out
+            p.lean = key(w, s, r, 4, -8, 30)
+            p.head = key(w, s, r, 0, -18, 24)
+            p.leg_l = key(w, s, r, 0, 20, -18)
+            p.leg_r = key(w, s, r, 0, -20, 20)
+            p.knee_l = key(w, s, r, 0, 10, 26)
+            p.cape = 50
+        else do
+            # ANIM_SPIT
+            p.arm_r = key(w, s, r, g_arm, 28, 20)
+            p.arm_l = key(w, s, r, g_arm_l, 28, 20)
+            p.elbow_r = key(w, s, r, g_elbow, -40, -20)
+            p.elbow_l = key(w, s, r, g_elbow_l, -40, -20)
+            p.arm_r_out = key(w, s, r, 8, 22, 30)
+            p.arm_l_out = p.arm_r_out
+            p.lean = key(w, s, r, 4, -15, 24)
+            p.head = key(w, s, r, 0, -20, 18)
+            p.crouch = key(w, s, r, 0.03, 0.03, 0.12)
+        end
+    else if action == ACT_BLOCK do
+        if fists do
+            p.arm_r = -78
+            p.arm_l = -78
+            p.elbow_r = -118
+            p.elbow_l = -118
+            p.arm_r_out = -16
+            p.arm_l_out = -16
+        else do
+            # The weapon held across the body, the free hand behind it.
+            p.arm_r = -72
+            p.elbow_r = -98
+            p.arm_r_out = -30
+            p.wrist = -50
+            p.arm_l = -70
+            p.elbow_l = -105
+            p.arm_l_out = -22
+        end
+        p.lean = -3
+        p.head = 6
+        p.crouch = 0.12
+        p.spread = 6
+        p.leg_l = -10
+        p.leg_r = 10
+    else if action == ACT_HURT do
+        var jolt = 1 - smooth(phase) * 0.7
+        var way = -1.0 if beat % 2 == 1 else 1.0
+        p.lean = -26 * jolt
+        p.head = -22 * jolt
+        p.twist = 20 * jolt * way
+        p.roll = 7 * jolt * way
+        p.arm_r = -10 - 20 * jolt
+        p.arm_l = -10 - 30 * jolt
+        p.elbow_r = -30 - 20 * jolt
+        p.elbow_l = -30
+        p.arm_r_out = 42 * jolt
+        p.arm_l_out = 36 * jolt
+        p.leg_l = -16 * jolt
+        p.knee_l = 26 * jolt
+        p.leg_r = 12 * jolt
+        p.crouch = 0.05 * jolt
+    else if action == ACT_AIR do
+        p.flip = -58 + 18 * math.sin(time * 9)
+        p.lean = -8
+        p.head = -16
+        p.arm_r = -30
+        p.arm_l = -50
+        p.elbow_r = -25
+        p.elbow_l = -25
+        p.arm_r_out = 62
+        p.arm_l_out = 58
+        p.leg_l = -36
+        p.knee_l = 48
+        p.leg_r = -10
+        p.knee_r = 26
+        p.cape = 4
+    else if action == ACT_DOWN do
+        var t = math.clamp(phase, 0.0, 1.0)
+        # Over backward, with one small bounce.
+        p.fall = math.min(ease(t * 1.4), 1.0) - 0.07 * math.sin(math.clamp((t - 0.7) / 0.3, 0.0, 1.0) * math.PI)
+        p.arm_r = -20
+        p.arm_l = -30
+        p.elbow_r = -20
+        p.elbow_l = -40
+        p.arm_r_out = 56 * p.fall
+        p.arm_l_out = 48 * p.fall
+        p.leg_l = 8 - 30 * (1 - t)
+        p.knee_l = 40 * (1 - t) + 12
+        p.leg_r = -6
+        p.lean = 0
+        p.head = -10
+        p.crouch = 0
+    else if action == ACT_DASH do
+        p.lean = 40
+        p.head = -26
+        p.arm_r = 52
+        p.arm_l = 46
+        p.elbow_r = -30
+        p.elbow_l = -30
+        p.arm_r_out = 16
+        p.arm_l_out = 16
+        p.leg_l = -56
+        p.knee_l = 36
+        p.leg_r = 40
+        p.knee_r = 64
+        p.cape = 66
+    else if action == ACT_WIN do
+        var up = smooth(phase)
+        p.arm_r = mix(g_arm, -168, up)
+        p.elbow_r = mix(g_elbow, -14, up)
+        p.wrist = mix(g_wrist, -6, up)
+        p.arm_r_out = 14
+        p.arm_l = mix(g_arm_l, 8, up)
+        p.elbow_l = mix(g_elbow_l, -72, up)
+        p.arm_l_out = mix(8, 32, up)
+        p.lean = -4
+        p.head = -10 + math.sin(time * 3) * 3 * up
+        p.lift = math.abs(math.sin(time * 3)) * 0.02 * up
+        p.spread = 8 * up
+    else if action == ACT_RELOAD do
+        p.arm_r = -40
+        p.elbow_r = -96
+        p.arm_r_out = -6
+        p.wrist = -22
+        p.arm_l = -52
+        p.elbow_l = -100 + math.sin(time * 22) * 9
+        p.arm_l_out = -28
+        p.head = 14
+    end
+    return p
+end
+
+private function part(Rig rig, double x, double y, double z, double w, double h, double d, ap.Color color)
+    ap.draw(rig.box, ap.Vec3(x, y, z), color, ap.Vec3(0, 0, 0), ap.Vec3(w, h, d))
+end
+
+# A part that gives off its own light (eyes, blades, orbs). Shadows do not care.
+private function glow(Rig rig, double x, double y, double z, double w, double h, double d, ap.Color color)
+    if ap.casting_shadows() do
+        return
+    end
+    ap.lighting(false)
+    ap.draw(rig.box, ap.Vec3(x, y, z), color, ap.Vec3(0, 0, 0), ap.Vec3(w, h, d))
+    ap.lighting(true)
+end
+
+const ap.Vec3 AXIS_X = ap.Vec3(1, 0, 0)
+const ap.Vec3 AXIS_Y = ap.Vec3(0, 1, 0)
+const ap.Vec3 AXIS_Z = ap.Vec3(0, 0, 1)
+
+# Draws a fighter standing on `at`, facing `heading` degrees around y (0 faces +z).
+# `alpha` under 1 makes it see-through (the shroud).
+function draw(Rig rig, roster.Look look, Pose p, ap.Vec3 at, double heading, double alpha = 1)
+    if alpha <= 0.01 do
+        return
+    end
+    if ap.casting_shadows() and alpha < 0.6 do
+        return
+    end
+    var skin = look.skin.fade(alpha)
+    var body = look.body.fade(alpha)
+    var legs = look.legs.fade(alpha)
+    var trim = look.trim.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+
+    ap.push_3d()
+    ap.translate_3d(at)
+    ap.rotate_3d(heading, AXIS_Y)
+    if p.fall > 0 do
+        ap.translate_3d(ap.Vec3(0, 0.16 * p.fall, 0))
+        ap.rotate_3d(-88 * p.fall, AXIS_X)
+    end
+    ap.rotate_3d(p.yaw, AXIS_Y)
+    ap.scale_3d(ap.Vec3(look.bulk, look.tall, look.bulk))
+    # However the legs are bent, the lower foot rests on the ground.
+    var rad = math.PI / 180
+    var reach_l = (0.4 * math.cos(p.leg_l * rad) + 0.44 * math.cos((p.leg_l + p.knee_l) * rad)) * math.cos(p.spread * rad)
+    var reach_r = (0.4 * math.cos(p.leg_r * rad) + 0.44 * math.cos((p.leg_r + p.knee_r) * rad)) * math.cos(p.spread * rad)
+    ap.translate_3d(ap.Vec3(0, math.max(reach_l, reach_r) - 0.84 + p.lift, 0))
+    if p.flip != 0 do
+        ap.translate_3d(ap.Vec3(0, 0.9, 0))
+        ap.rotate_3d(p.flip, AXIS_X)
+        ap.translate_3d(ap.Vec3(0, -0.9, 0))
+    end
+
+    # Legs, swinging from the hips.
+    for side in [-1.0, 1.0] do
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(side * 0.12, 0.84, 0))
+        ap.rotate_3d(p.leg_r if side < 0 else p.leg_l, AXIS_X)
+        ap.rotate_3d(side * p.spread, AXIS_Z)
+        part(rig, 0, -0.2, 0, 0.19, 0.44, 0.21, legs)
+        ap.translate_3d(ap.Vec3(0, -0.4, 0))
+        ap.rotate_3d(p.knee_r if side < 0 else p.knee_l, AXIS_X)
+        part(rig, 0, -0.17, 0, 0.17, 0.4, 0.19, legs)
+        part(rig, 0, -0.37, 0.03, 0.2, 0.14, 0.28, dark)
+        ap.pop_3d()
+    end
+
+    # Torso, with everything above the hips attached.
+    ap.push_3d()
+    ap.translate_3d(ap.Vec3(0, 0.82, 0))
+    ap.rotate_3d(p.lean, AXIS_X)
+    ap.rotate_3d(p.twist, AXIS_Y)
+    ap.rotate_3d(p.roll, AXIS_Z)
+    part(rig, 0, 0.3, 0, 0.46, 0.6, 0.27, body)
+    part(rig, 0, 0.03, 0, 0.48, 0.09, 0.29, trim)
+    if look.weapon == roster.WEAPON_CANNON do
+        # Shoulder plates and the rocket pod.
+        part(rig, -0.3, 0.6, 0, 0.2, 0.14, 0.32, metal)
+        part(rig, 0.3, 0.6, 0, 0.2, 0.14, 0.32, metal)
+        part(rig, -0.3, 0.8, -0.02, 0.3, 0.26, 0.52, metal)
+        part(rig, -0.3, 0.8, 0.25, 0.22, 0.18, 0.03, dark)
+        glow(rig, -0.3, 0.8, 0.27, 0.07, 0.07, 0.02, accent)
+        part(rig, 0, 0.36, 0.14, 0.34, 0.3, 0.03, trim)
+    else if look.head == roster.HEAD_CAT do
+        # A tail, and a pale belly.
+        part(rig, 0, 0.06, -0.26, 0.06, 0.06, 0.3, body)
+        part(rig, 0, 0.16, -0.42, 0.06, 0.24, 0.06, body)
+        part(rig, 0, 0.3, -0.42, 0.065, 0.06, 0.065, trim)
+        part(rig, 0, 0.26, 0.135, 0.26, 0.4, 0.02, trim)
+    else if look.head == roster.HEAD_ROBOT do
+        part(rig, 0, 0.36, 0.14, 0.3, 0.22, 0.02, dark)
+        glow(rig, 0, 0.38, 0.155, 0.1, 0.1, 0.01, accent)
+        part(rig, -0.27, 0.56, 0, 0.14, 0.12, 0.3, trim)
+        part(rig, 0.27, 0.56, 0, 0.14, 0.12, 0.3, trim)
+    else if look.head == roster.HEAD_HAZMAT do
+        part(rig, 0, 0.34, -0.17, 0.26, 0.4, 0.1, metal)
+    else if look.head == roster.HEAD_GOGGLES do
+        # The lab coat's lapels.
+        part(rig, -0.09, 0.4, 0.14, 0.1, 0.36, 0.02, trim)
+        part(rig, 0.09, 0.4, 0.14, 0.1, 0.36, 0.02, trim)
+    else if look.head == roster.HEAD_TOPHAT do
+        # A waistcoat and a watch chain.
+        part(rig, 0, 0.3, 0.138, 0.24, 0.42, 0.02, look.legs.brightness(1.6).fade(alpha))
+        part(rig, 0.06, 0.24, 0.15, 0.1, 0.015, 0.01, trim)
+    end
+    if look.wings do
+        # Two wings from between the shoulder blades, in layers like feathers.
+        var feathers = look.wing_color.fade(alpha)
+        for side in [-1.0, 1.0] do
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(side * 0.1, 0.5, -0.16))
+            ap.rotate_3d(side * (35 + p.wing), AXIS_Y)
+            ap.rotate_3d(side * 14, AXIS_Z)
+            for k in 0..<4 do
+                var long = 1.0 - double(k) * 0.17
+                part(rig, side * long / 2, 0.12 - double(k) * 0.13, -0.012 * double(k), long, 0.13, 0.03, feathers)
+            end
+            glow(rig, side * 0.98, 0.14, 0, 0.06, 0.06, 0.035, accent)
+            ap.pop_3d()
+        end
+    end
+
+    # Head.
+    ap.push_3d()
+    ap.translate_3d(ap.Vec3(0, 0.62, 0))
+    ap.rotate_3d(p.head_turn, AXIS_Y)
+    ap.rotate_3d(p.head, AXIS_X)
+    ap.rotate_3d(p.head_tilt, AXIS_Z)
+    part(rig, 0, 0.16, 0, 0.28, 0.3, 0.28, skin)
+    if look.head != roster.HEAD_MASK do
+        if look.glowing_eyes do
+            glow(rig, -0.07, 0.19, 0.142, 0.06, 0.04, 0.01, look.eyes.fade(alpha))
+            glow(rig, 0.07, 0.19, 0.142, 0.06, 0.04, 0.01, look.eyes.fade(alpha))
+        else do
+            part(rig, -0.07, 0.19, 0.142, 0.05, 0.05, 0.01, look.eyes.fade(alpha))
+            part(rig, 0.07, 0.19, 0.142, 0.05, 0.05, 0.01, look.eyes.fade(alpha))
+        end
+    end
+    if look.head == roster.HEAD_SLICK do
+        part(rig, 0, 0.31, -0.02, 0.3, 0.07, 0.3, dark)
+        part(rig, 0, 0.2, -0.13, 0.3, 0.24, 0.05, dark)
+        part(rig, 0, 0.27, 0.13, 0.08, 0.07, 0.03, dark)
+        # The collar.
+        part(rig, -0.17, 0.06, -0.08, 0.05, 0.3, 0.26, look.cape_color.fade(alpha))
+        part(rig, 0.17, 0.06, -0.08, 0.05, 0.3, 0.26, look.cape_color.fade(alpha))
+        part(rig, 0, 0.06, -0.19, 0.36, 0.3, 0.05, look.cape_color.fade(alpha))
+    else if look.head == roster.HEAD_BAND do
+        part(rig, 0, 0.32, 0, 0.3, 0.06, 0.3, dark)
+        part(rig, 0, 0.25, 0, 0.31, 0.06, 0.31, accent)
+        part(rig, 0.08, 0.18, -0.2, 0.05, 0.05, 0.16, accent)
+        part(rig, -0.04, 0.14, -0.22, 0.05, 0.05, 0.2, accent)
+    else if look.head == roster.HEAD_COBRA do
+        part(rig, 0, 0.2, -0.13, 0.62, 0.46, 0.05, body)
+        part(rig, 0, 0.2, -0.1, 0.5, 0.36, 0.03, trim)
+        part(rig, 0, 0.33, 0, 0.3, 0.06, 0.3, body)
+    else if look.head == roster.HEAD_PLUME do
+        part(rig, 0, 0.32, 0, 0.56, 0.03, 0.56, body)
+        part(rig, 0, 0.39, 0, 0.3, 0.12, 0.3, body)
+        part(rig, 0, 0.345, 0, 0.31, 0.03, 0.31, trim)
+        part(rig, 0.14, 0.46, -0.1, 0.04, 0.2, 0.26, accent)
+        part(rig, 0, 0.14, -0.14, 0.3, 0.24, 0.04, trim)
+    else if look.head == roster.HEAD_COWBOY do
+        part(rig, 0, 0.31, 0, 0.6, 0.03, 0.52, body.brightness(0.7))
+        part(rig, 0, 0.39, 0, 0.3, 0.14, 0.3, body.brightness(0.7))
+        part(rig, 0, 0.335, 0, 0.31, 0.03, 0.31, trim)
+        part(rig, 0, 0.07, 0.02, 0.3, 0.13, 0.28, trim)
+    else if look.head == roster.HEAD_MASK do
+        glow(rig, 0, 0.2, 0.142, 0.2, 0.035, 0.01, look.eyes.fade(alpha))
+        part(rig, 0, 0.02, 0, 0.34, 0.1, 0.34, trim)
+        part(rig, -0.1, -0.02, -0.26, 0.1, 0.06, 0.34, trim)
+        part(rig, 0.05, -0.1, -0.3, 0.08, 0.05, 0.3, trim)
+    else if look.head == roster.HEAD_HELMET do
+        part(rig, 0, 0.27, 0, 0.34, 0.16, 0.34, metal)
+        part(rig, 0, 0.2, -0.04, 0.36, 0.06, 0.34, metal)
+        part(rig, 0, 0.36, 0, 0.2, 0.05, 0.2, metal)
+    else if look.head == roster.HEAD_HOOD do
+        part(rig, 0, 0.33, -0.02, 0.36, 0.08, 0.36, look.cape_color.fade(alpha))
+        part(rig, -0.17, 0.16, -0.02, 0.05, 0.34, 0.36, look.cape_color.fade(alpha))
+        part(rig, 0.17, 0.16, -0.02, 0.05, 0.34, 0.36, look.cape_color.fade(alpha))
+        part(rig, 0, 0.16, -0.18, 0.36, 0.34, 0.05, look.cape_color.fade(alpha))
+    else if look.head == roster.HEAD_WIZARD do
+        part(rig, 0, 0.32, 0, 0.58, 0.03, 0.58, body)
+        ap.draw(rig.cone, ap.Vec3(0, 0.56, -0.03), body, ap.Vec3(-8, 0, 0), ap.Vec3(0.34, 0.5, 0.34))
+        part(rig, 0, 0.345, 0, 0.3, 0.035, 0.3, trim)
+        part(rig, 0, 0.0, 0.11, 0.2, 0.26, 0.08, ap.Color(235, 235, 240).fade(alpha))
+    else if look.head == roster.HEAD_HEADSET do
+        part(rig, 0, 0.34, -0.01, 0.33, 0.1, 0.33, accent)
+        part(rig, 0, 0.18, -0.16, 0.33, 0.34, 0.07, accent)
+        part(rig, 0.1, 0.27, 0.13, 0.12, 0.08, 0.04, accent)
+        part(rig, 0, 0.41, 0, 0.37, 0.04, 0.07, dark)
+        part(rig, -0.165, 0.18, 0, 0.05, 0.13, 0.13, dark)
+        part(rig, 0.165, 0.18, 0, 0.05, 0.13, 0.13, dark)
+        part(rig, -0.15, 0.08, 0.1, 0.03, 0.03, 0.18, dark)
+    else if look.head == roster.HEAD_CAP do
+        part(rig, 0, 0.33, -0.01, 0.31, 0.09, 0.31, trim)
+        part(rig, 0, 0.3, 0.2, 0.28, 0.03, 0.16, trim)
+        part(rig, 0, 0.345, 0.14, 0.12, 0.05, 0.02, accent)
+        part(rig, 0, 0.05, 0.135, 0.2, 0.08, 0.02, dark)
+    else if look.head == roster.HEAD_BEANIE do
+        part(rig, 0, 0.32, 0, 0.31, 0.12, 0.31, trim)
+        part(rig, 0, 0.27, 0, 0.32, 0.04, 0.32, dark)
+        part(rig, 0, 0.07, 0.01, 0.3, 0.13, 0.3, dark)
+    else if look.head == roster.HEAD_HAZMAT do
+        part(rig, 0, 0.17, -0.02, 0.34, 0.37, 0.33, body)
+        glow(rig, 0, 0.19, 0.15, 0.22, 0.13, 0.02, look.eyes.fade(alpha))
+        part(rig, 0, 0.04, 0.17, 0.1, 0.08, 0.08, metal)
+        part(rig, 0, 0.36, -0.02, 0.2, 0.03, 0.2, trim)
+    else if look.head == roster.HEAD_CAT do
+        part(rig, -0.09, 0.36, 0, 0.09, 0.11, 0.06, body)
+        part(rig, 0.09, 0.36, 0, 0.09, 0.11, 0.06, body)
+        part(rig, -0.09, 0.35, 0.02, 0.05, 0.06, 0.03, trim)
+        part(rig, 0.09, 0.35, 0.02, 0.05, 0.06, 0.03, trim)
+        part(rig, 0, 0.1, 0.15, 0.13, 0.08, 0.03, trim)
+        part(rig, 0, 0.12, 0.17, 0.04, 0.03, 0.01, dark)
+        part(rig, 0, 0.1, 0.165, 0.42, 0.012, 0.012, trim)
+    else if look.head == roster.HEAD_ROBOT do
+        part(rig, 0, 0.17, 0, 0.33, 0.33, 0.33, metal)
+        part(rig, 0, 0.19, 0.167, 0.27, 0.11, 0.01, dark)
+        glow(rig, -0.07, 0.19, 0.175, 0.07, 0.05, 0.01, look.eyes.fade(alpha))
+        glow(rig, 0.07, 0.19, 0.175, 0.07, 0.05, 0.01, look.eyes.fade(alpha))
+        part(rig, 0, 0.07, 0.167, 0.16, 0.02, 0.01, dark)
+        part(rig, 0.1, 0.42, 0, 0.02, 0.18, 0.02, metal)
+        glow(rig, 0.1, 0.52, 0, 0.05, 0.05, 0.05, accent)
+        part(rig, -0.18, 0.17, 0, 0.04, 0.1, 0.1, trim)
+        part(rig, 0.18, 0.17, 0, 0.04, 0.1, 0.1, trim)
+    else if look.head == roster.HEAD_VISOR do
+        part(rig, 0, 0.18, 0, 0.31, 0.35, 0.31, body)
+        glow(rig, 0, 0.2, 0.16, 0.27, 0.05, 0.01, look.eyes.fade(alpha))
+        part(rig, 0, 0.38, -0.04, 0.04, 0.08, 0.22, trim)
+    else if look.head == roster.HEAD_EAGLE do
+        part(rig, 0, 0.33, -0.01, 0.33, 0.1, 0.33, trim)
+        part(rig, -0.165, 0.19, -0.03, 0.04, 0.28, 0.3, trim)
+        part(rig, 0.165, 0.19, -0.03, 0.04, 0.28, 0.3, trim)
+        part(rig, 0, 0.17, -0.17, 0.33, 0.34, 0.05, trim)
+        part(rig, 0, 0.02, -0.2, 0.26, 0.14, 0.05, trim)
+        part(rig, 0, 0.255, 0.146, 0.27, 0.03, 0.02, dark)
+        part(rig, 0, 0.13, 0.2, 0.09, 0.07, 0.14, accent)
+        part(rig, 0, 0.085, 0.25, 0.06, 0.06, 0.04, accent)
+    else if look.head == roster.HEAD_TV do
+        # A set with a glowing screen for a face, and rabbit ears.
+        var casing = look.legs.brightness(0.8).fade(alpha)
+        part(rig, 0, 0.18, -0.01, 0.48, 0.38, 0.38, casing)
+        part(rig, 0, 0.18, 0.18, 0.4, 0.3, 0.01, look.trim.brightness(0.4).fade(alpha))
+        glow(rig, 0, 0.18, 0.186, 0.34, 0.24, 0.01, accent.brightness(0.55))
+        glow(rig, -0.08, 0.2, 0.19, 0.06, 0.06, 0.01, look.eyes.fade(alpha))
+        glow(rig, 0.08, 0.2, 0.19, 0.06, 0.06, 0.01, look.eyes.fade(alpha))
+        glow(rig, 0, 0.1, 0.19, 0.14, 0.02, 0.01, look.eyes.fade(alpha))
+        part(rig, 0.2, 0.1, 0.18, 0.04, 0.04, 0.02, trim)
+        for side in [-1.0, 1.0] do
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(side * 0.06, 0.37, -0.02))
+            ap.rotate_3d(side * -24, AXIS_Z)
+            part(rig, 0, 0.16, 0, 0.02, 0.32, 0.02, metal)
+            ap.pop_3d()
+        end
+    else if look.head == roster.HEAD_TOPHAT do
+        part(rig, 0, 0.32, 0, 0.44, 0.03, 0.44, dark)
+        part(rig, 0, 0.5, 0, 0.27, 0.34, 0.27, dark)
+        part(rig, 0, 0.37, 0, 0.28, 0.05, 0.28, trim)
+        part(rig, -0.07, 0.19, 0.15, 0.08, 0.08, 0.01, trim)
+        part(rig, -0.11, 0.1, 0.15, 0.01, 0.16, 0.01, trim)
+        part(rig, 0, 0.08, 0.145, 0.18, 0.035, 0.02, look.legs.fade(alpha))
+    else if look.head == roster.HEAD_GOGGLES do
+        # Hair that has seen too many explosions, and goggles pushed up.
+        var hair = ap.Color(236, 236, 240).fade(alpha)
+        part(rig, 0, 0.33, -0.03, 0.32, 0.08, 0.3, hair)
+        part(rig, -0.19, 0.24, -0.04, 0.1, 0.16, 0.24, hair)
+        part(rig, 0.19, 0.24, -0.04, 0.1, 0.16, 0.24, hair)
+        part(rig, -0.24, 0.31, -0.06, 0.08, 0.08, 0.14, hair)
+        part(rig, 0.24, 0.31, -0.06, 0.08, 0.08, 0.14, hair)
+        part(rig, 0, 0.16, -0.17, 0.3, 0.26, 0.06, hair)
+        part(rig, 0, 0.27, 0, 0.3, 0.04, 0.3, dark)
+        part(rig, -0.07, 0.29, 0.15, 0.1, 0.08, 0.04, metal)
+        part(rig, 0.07, 0.29, 0.15, 0.1, 0.08, 0.04, metal)
+        glow(rig, -0.07, 0.29, 0.172, 0.07, 0.05, 0.01, accent)
+        glow(rig, 0.07, 0.29, 0.172, 0.07, 0.05, 0.01, accent)
+    else if look.head == roster.HEAD_MIRROR do
+        # No face at all: only whatever is looking at it.
+        part(rig, 0, 0.17, 0, 0.31, 0.34, 0.31, trim)
+        glow(rig, 0, 0.18, 0.157, 0.24, 0.27, 0.01, accent.brightness(0.8).fade(0.8 * alpha))
+        glow(rig, -0.06, 0.24, 0.16, 0.05, 0.1, 0.01, ap.WHITE.fade(0.8 * alpha))
+    else if look.head == roster.HEAD_PONYTAIL do
+        var hair = ap.Color(46, 30, 22).fade(alpha)
+        part(rig, 0, 0.31, -0.02, 0.3, 0.07, 0.3, hair)
+        part(rig, 0, 0.2, -0.13, 0.3, 0.26, 0.05, hair)
+        part(rig, -0.145, 0.22, 0, 0.03, 0.18, 0.28, hair)
+        part(rig, 0.145, 0.22, 0, 0.03, 0.18, 0.28, hair)
+        part(rig, 0, 0.34, -0.18, 0.08, 0.08, 0.12, hair)
+        part(rig, 0, 0.2, -0.24, 0.07, 0.3, 0.07, hair)
+        part(rig, 0, 0.03, -0.25, 0.05, 0.12, 0.05, hair)
+        part(rig, 0, 0.27, 0, 0.31, 0.035, 0.31, metal)
+        glow(rig, 0, 0.27, 0.157, 0.05, 0.05, 0.01, accent)
+    else if look.head == roster.HEAD_VEIL do
+        # Long dark hair, and a torn veil falling behind.
+        var hair = look.cape_color.fade(alpha)
+        part(rig, 0, 0.31, -0.02, 0.3, 0.07, 0.3, hair)
+        part(rig, 0, 0.0, -0.15, 0.32, 0.6, 0.05, hair)
+        part(rig, -0.15, 0.08, 0, 0.04, 0.44, 0.26, hair)
+        part(rig, 0.15, 0.08, 0, 0.04, 0.44, 0.26, hair)
+        part(rig, 0, 0.36, -0.06, 0.36, 0.03, 0.3, look.wing_color.fade(alpha))
+        part(rig, 0, 0.1, -0.2, 0.4, 0.52, 0.02, look.wing_color.fade(0.7 * alpha))
+    else if look.head == roster.HEAD_STITCHED do
+        # Bald and grey, sewn together, the jaw hanging loose.
+        part(rig, 0, 0.17, 0.01, 0.29, 0.31, 0.29, skin)
+        part(rig, 0, 0.32, 0, 0.012, 0.012, 0.3, dark)
+        for k in 0..<4 do
+            part(rig, 0, 0.32, -0.12 + double(k) * 0.08, 0.06, 0.012, 0.012, dark)
+        end
+        part(rig, -0.15, 0.2, 0.04, 0.012, 0.16, 0.012, dark)
+        part(rig, 0, 0.0, 0.07, 0.22, 0.08, 0.16, skin.brightness(0.8))
+        part(rig, 0, 0.05, 0.152, 0.16, 0.04, 0.01, ap.Color(30, 20, 20).fade(alpha))
+        part(rig, 0.06, 0.1, 0.152, 0.03, 0.03, 0.01, ap.Color(220, 210, 180).fade(alpha))
+    else if look.head == roster.HEAD_TOPKNOT do
+        var hair = ap.Color(30, 24, 22).fade(alpha)
+        part(rig, 0, 0.31, -0.02, 0.3, 0.07, 0.3, hair)
+        part(rig, 0, 0.2, -0.13, 0.3, 0.24, 0.05, hair)
+        part(rig, 0, 0.4, -0.04, 0.12, 0.12, 0.12, hair)
+        part(rig, 0, 0.27, 0, 0.31, 0.05, 0.31, trim)
+        part(rig, 0.06, 0.2, -0.2, 0.05, 0.05, 0.18, trim)
+        part(rig, -0.03, 0.15, -0.22, 0.05, 0.05, 0.2, trim)
+    else if look.head == roster.HEAD_CREST do
+        part(rig, 0, 0.3, 0, 0.33, 0.12, 0.33, metal)
+        part(rig, -0.165, 0.16, 0.02, 0.04, 0.22, 0.24, metal)
+        part(rig, 0.165, 0.16, 0.02, 0.04, 0.22, 0.24, metal)
+        part(rig, 0, 0.17, -0.16, 0.33, 0.28, 0.04, metal)
+        part(rig, 0, 0.43, -0.02, 0.06, 0.14, 0.36, accent)
+        part(rig, 0, 0.36, -0.2, 0.06, 0.1, 0.1, accent)
+    end
+    ap.pop_3d()
+
+    # The cape hangs from the shoulders and trails when moving.
+    if look.cape do
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.58, -0.15))
+        ap.rotate_3d(p.cape - p.lean, AXIS_X)
+        part(rig, 0, -0.42, -0.02, 0.5, 0.86, 0.04, look.cape_color.fade(alpha))
+        ap.pop_3d()
+    end
+
+    # Arms, swinging from the shoulders; the right hand holds the weapon.
+    for side in [-1.0, 1.0] do
+        var right = side < 0
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(side * 0.31, 0.55, 0))
+        ap.rotate_3d(p.arm_r if right else p.arm_l, AXIS_X)
+        ap.rotate_3d(side * (p.arm_r_out if right else p.arm_l_out), AXIS_Z)
+        part(rig, 0, -0.14, 0, 0.15, 0.32, 0.16, body)
+        ap.translate_3d(ap.Vec3(0, -0.29, 0))
+        ap.rotate_3d(p.elbow_r if right else p.elbow_l, AXIS_X)
+        part(rig, 0, -0.12, 0, 0.13, 0.28, 0.14, body)
+        part(rig, 0, -0.28, 0, 0.12, 0.12, 0.13, skin)
+        ap.translate_3d(ap.Vec3(0, -0.29, 0))
+        ap.rotate_3d(p.wrist if right else p.wrist_l, AXIS_X)
+        draw_weapon(rig, look, right, alpha)
+        ap.pop_3d()
+    end
+    ap.pop_3d()
+    ap.pop_3d()
+end
+
+# The weapon, from the hand outward along -y.
+private function draw_weapon(Rig rig, roster.Look look, bool right, double alpha)
+    var metal = look.metal.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var trim = look.trim.fade(alpha)
+    var w = look.weapon
+    if w == roster.WEAPON_CLAWS do
+        for i in 0..<3 do
+            part(rig, (double(i) - 1) * 0.045, -0.14, 0.03, 0.02, 0.24, 0.03, metal)
+        end
+    else if w == roster.WEAPON_FISTS do
+        part(rig, 0, 0, 0, 0.17, 0.17, 0.18, metal)
+        part(rig, 0, 0.1, 0, 0.15, 0.05, 0.16, trim)
+    else if w == roster.WEAPON_CANNON do
+        part(rig, 0, 0.02, 0, 0.22, 0.26, 0.23, metal)
+        part(rig, 0, -0.1, 0, 0.18, 0.06, 0.19, look.legs.fade(alpha))
+    else if w == roster.WEAPON_BIGAXE and not right do
+        # A hooked chain wound round the hand, swinging.
+        for k in 0..<6 do
+            var at = -0.06 - double(k) * 0.1
+            part(rig, 0, at, 0, 0.04 if k % 2 == 0 else 0.015, 0.08, 0.015 if k % 2 == 0 else 0.04, metal.brightness(0.8))
+        end
+        part(rig, 0, -0.66, 0.05, 0.03, 0.1, 0.12, metal)
+        part(rig, 0, -0.62, 0.11, 0.03, 0.12, 0.03, metal)
+    else if w == roster.WEAPON_DAGGER do
+        part(rig, 0, -0.04, 0, 0.14, 0.03, 0.05, trim)
+        if look.glowing_weapon do
+            glow(rig, 0, -0.26, 0, 0.03, 0.42, 0.07, metal)
+        else do
+            part(rig, 0, -0.26, 0, 0.03, 0.42, 0.07, metal)
+        end
+        part(rig, 0, -0.5, 0.02, 0.03, 0.1, 0.05, accent)
+    else if not right do
+        return
+    else if w == roster.WEAPON_RAPIER do
+        part(rig, 0, -0.06, 0, 0.16, 0.04, 0.16, trim)
+        part(rig, 0, -0.66, 0, 0.028, 1.16, 0.028, metal)
+    else if w == roster.WEAPON_GUN do
+        part(rig, 0, 0.0, -0.05, 0.06, 0.1, 0.16, look.legs.fade(alpha))
+        part(rig, 0, -0.1, 0, 0.09, 0.12, 0.1, metal)
+        part(rig, 0, -0.3, 0, 0.055, 0.3, 0.06, metal)
+    else if w == roster.WEAPON_REVOLVER do
+        part(rig, 0, 0.0, -0.06, 0.06, 0.12, 0.18, look.body.fade(alpha))
+        part(rig, 0, -0.12, 0, 0.12, 0.13, 0.12, metal)
+        part(rig, 0, -0.42, 0, 0.06, 0.5, 0.07, metal)
+        part(rig, 0, -0.64, 0.045, 0.02, 0.04, 0.03, accent)
+    else if w == roster.WEAPON_PHONE do
+        part(rig, 0, -0.1, 0, 0.06, 0.3, 0.07, metal)
+        part(rig, 0, 0.03, 0.04, 0.08, 0.08, 0.1, metal)
+        part(rig, 0, -0.23, 0.04, 0.08, 0.08, 0.1, metal)
+        part(rig, 0.02, -0.34, 0, 0.02, 0.16, 0.02, trim)
+        part(rig, -0.02, -0.46, 0, 0.02, 0.12, 0.02, trim)
+    else if w == roster.WEAPON_SHOTGUN do
+        part(rig, 0, 0.12, -0.04, 0.07, 0.28, 0.1, look.legs.fade(alpha))
+        part(rig, -0.03, -0.4, 0, 0.05, 0.8, 0.05, metal)
+        part(rig, 0.03, -0.4, 0, 0.05, 0.8, 0.05, metal)
+        part(rig, 0, -0.3, 0.05, 0.1, 0.2, 0.05, look.legs.fade(alpha))
+    else if w == roster.WEAPON_DEVICE do
+        part(rig, 0, -0.08, 0, 0.11, 0.2, 0.11, metal)
+        part(rig, -0.04, -0.22, 0, 0.02, 0.12, 0.02, trim)
+        part(rig, 0.04, -0.22, 0, 0.02, 0.12, 0.02, trim)
+        if not ap.casting_shadows() do
+            ap.lighting(false)
+            ap.draw(rig.ball, ap.Vec3(0, -0.28, 0), accent, ap.Vec3(0, 0, 0), ap.Vec3(0.13, 0.13, 0.13))
+            ap.lighting(true)
+        end
+    else if w == roster.WEAPON_SABER do
+        part(rig, 0, -0.02, 0, 0.055, 0.18, 0.055, look.legs.fade(alpha))
+        glow(rig, 0, -0.62, 0, 0.045, 1.02, 0.045, metal)
+        glow(rig, 0, -0.62, 0, 0.02, 1.02, 0.02, ap.WHITE.fade(alpha))
+    else if w == roster.WEAPON_KATANA do
+        part(rig, 0, -0.07, 0, 0.12, 0.03, 0.12, trim)
+        part(rig, 0, 0.06, 0, 0.04, 0.22, 0.05, look.legs.fade(alpha))
+        glow(rig, 0, -0.66, 0, 0.03, 1.14, 0.075, metal)
+    else if w == roster.WEAPON_CROOK do
+        part(rig, 0, -0.2, 0, 0.05, 1.8, 0.05, metal)
+        part(rig, 0, -1.1, 0.1, 0.05, 0.05, 0.22, metal)
+        part(rig, 0, -0.98, 0.21, 0.05, 0.26, 0.05, metal)
+    else if w == roster.WEAPON_GREATSWORD do
+        part(rig, 0, 0.12, 0, 0.05, 0.26, 0.05, look.legs.fade(alpha))
+        part(rig, 0, -0.04, 0, 0.32, 0.05, 0.08, trim)
+        part(rig, 0, -0.84, 0, 0.11, 1.56, 0.035, metal)
+        part(rig, 0, -1.66, 0, 0.06, 0.1, 0.03, metal)
+    else if w == roster.WEAPON_AXE do
+        part(rig, 0, -0.18, 0, 0.05, 0.6, 0.05, ap.Color(110, 74, 46).fade(alpha))
+        # The head on the side that leads a downward chop, edge outermost.
+        part(rig, 0, -0.44, -0.08, 0.035, 0.2, 0.16, metal)
+        part(rig, 0, -0.44, -0.17, 0.04, 0.24, 0.03, trim)
+    else if w == roster.WEAPON_SYRINGE do
+        part(rig, 0, 0.1, 0, 0.12, 0.03, 0.12, trim)
+        part(rig, 0, 0.04, 0, 0.03, 0.1, 0.03, trim)
+        part(rig, 0, -0.14, 0, 0.1, 0.34, 0.1, metal.fade(0.55))
+        glow(rig, 0, -0.17, 0, 0.065, 0.26, 0.065, accent)
+        part(rig, 0, -0.43, 0, 0.015, 0.24, 0.015, ap.Color(220, 220, 230).fade(alpha))
+    else if w == roster.WEAPON_CANE do
+        part(rig, 0, -0.45, 0, 0.04, 0.98, 0.04, metal)
+        part(rig, 0, 0.07, 0, 0.1, 0.1, 0.1, trim)
+        part(rig, 0, -0.94, 0, 0.05, 0.05, 0.05, trim)
+    else if w == roster.WEAPON_SHARD do
+        part(rig, 0, 0.04, 0, 0.05, 0.16, 0.05, look.legs.fade(alpha))
+        part(rig, 0, -0.06, 0, 0.18, 0.04, 0.07, trim)
+        glow(rig, 0, -0.56, 0, 0.08, 0.94, 0.02, metal.fade(0.75))
+        glow(rig, 0.03, -0.56, 0.012, 0.015, 0.9, 0.01, ap.WHITE.fade(alpha))
+    else if w == roster.WEAPON_BIGAXE do
+        # Nearly as long as he is tall, with a head on either side.
+        part(rig, 0, -0.4, 0, 0.07, 1.4, 0.07, ap.Color(84, 60, 40).fade(alpha))
+        part(rig, 0, -0.98, -0.25, 0.06, 0.62, 0.44, metal)
+        part(rig, 0, -0.98, 0.21, 0.06, 0.44, 0.34, metal)
+        part(rig, 0, -0.98, -0.48, 0.07, 0.72, 0.05, trim)
+        part(rig, 0, -0.98, 0.39, 0.07, 0.5, 0.04, trim)
+        part(rig, 0, -1.16, 0, 0.09, 0.08, 0.09, metal)
+    else if w == roster.WEAPON_BO do
+        # Held at the middle: as much of it behind the hand as in front.
+        part(rig, 0, -0.1, 0, 0.05, 2.1, 0.05, metal)
+        part(rig, 0, 0.92, 0, 0.06, 0.06, 0.06, trim)
+        part(rig, 0, -1.12, 0, 0.06, 0.06, 0.06, trim)
+        part(rig, 0, 0.0, 0, 0.065, 0.16, 0.065, look.trim.brightness(0.7).fade(alpha))
+    else if w == roster.WEAPON_STAFF do
+        part(rig, 0, -0.2, 0, 0.05, 1.7, 0.05, metal)
+        part(rig, 0, -1.05, 0, 0.12, 0.05, 0.12, trim)
+        if not ap.casting_shadows() do
+            ap.lighting(false)
+            ap.draw(rig.ball, ap.Vec3(0, -1.18, 0), accent, ap.Vec3(0, 0, 0), ap.Vec3(0.22, 0.22, 0.22))
+            ap.lighting(true)
+        end
+    end
+end
+
+# Where the right hand roughly is for a fighter standing on `at`: where shots come from.
+function muzzle(roster.Look look, ap.Vec3 at, double heading) returns ap.Vec3
+    var a = heading * math.PI / 180
+    var forward = ap.Vec3(math.sin(a), 0, math.cos(a))
+    var right = ap.Vec3(math.cos(a), 0, -math.sin(a))
+    return at + ap.Vec3(0, 1.32 * look.tall, 0) + forward * 0.75 - right * (0.3 * look.bulk)
+end
