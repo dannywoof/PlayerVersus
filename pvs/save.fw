@@ -1,0 +1,81 @@
+# What PLAYER VERSUS remembers between sessions: which items are switched off, saved item builds,
+# items made in the Simple editor, and a few settings. It is one JSON file in the user's config
+# folder ($XDG_CONFIG_HOME/playerversus/save.json, or ~/.config/playerversus/save.json).
+import fs
+import json
+import os
+
+# A named set of switched-off items.
+class Build
+    string name = ""
+    string[] off = []
+end
+
+# An item made in the Simple editor: one condition and up to three effects.
+class SimpleItem
+    string name = ""
+    string flavor = ""
+    int condition = 0
+    double param = 0
+    int[] kinds = []
+    double[] amounts = []
+end
+
+class SaveData
+    string[] off = []                # keys of switched-off items (items.key_of)
+    Build[] builds = []
+    SimpleItem[] simple = []
+    int items_mode = 0
+    int mode = 0
+    int level = 1
+    double music = 1.0
+    double sounds = 1.0
+    double pace = 0                  # how much slower fights run (0: the game's default)
+end
+
+# An environment variable, or "" when it is not set (os.env throws then).
+function env(string name) returns string
+    try
+        return os.env(name)
+    catch e
+        return ""
+    end
+end
+
+function folder() returns string
+    var base = env("XDG_CONFIG_HOME")
+    if base == "" do
+        var home = env("HOME")
+        base = fs.join(home if home != "" else fs.temp_dir(), ".config")
+    end
+    return fs.join(base, "playerversus")
+end
+
+function path() returns string
+    return fs.join(folder(), "save.json")
+end
+
+# The saved state, or a fresh one when there is none or it cannot be read.
+function load() returns SaveData
+    try
+        if fs.exists(path()) do
+            SaveData data = json.decode(fs.read(path()))
+            return data
+        end
+    catch e
+        print "playerversus: could not read {path()}: {e}"
+    end
+    return SaveData()
+end
+
+# Writes it out; a failure is reported and the game goes on.
+function store(SaveData data) returns bool
+    try
+        fs.mkdir(folder())
+        fs.write(path(), json.encode(data, 2))
+        return true
+    catch e
+        print "playerversus: could not write {path()}: {e}"
+    end
+    return false
+end

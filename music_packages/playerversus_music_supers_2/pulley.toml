@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_music_supers_2"
+author = "danny"
+version = "3.1"
+description = "Part of the soundtrack of PLAYER VERSUS: the super themes, don to quickdraw (10 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md)"
+main = "playerversus_music_supers_2.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

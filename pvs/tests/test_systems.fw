@@ -1,0 +1,92 @@
+# The pieces around the fights: the soundtrack's files, the save file, the code editor's
+# highlighting, and the hooks of the items written in Flywheel. None of it opens a window.
+import testing
+import fs
+import json
+import "../roster.fw" as roster
+import "../music.fw" as music
+import "../save.fw" as save
+import "../editor.fw" as editor
+import "../item_api.fw" as api
+import "../custom_items.fw" as custom
+
+function test_every_track_is_there
+    # The tests run from the project folder or from tests/; the tracks are the playerversus_music_*
+    # dependencies (`pulley pull` installs them).
+    music.setup(".")
+    if music.director.missing do
+        music.setup("..")
+    end
+    testing.assert(not music.director.missing, "no music: run `pulley pull` to install the playerversus_music_* packages")
+    string[] names = ["title", "select", "shop", "victory", "defeat", "results"]
+    for t in music.FIGHT_TRACKS do
+        names.push(t)
+    end
+    for t in music.FINALE_TRACKS do
+        names.push(t)
+    end
+    for c in roster.build() do
+        names.push(music.super_track(c.name))
+    end
+    for name in names do
+        testing.assert(music.path_of(name) != "", "missing {name}.ogg")
+    end
+    testing.assert(music.fight_track(3, 1, false) != music.fight_track(3, 2, false))
+    testing.assert(music.fight_track(0, 1, true).starts_with("finale"))
+end
+
+function test_the_save_file_round_trips
+    var d = save.SaveData()
+    d.off = ["item:3", "simple:GOLD TOOTH"]
+    d.builds = [save.Build("NO HEALING", ["item:6", "item:10"])]
+    d.simple = [save.SimpleItem("GOLD TOOTH", "Shiny.", 1, 50, [6, 2], [20.0, 10.0])]
+    d.mode = 7
+    d.music = 0.5
+    save.SaveData back = json.decode(json.encode(d))
+    testing.assert(back.off.length == 2 and back.builds[0].off.length == 2)
+    testing.assert(back.simple[0].amounts[0] == 20 and back.mode == 7 and back.music == 0.5)
+    # An old or empty file still loads, with every setting at its default.
+    save.SaveData empty = json.decode("{{}}")
+    testing.assert(empty.level == 1 and empty.music == 1 and empty.off.length == 0)
+end
+
+function test_flywheel_is_highlighted
+    var pieces = editor.pieces("    if c.combo > 4 do  # every fourth")
+    var kinds = ""
+    for p in pieces do
+        if p.color == editor.C_KEYWORD do
+            kinds = "{kinds}K"
+        else if p.color == editor.C_NUMBER do
+            kinds = "{kinds}N"
+        else if p.color == editor.C_COMMENT do
+            kinds = "{kinds}C"
+        end
+    end
+    testing.assert(kinds == "KNKC", kinds)
+    var strings = editor.pieces("c.say = \"hit {{c.combo}} times\"")
+    var interp = false
+    for p in strings do
+        interp = interp or p.color == editor.C_INTERP
+    end
+    testing.assert(interp)
+    # Editing: what goes in comes back out.
+    var e = editor.open("a\nb")
+    testing.assert(editor.text_of(e) == "a\nb")
+end
+
+function test_custom_items_answer_their_hooks
+    var list = custom.items()
+    testing.assert(list.length >= 1)
+    for it in list do
+        testing.assert(it.id != "" and it.name != "" and it.note != "")
+        var c = api.Ctx()
+        c.damage = 10
+        c.combo = 4
+        c.health = 10
+        c.max_health = 100
+        custom.tick(it.id, c)
+        custom.hit(it.id, c)
+        custom.hurt(it.id, c)
+        testing.assert(c.damage >= 0)
+    end
+end

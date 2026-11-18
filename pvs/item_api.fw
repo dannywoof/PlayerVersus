@@ -1,0 +1,58 @@
+# What an item written in Flywheel (custom_items.fw) gets to see and change.
+#
+# The game fills a Ctx for the fighter holding the item and calls the item's hooks:
+#   tick(id, c)  every tick of a fight
+#   hit(id, c)   when the holder lands a hit (c.damage is the damage about to be dealt)
+#   hurt(id, c)  when the holder is hit (c.damage is the damage about to be taken)
+# A hook reads the numbers at the top and sets the ones at the bottom; the game applies them
+# afterward. Nothing here can reach into the game itself, so an item cannot break a match.
+
+# One item, as the item list shows it.
+class Item
+    string id = ""                   # what the hooks are called with; unique in the file
+    string name = ""                 # in capitals, like every other item
+    string note = ""                 # one line on what it does
+end
+
+class Ctx
+    # --- What is going on (read these) ---
+    double health = 0                # the holder's health...
+    double max_health = 0            # ...out of this
+    double foe_health = 0
+    double foe_max_health = 0
+    double bar = 0                   # the holder's special bar...
+    double bar_max = 0               # ...out of this
+    double super_bar = 0             # 0..100
+    double distance = 0              # meters to the opponent
+    bool moving = false
+    bool blocking = false
+    bool foe_poisoned = false
+    bool foe_slowed = false
+    bool foe_airborne = false
+    int combo = 0                    # hits in the combo the holder is landing
+    int rounds_won = 0
+    int rounds_lost = 0
+    double round_time = 0            # seconds fought this round
+    double clock = 0                 # seconds left on the clock
+    int ticks = 0                    # ticks since the round began (60 a second)
+    bool melee = false               # hit/hurt: whether the blow was melee
+    bool basic = false               # hit/hurt: whether it was a basic attack
+    string move = ""                 # hit/hurt: the move's name
+    double damage = 0                # hit/hurt: the damage; change it to change the hit
+
+    # --- What to do (set these) ---
+    double heal = 0                  # health for the holder
+    double hurt_self = 0             # health taken from the holder (never below 1)
+    double hurt_foe = 0              # extra damage to the opponent, no block or stun
+    double poison = 0                # seconds of poison for the opponent
+    double slow = 0                  # seconds of slow for the opponent
+    double bar_gain = 0              # special bar for the holder (negative takes)
+    double super_gain = 0            # super bar for the holder
+    double speed = 1                 # tick: the holder's walking speed is multiplied by this
+    double power = 1                 # tick: the holder's damage is multiplied by this
+    double armor = 1                 # tick: damage the holder takes is multiplied by this
+    double launch = 0                # hit: pop the opponent up (meters a second)
+    string say = ""                  # words floating over the holder
+    string color = "ffffff"          # ...in this color ("rrggbb" hex), also used for sparks
+    int sparks = 0                   # a burst of this many sparks on the holder
+end

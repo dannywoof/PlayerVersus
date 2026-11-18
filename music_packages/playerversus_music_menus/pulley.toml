@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_music_menus"
+author = "danny"
+version = "3.1"
+description = "Part of the soundtrack of PLAYER VERSUS: the menus, the item shop, the result jingles and the finale tracks (8 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md)"
+main = "playerversus_music_menus.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

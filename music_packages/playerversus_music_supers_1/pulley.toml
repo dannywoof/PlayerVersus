@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_music_supers_1"
+author = "danny"
+version = "3.1"
+description = "Part of the soundtrack of PLAYER VERSUS: the super themes, anaconda to dismantle (9 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md)"
+main = "playerversus_music_supers_1.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

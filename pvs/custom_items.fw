@@ -1,0 +1,36 @@
+# Your own items, written in Flywheel. Open it from the item menu (I on the select screen):
+# ADVANCED EDITOR edits it in the game, OPEN IN SOLENOID in the Flywheel IDE.
+#
+# `items()` lists them; the three hooks below run for whoever holds one. See item_api.fw for
+# everything a Ctx has. Changes take effect the next time the game starts (or at once when it
+# runs with `flywheel --hot playerversus.fw`).
+import "item_api.fw" as api
+
+function items() returns api.Item[]
+    return [
+        api.Item("tempo", "METRONOME", "Every 4th hit you land deals double damage"),
+        api.Item("lastword", "LAST WORD", "Below 25% health, hits heal you for a third of their damage")
+    ]
+end
+
+# Every tick of a fight.
+function tick(string id, api.Ctx c)
+end
+
+# The holder lands a hit.
+function hit(string id, api.Ctx c)
+    if id == "tempo" and c.combo > 0 and c.combo % 4 == 0 do
+        c.damage *= 2
+        c.say = "ON THE BEAT"
+        c.color = "ffd24a"
+        c.sparks = 12
+    else if id == "lastword" and c.health < c.max_health * 0.25 do
+        c.heal = c.damage / 3
+        c.color = "ff5a6e"
+        c.sparks = 6
+    end
+end
+
+# The holder is hit.
+function hurt(string id, api.Ctx c)
+end

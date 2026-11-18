@@ -1,15 +1,23 @@
 [package]
 name = "playerversus"
 author = "danny"
-version = "1.1"
-description = "PLAYER VERSUS: a 3D arena fighter prototype (character select, 24 fighters, merging supers, a CPU opponent)"
+version = "1.3"
+description = "PLAYER VERSUS: a 3D arena fighter prototype (26 fighters, 1v1 and 2v2 modes, merging supers with their own themes, 70+ items and your own, a CPU opponent)"
 main = "playerversus.fw"
 
 [dependencies]
 aperture = "polymorphia.aperture"
+playerversus_music_menus = "danny.playerversus_music_menus"
+playerversus_music_fights = "danny.playerversus_music_fights"
+playerversus_music_supers_1 = "danny.playerversus_music_supers_1"
+playerversus_music_supers_2 = "danny.playerversus_music_supers_2"
+playerversus_music_supers_3 = "danny.playerversus_music_supers_3"
 
 [dev-dependencies]
 
 [scripts]
 test = "flywheel --test"
 start = "flywheel playerversus.fw"
+
+[commands]
+playerversus = "playerversus.fw"

@@ -357,7 +357,8 @@ end
 class Character
     string name
     string title
-    string blurb = ""
+    string blurb = ""                # how they play, in one line (the select screen's PASSIVE)
+    string bio = ""                  # who they are
     string style = ""                # two or three words on how they play
     double health = 100
     double speed = 5.5               # meters a second
@@ -368,7 +369,7 @@ class Character
     double backstab = 1              # damage multiplier for melee hits from behind
     string dot_name = "POISONED"     # what this fighter's poison is called on the opponent's HUD
     bool machine = false             # cannot be poisoned or slowed
-    bool copycat = false             # skill 1 becomes the last move that hit them
+    bool copycat = false             # skill 1 becomes the last skill that hit them
     bool reload_all = false          # the reload puts every bullet in at once, at the end
     # The special bar.
     string bar_name = "ENERGY"
@@ -1122,7 +1123,7 @@ end
 
 function cat() returns Character
     var c = Character("CAT", "THE COPYCAT")
-    c.blurb = "Skill 1 copies the last move that hit it; skill 4 is random."
+    c.blurb = "Skill 1 copies the last skill that hit it; skill 4 is random."
     c.style = "Copies, chaos"
     c.health = 125
     c.speed = 6.2
@@ -1136,7 +1137,7 @@ function cat() returns Character
         hit("Scratch", 4, 5, 9, 1.6, 100, 0.4, 16, 1.5, ANIM_BACKSWING),
         hit("Swat", 8, 9, 16, 1.7, 120, 0.6, 24, 6, ANIM_HOOK)]
     # Skill 1 is whatever last hit it; until something does, a pounce.
-    var mimic = skill(hit("Copy: Pounce", 9, 11, 18, 1.9, 90, 4.2, 24, 3, ANIM_POUNCE), 5, 0, "Becomes the last move that hit you")
+    var mimic = skill(hit("Copy: Pounce", 9, 11, 18, 1.9, 90, 4.2, 24, 3, ANIM_POUNCE), 5, 0, "Becomes the last skill that hit you")
     var lock = skill(trick("Lock", KIND_LOCK, ANIM_FOCUS), 0.5, 0, "Toggle: freezes skill 1 or frees it")
     lock.startup = 4
     lock.recovery = 6
@@ -1949,9 +1950,68 @@ function build() returns Character[]
         monopolist(), mirrorman(), bob(), teleman(), dismantle(), spruce()]
     for c in cast do
         c.maximum = maximum_of(c.name)
+        c.bio = bio_of(c.name)
         c.health *= 2
     end
     return cast
+end
+
+# Who each of them is: the select screen's description.
+function bio_of(string who) returns string
+    if who == "FANGS" do
+        return "A centuries-old aristocrat who outlived his estate, his family and his own name. He still dresses for dinner. Dinner is you."
+    else if who == "ASTER" do
+        return "A bare-knuckle prizefighter from the docks who never learned how to stay down. Loud, cheerful, and proud of the two teeth she lost."
+    else if who == "ANACONDA" do
+        return "The last priestess of a serpent cult, raised in the temple pits and taught that poison is only patience. She speaks softly and never blinks."
+    else if who == "RAPIER" do
+        return "A disgraced fencing master who ran a prince through over a point of etiquette. Perfect manners, a plumed hat, and a grudge against everyone."
+    else if who == "QUICKDRAW" do
+        return "A drifter out of a dust-bowl frontier town with six bullets and no plans. He talks slow, draws fast, and never looks back to check."
+    else if who == "VOID" do
+        return "A swordsman who cut away everything he felt to become faster. What is left is calm, quiet, and a blade that arrives before he does."
+    else if who == "SHERMAN" do
+        return "A retired siege engineer who bolted his old artillery to his own shoulders. As patient as a fortress, and about as easy to move."
+    else if who == "SHEPHERD" do
+        return "A hooded watcher who kept his flock on cursed hills until the wolves learned to fear the dark. Nobody has seen his face, and he likes it that way."
+    else if who == "DON" do
+        return "An absent-minded professor of the old arts, bearded, star-hatted and forever mid-lecture. He forgets your name, but never a formula."
+    else if who == "HOTLINE" do
+        return "A switchboard operator who knows every number in the city and exactly who owes whom. She fights on the phone, and she never hangs up first."
+    else if who == "BUCKSHOT" do
+        return "A riot-squad veteran who has kicked down more doors than she can count. Blunt, loud, and entirely allergic to subtlety."
+    else if who == "STAB" do
+        return "A street kid raised in the market alleys on picked pockets and picked locks. Quick hands, a quicker mouth, and loyal to nothing but coin."
+    else if who == "ATOMIC" do
+        return "A wild-haired physicist who opened a hole in the world during an experiment and stepped straight through it. She is still taking notes."
+    else if who == "CAT" do
+        return "A stray that wandered into the Purgatory and never wandered out. Curious, vain and endlessly mimicking, it learns your best move just to tease you."
+    else if who == "DROID" do
+        return "A maintenance robot built to fix machines in a factory that closed a century ago. It is still following its last order: keep running."
+    else if who == "LASER" do
+        return "A lighthouse keeper who swallowed the lamp's light the night the ships went down. She glows when she is angry, which is most of the time."
+    else if who == "EAGLE" do
+        return "A mountain sniper in a white-feathered cowl who sees for miles and speaks maybe once a day. He has never missed on purpose."
+    else if who == "COMBATANT" do
+        return "A mercenary who has fought in every war he could find and kept a weapon from each one. He changes arms the way others change their minds."
+    else if who == "PHANTOM" do
+        return "A widow who waited on a cliff for a ship that never came home, until the sea took her too. Now she drifts between worlds, taking what others save."
+    else if who == "CARBON" do
+        return "A quarry worker buried alive by a rockslide, who came out of the stone with some of it still in her. She hums the old songs of the mine."
+    else if who == "MONOPOLIST" do
+        return "A top-hatted magnate who bought a city, a railroad and a senator before lunch. He believes everything has a price, and he is behind on his own."
+    else if who == "MIRRORMAN" do
+        return "A vain stage magician who fell into his own trick mirror and never quite came out. Nobody knows which of him is the real one. Neither does he."
+    else if who == "BOB" do
+        return "A cheerful lab assistant who kept the experiments running after his employer vanished. His injections work perfectly. That is the problem."
+    else if who == "TELEMAN" do
+        return "A late-night TV host whose show was cancelled mid-sentence. He keeps broadcasting anyway, and changes the channel on anyone who interrupts."
+    else if who == "DISMANTLE" do
+        return "A gravedigger stitched back together from what the plague pits left behind. Slow, enormous, and very hard to keep in the ground."
+    else if who == "SPRUCE" do
+        return "A monk from a mountain temple who has not lost her temper in forty years. She waits by the water with her staff and lets you beat yourself."
+    end
+    return ""
 end
 
 # Every fighter's super: where it takes the fight and what it does there.
@@ -2470,40 +2530,4 @@ function rate_range(Character c) returns double
         far = far + 2.2
     end
     return far / 5
-end
-
-# --- Items -----------------------------------------------------------------------------------
-# Passive upgrades picked before a round (see the match options). Each lasts that round only.
-const int ITEM_IRON = 0      # damage taken
-const int ITEM_WHETSTONE = 1 # damage dealt
-const int ITEM_BOOTS = 2     # walking speed
-const int ITEM_HEART = 3     # health
-const int ITEM_HOURGLASS = 4 # skill cooldowns
-const int ITEM_BATTERY = 5   # the special bar refills
-const int ITEM_FANG = 6      # health back from damage dealt
-const int ITEM_CHARGER = 7   # the super bar fills
-const int ITEM_FEATHER = 8   # the dash comes back
-const int ITEM_THORNS = 9    # melee attackers are hurt too
-const int ITEM_MOSS = 10     # health grows back out of a fight
-const int ITEM_ANVIL = 11    # hits stun for longer
-
-class Item
-    int kind
-    string name
-    string note
-end
-
-function items() returns Item[]
-    return [Item(ITEM_IRON, "IRON SKIN", "Take 25% less damage"),
-        Item(ITEM_WHETSTONE, "WHETSTONE", "Deal 25% more damage"),
-        Item(ITEM_BOOTS, "SWIFT BOOTS", "Move 20% faster"),
-        Item(ITEM_HEART, "SECOND HEART", "35% more health"),
-        Item(ITEM_HOURGLASS, "HOURGLASS", "Skills recharge 35% faster"),
-        Item(ITEM_BATTERY, "WELLSPRING", "Your bar refills 75% faster"),
-        Item(ITEM_FANG, "LEECH FANG", "Heal 15% of damage you deal"),
-        Item(ITEM_CHARGER, "EMBER CORE", "Super bar fills 60% faster"),
-        Item(ITEM_FEATHER, "FEATHER STEP", "Dash comes back 4 times as fast"),
-        Item(ITEM_THORNS, "THORN MAIL", "Melee attackers take 35% back"),
-        Item(ITEM_MOSS, "MOSS", "Heal 5 a second when not hit for 2s"),
-        Item(ITEM_ANVIL, "ANVIL HANDS", "Your hits stun 35% longer")]
 end

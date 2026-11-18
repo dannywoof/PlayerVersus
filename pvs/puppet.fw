@@ -1495,3 +1495,57 @@ function muzzle(roster.Look look, ap.Vec3 at, double heading) returns ap.Vec3
     var right = ap.Vec3(math.cos(a), 0, -math.sin(a))
     return at + ap.Vec3(0, 1.32 * look.tall, 0) + forward * 0.75 - right * (0.3 * look.bulk)
 end
+
+# How far a weapon reaches past the hand, along the arm (0 for a weapon with no edge to trail).
+function weapon_reach(roster.Look look) returns double
+    var w = look.weapon
+    if w == roster.WEAPON_RAPIER or w == roster.WEAPON_KATANA do
+        return 1.24
+    else if w == roster.WEAPON_SABER do
+        return 1.13
+    else if w == roster.WEAPON_GREATSWORD do
+        return 1.7
+    else if w == roster.WEAPON_SHARD do
+        return 1.03
+    else if w == roster.WEAPON_DAGGER do
+        return 0.55
+    else if w == roster.WEAPON_AXE do
+        return 0.56
+    else if w == roster.WEAPON_BIGAXE do
+        return 1.2
+    else if w == roster.WEAPON_BO do
+        return 1.15
+    else if w == roster.WEAPON_STAFF do
+        return 1.25
+    else if w == roster.WEAPON_CROOK do
+        return 1.15
+    else if w == roster.WEAPON_CANE do
+        return 0.96
+    else if w == roster.WEAPON_CLAWS do
+        return 0.26
+    end
+    return 0
+end
+
+# Where the right hand and the tip of its weapon are in the world, for a figure drawn with `draw`
+# at `at` facing `heading`: the same chain of turns, worked out instead of drawn.
+function hand_and_tip(roster.Look look, Pose p, ap.Vec3 at, double heading, double reach) returns ap.Vec3[]
+    var m = ap.Mat4.translation(at) * ap.Mat4.rotation(AXIS_Y, heading)
+    if p.fall > 0 do
+        m = m * ap.Mat4.translation(ap.Vec3(0, 0.16 * p.fall, 0)) * ap.Mat4.rotation(AXIS_X, -88 * p.fall)
+    end
+    m = m * ap.Mat4.rotation(AXIS_Y, p.yaw) * ap.Mat4.scaling(ap.Vec3(look.bulk, look.tall, look.bulk))
+    var rad = math.PI / 180
+    var reach_l = (0.4 * math.cos(p.leg_l * rad) + 0.44 * math.cos((p.leg_l + p.knee_l) * rad)) * math.cos(p.spread * rad)
+    var reach_r = (0.4 * math.cos(p.leg_r * rad) + 0.44 * math.cos((p.leg_r + p.knee_r) * rad)) * math.cos(p.spread * rad)
+    m = m * ap.Mat4.translation(ap.Vec3(0, math.max(reach_l, reach_r) - 0.84 + p.lift, 0))
+    if p.flip != 0 do
+        m = m * ap.Mat4.translation(ap.Vec3(0, 0.9, 0)) * ap.Mat4.rotation(AXIS_X, p.flip) * ap.Mat4.translation(ap.Vec3(0, -0.9, 0))
+    end
+    m = m * ap.Mat4.translation(ap.Vec3(0, 0.82, 0)) * ap.Mat4.rotation(AXIS_X, p.lean) * ap.Mat4.rotation(AXIS_Y, p.twist) *
+        ap.Mat4.rotation(AXIS_Z, p.roll)
+    m = m * ap.Mat4.translation(ap.Vec3(-0.31, 0.55, 0)) * ap.Mat4.rotation(AXIS_X, p.arm_r) * ap.Mat4.rotation(AXIS_Z, -p.arm_r_out)
+    m = m * ap.Mat4.translation(ap.Vec3(0, -0.29, 0)) * ap.Mat4.rotation(AXIS_X, p.elbow_r)
+    m = m * ap.Mat4.translation(ap.Vec3(0, -0.29, 0)) * ap.Mat4.rotation(AXIS_X, p.wrist)
+    return [m.transform_point(ap.Vec3(0, -reach * 0.25, 0)), m.transform_point(ap.Vec3(0, -reach, 0))]
+end

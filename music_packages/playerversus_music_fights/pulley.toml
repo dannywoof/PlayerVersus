@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_music_fights"
+author = "danny"
+version = "3.1"
+description = "Part of the soundtrack of PLAYER VERSUS: the fight tracks (9 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md)"
+main = "playerversus_music_fights.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

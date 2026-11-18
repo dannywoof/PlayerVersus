@@ -1,0 +1,390 @@
+# A small code editor drawn with Aperture: the in-game ADVANCED EDITOR for custom_items.fw.
+#
+# It edits lines of text with the keyboard and mouse (arrows, Home/End, Page Up/Down, Backspace,
+# Delete, Enter with auto-indent, Tab, Ctrl+Home/End, the mouse wheel and clicks) and colors
+# Flywheel as it goes: keywords, types, strings with their {interpolations}, numbers, comments,
+# and calls. Saving, checking and closing are up to whoever opened it.
+import aperture as ap
+import math
+
+const double SIZE = 8                # the pixel font, at its natural size
+const double LINE = 10               # pixels per line
+
+const string[] KEYWORDS = ["function", "end", "if", "else", "do", "while", "for", "in", "return", "returns",
+    "var", "const", "class", "import", "as", "and", "or", "not", "break", "continue", "try", "catch",
+    "finally", "throw", "match", "case", "private", "public", "static", "struct", "enum", "unless", "run",
+    "when", "is", "with", "defer", "spawn", "interface", "extends", "constructor", "destructor", "this", "super"]
+const string[] TYPES = ["int", "double", "bool", "string", "char", "void", "float", "long", "map", "set", "array",
+    "tuple", "Result", "api"]
+const string[] LITERALS = ["true", "false", "null"]
+
+const ap.Color C_TEXT = ap.Color(214, 210, 232)
+const ap.Color C_KEYWORD = ap.Color(198, 120, 255)
+const ap.Color C_TYPE = ap.Color(110, 200, 255)
+const ap.Color C_STRING = ap.Color(160, 230, 120)
+const ap.Color C_INTERP = ap.Color(255, 206, 110)
+const ap.Color C_NUMBER = ap.Color(255, 160, 90)
+const ap.Color C_COMMENT = ap.Color(112, 108, 138)
+const ap.Color C_CALL = ap.Color(120, 230, 210)
+const ap.Color C_LITERAL = ap.Color(255, 120, 150)
+
+class Editor
+    string[] lines = [""]
+    int row = 0
+    int col = 0
+    int top = 0                      # the first line shown
+    int left = 0                     # the first column shown
+    bool dirty = false
+    int repeat_key = -1              # a held key repeats after a moment
+    int repeat_ticks = 0
+    int blink = 0
+end
+
+function open(string text) returns Editor
+    var e = Editor()
+    e.lines = text.replace("\r", "").replace("\t", "    ").split("\n")
+    if e.lines.length == 0 do
+        e.lines = [""]
+    end
+    return e
+end
+
+function text_of(Editor e) returns string
+    var out = ""
+    for i, line in e.lines do
+        out = line if i == 0 else "{out}\n{line}"
+    end
+    return out
+end
+
+function char_w() returns double
+    return ap.measure("MMMMMMMMMM", SIZE).x / 10
+end
+
+private function clamp_cursor(Editor e)
+    e.row = math.clamp(e.row, 0, e.lines.length - 1)
+    e.col = math.clamp(e.col, 0, e.lines[e.row].length)
+end
+
+private function insert(Editor e, string words)
+    var line = e.lines[e.row]
+    e.lines[e.row] = "{line[0..<e.col]}{words}{line[e.col..<line.length]}"
+    e.col += words.length
+    e.dirty = true
+end
+
+private function newline(Editor e)
+    var line = e.lines[e.row]
+    var head = line[0..<e.col]
+    var tail = line[e.col..<line.length]
+    # Keep the indentation, and go one deeper after a line that opens a block.
+    var indent = 0
+    while indent < head.length and head[indent..indent] == " " do
+        indent += 1
+    end
+    var trimmed = head.trim()
+    if trimmed.ends_with(" do") or trimmed.starts_with("function ") or trimmed.starts_with("class ") or
+            trimmed == "else" or trimmed.ends_with(" else") or trimmed == "try" or trimmed.starts_with("catch") do
+        indent += 4
+    end
+    e.lines[e.row] = head
+    var pad = " ".repeat(indent)
+    e.lines.insert(e.row + 1, "{pad}{tail.trim_start()}")
+    e.row += 1
+    e.col = indent
+    e.dirty = true
+end
+
+private function backspace(Editor e)
+    if e.col > 0 do
+        var line = e.lines[e.row]
+        # Back a whole indent step through leading spaces.
+        var step = 1
+        if line[0..<e.col].trim() == "" and e.col % 4 == 0 do
+            step = 4
+        end
+        e.lines[e.row] = "{line[0..<e.col - step]}{line[e.col..<line.length]}"
+        e.col -= step
+        e.dirty = true
+    else if e.row > 0 do
+        var above = e.lines[e.row - 1]
+        e.lines[e.row - 1] = "{above}{e.lines[e.row]}"
+        e.lines.remove_at(e.row)
+        e.row -= 1
+        e.col = above.length
+        e.dirty = true
+    end
+end
+
+private function delete_forward(Editor e)
+    var line = e.lines[e.row]
+    if e.col < line.length do
+        e.lines[e.row] = "{line[0..<e.col]}{line[e.col + 1..<line.length]}"
+        e.dirty = true
+    else if e.row < e.lines.length - 1 do
+        e.lines[e.row] = "{line}{e.lines[e.row + 1]}"
+        e.lines.remove_at(e.row + 1)
+        e.dirty = true
+    end
+end
+
+# A key press, or a held key repeating.
+private function hit(Editor e, int key) returns bool
+    if ap.key_pressed(key) do
+        e.repeat_key = key
+        e.repeat_ticks = 0
+        return true
+    end
+    if e.repeat_key == key and ap.key_down(key) do
+        e.repeat_ticks += 1
+        return e.repeat_ticks > 22 and e.repeat_ticks % 2 == 0
+    end
+    return false
+end
+
+function ctrl() returns bool
+    return ap.key_down(ap.KEY_LEFT_CONTROL) or ap.key_down(ap.KEY_RIGHT_CONTROL)
+end
+
+# One tick of editing. `typed` is the text typed this frame (read once per frame by the caller),
+# `x, y, w, h` where it is drawn, for the mouse.
+function update(Editor e, string typed, double x, double y, double w, double h)
+    e.blink += 1
+    var rows = int(h / LINE)
+    if typed != "" and not ctrl() do
+        for i in 0..<typed.length do
+            var c = typed[i..i]
+            if c != "\n" and c != "\r" and c != "\t" do
+                insert(e, c)
+            end
+        end
+        e.blink = 0
+    end
+    if hit(e, ap.KEY_ENTER) do
+        newline(e)
+    end
+    if hit(e, ap.KEY_TAB) do
+        insert(e, " ".repeat(4 - e.col % 4))
+    end
+    if hit(e, ap.KEY_BACKSPACE) do
+        backspace(e)
+    end
+    if hit(e, ap.KEY_DELETE) do
+        delete_forward(e)
+    end
+    if hit(e, ap.KEY_LEFT) do
+        if e.col > 0 do
+            e.col -= 1
+        else if e.row > 0 do
+            e.row -= 1
+            e.col = e.lines[e.row].length
+        end
+    end
+    if hit(e, ap.KEY_RIGHT) do
+        if e.col < e.lines[e.row].length do
+            e.col += 1
+        else if e.row < e.lines.length - 1 do
+            e.row += 1
+            e.col = 0
+        end
+    end
+    if hit(e, ap.KEY_UP) do
+        e.row -= 1
+    end
+    if hit(e, ap.KEY_DOWN) do
+        e.row += 1
+    end
+    if hit(e, ap.KEY_PAGE_UP) do
+        e.row -= rows - 1
+    end
+    if hit(e, ap.KEY_PAGE_DOWN) do
+        e.row += rows - 1
+    end
+    if ap.key_pressed(ap.KEY_HOME) do
+        if ctrl() do
+            e.row = 0
+        end
+        # First to the indentation, then to the very start.
+        var line = e.lines[math.clamp(e.row, 0, e.lines.length - 1)]
+        var indent = line.length - line.trim_start().length
+        e.col = 0 if e.col == indent else indent
+    end
+    if ap.key_pressed(ap.KEY_END) do
+        if ctrl() do
+            e.row = e.lines.length - 1
+        end
+        e.col = 1000000
+    end
+    var wheel = ap.wheel().y
+    if wheel != 0 do
+        e.top = math.clamp(e.top - int(wheel * 3), 0, math.max(e.lines.length - rows, 0))
+    end
+    var m = ap.mouse()
+    if ap.mouse_pressed() and m.x >= x and m.x < x + w and m.y >= y and m.y < y + h do
+        var cw = char_w()
+        e.row = e.top + int((m.y - y - 2) / LINE)
+        e.col = e.left + int((m.x - x - gutter() + cw / 2) / cw)
+        e.blink = 0
+    end
+    clamp_cursor(e)
+    # Keep the cursor on screen.
+    if e.row < e.top do
+        e.top = e.row
+    end
+    if e.row >= e.top + rows do
+        e.top = e.row - rows + 1
+    end
+    var cols = int((w - gutter() - 6) / char_w())
+    if e.col < e.left do
+        e.left = math.max(e.col - 8, 0)
+    end
+    if e.col >= e.left + cols do
+        e.left = e.col - cols + 8
+    end
+end
+
+function gutter() returns double
+    return 30
+end
+
+# --- Highlighting ----------------------------------------------------------------------------------
+class Piece
+    string words
+    ap.Color color
+end
+
+private function is_word_char(string c) returns bool
+    return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "_"
+end
+private function is_digit(string c) returns bool
+    return c >= "0" and c <= "9"
+end
+
+# A line cut into colored pieces.
+function pieces(string line) returns Piece[]
+    Piece[] out = []
+    var i = 0
+    var n = line.length
+    while i < n do
+        var c = line[i..i]
+        if c == "#" do
+            out.push(Piece(line[i..<n], C_COMMENT))
+            break
+        end
+        if c == "\"" do
+            # A string, with its {interpolations} in their own color.
+            var j = i + 1
+            var start = i
+            while j < n and line[j..j] != "\"" do
+                if line[j..j] == "\\" do
+                    j += 2
+                    continue
+                end
+                if line[j..j] == "{{" and j + 1 < n and line[j + 1..j + 1] != " " do
+                    out.push(Piece(line[start..<j], C_STRING))
+                    var k = j
+                    while k < n and line[k..k] != "}}" do
+                        k += 1
+                    end
+                    out.push(Piece(line[j..<math.min(k + 1, n)], C_INTERP))
+                    j = k + 1
+                    start = j
+                    continue
+                end
+                j += 1
+            end
+            j = math.min(j + 1, n)
+            if start < j do
+                out.push(Piece(line[start..<j], C_STRING))
+            end
+            i = j
+            continue
+        end
+        if is_digit(c) do
+            var j = i
+            while j < n and (is_word_char(line[j..j]) or line[j..j] == ".") do
+                j += 1
+            end
+            out.push(Piece(line[i..<j], C_NUMBER))
+            i = j
+            continue
+        end
+        if is_word_char(c) do
+            var j = i
+            while j < n and is_word_char(line[j..j]) do
+                j += 1
+            end
+            var word = line[i..<j]
+            var color = C_TEXT
+            if word in KEYWORDS do
+                color = C_KEYWORD
+            else if word in TYPES do
+                color = C_TYPE
+            else if word in LITERALS do
+                color = C_LITERAL
+            else if j < n and line[j..j] == "(" do
+                color = C_CALL
+            else if word[0..0] >= "A" and word[0..0] <= "Z" and word.upper() != word do
+                color = C_TYPE
+            end
+            out.push(Piece(word, color))
+            i = j
+            continue
+        end
+        var j = i
+        while j < n and not is_word_char(line[j..j]) and line[j..j] != "\"" and line[j..j] != "#" do
+            j += 1
+        end
+        out.push(Piece(line[i..<j], C_TEXT))
+        i = j
+    end
+    return out
+end
+
+# Draws the text in a box, with line numbers, the cursor, and `marks` (line numbers with errors).
+function draw(Editor e, double x, double y, double w, double h, int[] marks, bool focused = true)
+    var cw = char_w()
+    var rows = int(h / LINE)
+    var cols = int((w - gutter() - 6) / cw)
+    ap.rect(x, y, w, h, ap.Color(14, 12, 22).fade(0.97))
+    ap.rect(x, y, gutter() - 4, h, ap.Color(22, 20, 34))
+    ap.clip(ap.Rect(x, y, w, h))
+    for r in 0..<rows do
+        var index = e.top + r
+        if index >= e.lines.length do
+            break
+        end
+        var ly = y + 2 + double(r) * LINE
+        if index == e.row do
+            ap.rect(x + gutter() - 4, ly - 1, w - gutter() + 4, LINE, ap.Color(36, 32, 54))
+        end
+        var bad = index + 1 in marks
+        if bad do
+            ap.rect(x, ly - 1, gutter() - 4, LINE, ap.Color(150, 40, 50))
+        end
+        var number = "{index + 1}"
+        ap.text(number, x + gutter() - 8 - ap.measure(number, SIZE).x, ly, SIZE,
+            ap.WHITE if bad else (ap.Color(150, 145, 175) if index == e.row else ap.Color(80, 76, 100)))
+        var col = 0
+        for p in pieces(e.lines[index]) do
+            # Only what falls in the visible columns.
+            var a = math.max(e.left - col, 0)
+            var b = math.min(p.words.length, e.left + cols - col)
+            if b > a do
+                ap.text(p.words[a..<b], x + gutter() + double(col + a - e.left) * cw, ly, SIZE, p.color)
+            end
+            col += p.words.length
+        end
+    end
+    if focused and (e.blink // 30) % 2 == 0 and e.row >= e.top and e.row < e.top + rows do
+        var cx = x + gutter() + double(e.col - e.left) * cw
+        ap.rect(cx - 1, y + 1 + double(e.row - e.top) * LINE, 1, LINE - 1, ap.WHITE)
+    end
+    ap.unclip()
+    # A scroll bar when it does not all fit.
+    if e.lines.length > rows do
+        var share = double(rows) / double(e.lines.length)
+        var at = double(e.top) / double(e.lines.length)
+        ap.rect(x + w - 3, y + h * at, 2, math.max(h * share, 6.0), ap.Color(120, 110, 160))
+    end
+end

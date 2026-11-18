@@ -1,6 +1,7 @@
 # The roster is plain data, so it can be checked without opening a window.
 import testing
 import "../roster.fw" as roster
+import "../items.fw" as items
 
 function test_roster_has_the_nine
     var cast = roster.build()
@@ -158,12 +159,45 @@ function test_cat_pools_are_full_and_safe
 end
 
 function test_items_are_distinct_and_described
-    var list = roster.items()
-    testing.assert(list.length >= 2)
+    var list = items.builtins()
+    testing.assert(list.length >= 62)
     for i, a in list do
-        testing.assert(a.name != "" and a.note != "")
-        for j, b in list do
-            testing.assert(i == j or (a.kind != b.kind and a.name != b.name))
+        testing.assert(a.name != "" and items.describe(a) != "" and a.effects.length >= 1)
+        testing.assert(a.id == i)
+        for e in a.effects do
+            testing.assert(e.kind >= 0 and e.kind < items.EFFECT_COUNT)
+            testing.assert(not items.effect_words(e.kind, e.amount).contains("?"))
         end
+        testing.assert(a.condition >= 0 and a.condition < items.CONDITION_COUNT)
+        for j, b in list do
+            testing.assert(i == j or a.name != b.name)
+        end
+    end
+    testing.assert(items.EFFECT_NAMES.length == items.EFFECT_COUNT)
+    testing.assert(items.CONDITION_NAMES.length == items.CONDITION_COUNT)
+end
+
+function test_item_conditions_and_totals
+    var list = items.builtins()
+    var s = items.Situation()
+    s.health = 0.3
+    # BERSERKER BRAND (12) works below 40% health, not above.
+    var low = items.totals(list, [12], s)
+    testing.assert(low[items.E_DAMAGE] == 40)
+    s.health = 0.9
+    testing.assert(items.totals(list, [12], s)[items.E_DAMAGE] == 0)
+    # Two WHETSTONES add up; GLASS CANNON's drawback comes through as negative armor.
+    var both = items.totals(list, [1, 1, 13], s)
+    testing.assert(both[items.E_DAMAGE] == 95 and both[items.E_ARMOR] == -25)
+    testing.assert(items.more(25) == 1.25 and items.less(25) == 0.75)
+    for c in 0..<items.CONDITION_COUNT do
+        testing.assert(items.CONDITION_NAMES[c] != "")
+        items.holds(c, items.condition_param(c), s)
+    end
+end
+
+function test_every_fighter_has_a_bio
+    for c in roster.build() do
+        testing.assert(c.bio.length > 40)
     end
 end

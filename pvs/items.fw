@@ -1,0 +1,544 @@
+# Items: passive upgrades picked before a round (see the match options). Each lasts that round.
+#
+# Every item is data: a condition ("while your health is below 40%") and up to three effects
+# ("+40% damage"). The built-in items below, the items players make in the Simple editor, and the
+# numbers the game reads all go through the same few functions, so a new item needs no new code
+# unless it needs a new kind of condition or effect. Items written in Flywheel (the Advanced
+# editor) live in custom_items.fw instead and run as hooks.
+#
+# Nothing here opens a window, so tests can import it on their own.
+import math
+
+# --- Effects: what an item changes ---------------------------------------------------------------
+# Amounts are percent unless the unit says otherwise. Several items of the same effect add up.
+const int E_DAMAGE = 0       # % more damage dealt
+const int E_ARMOR = 1        # % less damage taken (negative: more)
+const int E_SPEED = 2        # % faster walking
+const int E_HEALTH = 3       # % more health (set when the round starts)
+const int E_COOLDOWN = 4     # % shorter skill cooldowns
+const int E_BAR = 5          # % faster special bar refill
+const int E_LIFESTEAL = 6    # % of damage dealt healed
+const int E_SUPER = 7        # % faster super bar
+const int E_DASH = 8         # % shorter dash cooldown
+const int E_THORNS = 9       # % of melee damage taken dealt back
+const int E_REGEN = 10       # health a second
+const int E_STUN = 11        # % longer stun on your hits
+const int E_POISON = 12      # seconds of poison added by your hits
+const int E_SLOW = 13        # seconds of slow added by your hits
+const int E_CRIT = 14        # % chance a hit does double damage
+const int E_PUSH = 15        # % harder knockback
+const int E_BAR_HIT = 16     # special bar gained per hit landed
+const int E_SUPER_HIT = 17   # super bar gained per hit landed
+const int E_PARRY_HEAL = 18  # health back on every parry
+const int E_GUARD = 19       # % less damage through a block
+const int E_PARRY_TIME = 20  # ticks longer parry window
+const int E_BASIC = 21       # % more damage with basic attacks
+const int E_SKILL = 22       # % more damage with skills and the super move
+const int E_MELEE = 23       # % more melee damage
+const int E_RANGED = 24      # % more damage with shots and beams
+const int E_SHIELD = 25      # a shield that soaks this much damage (set when the round starts)
+const int E_DODGE = 26       # % chance a hit misses you
+const int E_REVIVE = 27      # get back up once a round with this % of health
+const int E_LAUNCH = 28      # your hits pop them up (meters a second)
+const int E_SPAM = 29        # % slower SPAM bar
+const int E_REFUND = 30      # seconds off your skill cooldowns per hit landed
+const int E_STEAL = 31       # super bar taken from them per hit
+const int E_HEAL_HIT = 32    # health back per hit landed
+const int E_SUPER_START = 33 # % of the super bar filled when the round starts
+const int E_TENACITY = 34    # % shorter stuns on you
+const int EFFECT_COUNT = 35
+
+const string[] EFFECT_NAMES = ["DAMAGE", "ARMOR", "SPEED", "HEALTH", "COOLDOWNS", "BAR REFILL", "LIFESTEAL",
+    "SUPER GAIN", "DASH RECOVERY", "THORNS", "REGENERATION", "STUN", "POISON ON HIT", "SLOW ON HIT", "CRITICAL",
+    "KNOCKBACK", "BAR ON HIT", "SUPER ON HIT", "PARRY HEAL", "GUARD", "PARRY WINDOW", "BASIC DAMAGE",
+    "SKILL DAMAGE", "MELEE DAMAGE", "RANGED DAMAGE", "SHIELD", "DODGE", "REVIVE", "LAUNCH", "SPAM RESIST",
+    "COOLDOWN REFUND", "SUPER STEAL", "HEAL ON HIT", "SUPER HEAD START", "TENACITY"]
+
+# How an effect's amount reads: "+25% damage", "+5 health/s".
+function effect_words(int kind, double amount) returns string
+    var n = number(amount)
+    var sign = "+" if amount >= 0 else ""
+    if kind == E_DAMAGE do
+        return "{sign}{n}% damage"
+    else if kind == E_ARMOR do
+        return "{n}% less damage taken" if amount >= 0 else "{number(-amount)}% more damage taken"
+    else if kind == E_SPEED do
+        return "{sign}{n}% speed"
+    else if kind == E_HEALTH do
+        return "{sign}{n}% health"
+    else if kind == E_COOLDOWN do
+        return "skills recharge {n}% faster" if amount >= 0 else "skills recharge {number(-amount)}% slower"
+    else if kind == E_BAR do
+        return "bar refills {n}% faster"
+    else if kind == E_LIFESTEAL do
+        return "heal {n}% of damage dealt"
+    else if kind == E_SUPER do
+        return "super bar fills {n}% faster"
+    else if kind == E_DASH do
+        return "dash recovers {n}% faster"
+    else if kind == E_THORNS do
+        return "melee attackers take {n}% back"
+    else if kind == E_REGEN do
+        return "heal {n} a second"
+    else if kind == E_STUN do
+        return "hits stun {n}% longer"
+    else if kind == E_POISON do
+        return "hits poison for {n}s"
+    else if kind == E_SLOW do
+        return "hits slow for {n}s"
+    else if kind == E_CRIT do
+        return "{n}% chance of double damage"
+    else if kind == E_PUSH do
+        return "{sign}{n}% knockback"
+    else if kind == E_BAR_HIT do
+        return "+{n} bar per hit"
+    else if kind == E_SUPER_HIT do
+        return "+{n} super per hit"
+    else if kind == E_PARRY_HEAL do
+        return "parries heal {n}"
+    else if kind == E_GUARD do
+        return "blocks let {n}% less through"
+    else if kind == E_PARRY_TIME do
+        return "parry window +{n} ticks"
+    else if kind == E_BASIC do
+        return "{sign}{n}% basic attack damage"
+    else if kind == E_SKILL do
+        return "{sign}{n}% skill damage"
+    else if kind == E_MELEE do
+        return "{sign}{n}% melee damage"
+    else if kind == E_RANGED do
+        return "{sign}{n}% ranged damage"
+    else if kind == E_SHIELD do
+        return "a {n} health shield"
+    else if kind == E_DODGE do
+        return "{n}% chance to dodge a hit"
+    else if kind == E_REVIVE do
+        return "get up once at {n}% health"
+    else if kind == E_LAUNCH do
+        return "hits pop them up"
+    else if kind == E_SPAM do
+        return "SPAM bar fills {n}% slower"
+    else if kind == E_REFUND do
+        return "each hit cuts cooldowns by {n}s"
+    else if kind == E_STEAL do
+        return "each hit steals {n} super"
+    else if kind == E_HEAL_HIT do
+        return "heal {n} per hit"
+    else if kind == E_SUPER_START do
+        return "start with {n}% super"
+    else if kind == E_TENACITY do
+        return "stuns on you {n}% shorter"
+    end
+    return "?"
+end
+
+# A number without trailing zeros: 25, 1.5, 0.25.
+function number(double x) returns string
+    var r = math.round(x * 100) / 100
+    if r == math.floor(r) do
+        return "{int(r)}"
+    end
+    if r * 10 == math.floor(r * 10) do
+        return "{int(math.floor(r))}.{int(math.round((r - math.floor(r)) * 10))}"
+    end
+    return "{r}"
+end
+
+# --- Conditions: when an item works ----------------------------------------------------------------
+const int W_ALWAYS = 0
+const int W_HP_BELOW = 1         # your health under param %
+const int W_HP_ABOVE = 2         # your health over param %
+const int W_FOE_HP_BELOW = 3
+const int W_FOE_HP_ABOVE = 4
+const int W_FOE_POISONED = 5
+const int W_FOE_SLOWED = 6
+const int W_BEHIND = 7           # behind on rounds
+const int W_AHEAD = 8            # ahead on rounds
+const int W_MY_SUPER = 9         # your super is on
+const int W_THEIR_SUPER = 10     # theirs is
+const int W_CLOSE = 11           # them within param meters
+const int W_FAR = 12             # them further than param meters
+const int W_MOVING = 13
+const int W_STILL = 14
+const int W_BLOCKING = 15
+const int W_AFTER_PARRY = 16     # within param seconds of a parry
+const int W_AFTER_HURT = 17      # within param seconds of being hit
+const int W_UNHURT = 18          # not hit for param seconds
+const int W_COMBO = 19           # landing a combo of at least param hits
+const int W_EARLY = 20           # the first param seconds of a round
+const int W_LATE = 21            # under param seconds left on the clock
+const int W_DECIDER = 22         # the deciding round
+const int W_BAR_ABOVE = 23       # your special bar over param %
+const int W_BAR_BELOW = 24
+const int W_BEHIND_FOE = 25      # standing at their back
+const int W_FOE_AIRBORNE = 26
+const int W_SUPER_READY = 27
+const int CONDITION_COUNT = 28
+
+const string[] CONDITION_NAMES = ["ALWAYS", "HEALTH BELOW %", "HEALTH ABOVE %", "THEIR HEALTH BELOW %",
+    "THEIR HEALTH ABOVE %", "THEY ARE POISONED", "THEY ARE SLOWED", "BEHIND ON ROUNDS", "AHEAD ON ROUNDS",
+    "YOUR SUPER IS ON", "THEIR SUPER IS ON", "THEM WITHIN METERS", "THEM FURTHER THAN METERS", "MOVING",
+    "STANDING STILL", "BLOCKING", "SECONDS AFTER A PARRY", "SECONDS AFTER BEING HIT", "NOT HIT FOR SECONDS",
+    "IN A COMBO OF HITS", "FIRST SECONDS OF A ROUND", "SECONDS LEFT UNDER", "DECIDING ROUND", "BAR ABOVE %",
+    "BAR BELOW %", "BEHIND THEIR BACK", "THEY ARE IN THE AIR", "SUPER IS READY"]
+
+# Whether a condition takes a number, and a sensible one to start from.
+function condition_param(int condition) returns double
+    if condition == W_HP_BELOW or condition == W_FOE_HP_BELOW do
+        return 40
+    else if condition == W_HP_ABOVE or condition == W_FOE_HP_ABOVE do
+        return 80
+    else if condition == W_CLOSE do
+        return 2.5
+    else if condition == W_FAR do
+        return 6
+    else if condition == W_AFTER_PARRY or condition == W_AFTER_HURT do
+        return 3
+    else if condition == W_UNHURT do
+        return 2
+    else if condition == W_COMBO do
+        return 3
+    else if condition == W_EARLY do
+        return 10
+    else if condition == W_LATE do
+        return 30
+    else if condition == W_BAR_ABOVE do
+        return 75
+    else if condition == W_BAR_BELOW do
+        return 25
+    end
+    return 0
+end
+function takes_param(int condition) returns bool
+    return condition_param(condition) > 0
+end
+
+# "while your health is below 40%".
+function condition_words(int c, double p) returns string
+    var n = number(p)
+    if c == W_ALWAYS do
+        return ""
+    else if c == W_HP_BELOW do
+        return "while your health is below {n}%"
+    else if c == W_HP_ABOVE do
+        return "while your health is above {n}%"
+    else if c == W_FOE_HP_BELOW do
+        return "against foes below {n}% health"
+    else if c == W_FOE_HP_ABOVE do
+        return "against foes above {n}% health"
+    else if c == W_FOE_POISONED do
+        return "against poisoned foes"
+    else if c == W_FOE_SLOWED do
+        return "against slowed foes"
+    else if c == W_BEHIND do
+        return "while behind on rounds"
+    else if c == W_AHEAD do
+        return "while ahead on rounds"
+    else if c == W_MY_SUPER do
+        return "during your super"
+    else if c == W_THEIR_SUPER do
+        return "during their super"
+    else if c == W_CLOSE do
+        return "within {n} m of them"
+    else if c == W_FAR do
+        return "more than {n} m away"
+    else if c == W_MOVING do
+        return "while moving"
+    else if c == W_STILL do
+        return "while standing still"
+    else if c == W_BLOCKING do
+        return "while blocking"
+    else if c == W_AFTER_PARRY do
+        return "for {n}s after a parry"
+    else if c == W_AFTER_HURT do
+        return "for {n}s after being hit"
+    else if c == W_UNHURT do
+        return "when not hit for {n}s"
+    else if c == W_COMBO do
+        return "in a combo of {n}+ hits"
+    else if c == W_EARLY do
+        return "for the first {n}s of a round"
+    else if c == W_LATE do
+        return "with under {n}s on the clock"
+    else if c == W_DECIDER do
+        return "in a deciding round"
+    else if c == W_BAR_ABOVE do
+        return "while your bar is above {n}%"
+    else if c == W_BAR_BELOW do
+        return "while your bar is below {n}%"
+    else if c == W_BEHIND_FOE do
+        return "from behind them"
+    else if c == W_FOE_AIRBORNE do
+        return "against foes in the air"
+    else if c == W_SUPER_READY do
+        return "while your super is ready"
+    end
+    return "?"
+end
+
+# --- Items -----------------------------------------------------------------------------------------
+class Effect
+    int kind
+    double amount
+end
+
+class ItemDef
+    int id                           # built-ins 0..; Simple items 1000..; Flywheel items 2000..
+    string name
+    string flavor = ""               # a line of character, not rules
+    int condition = W_ALWAYS
+    double param = 0
+    Effect[] effects = []
+    int tier = 0                     # 0 common, 1 rare, 2 cursed (has a drawback)
+    int source = 0                   # 0 built in, 1 Simple editor, 2 Flywheel (custom_items.fw)
+    string code_id = ""              # a Flywheel item's id in custom_items.fw
+    string code_note = ""            # ...and the line it describes itself with
+end
+
+const int SOURCE_BUILTIN = 0
+const int SOURCE_SIMPLE = 1
+const int SOURCE_CODE = 2
+const int TIER_COMMON = 0
+const int TIER_RARE = 1
+const int TIER_CURSED = 2
+
+# The rules of an item in one line: "+40% damage while your health is below 40%".
+function describe(ItemDef it) returns string
+    if it.source == SOURCE_CODE do
+        return it.code_note
+    end
+    var words = ""
+    for e in it.effects do
+        var one = effect_words(e.kind, e.amount)
+        words = one if words == "" else "{words}, {one}"
+    end
+    var when = condition_words(it.condition, it.param)
+    if when != "" do
+        words = "{words} {when}"
+    end
+    if words.length > 0 do
+        words = "{words[0..0].upper()}{words[1..<words.length]}"
+    end
+    return words
+end
+
+# The key an item is remembered by in the save file (which are switched off, and builds).
+function key_of(ItemDef it) returns string
+    if it.source == SOURCE_SIMPLE do
+        return "simple:{it.name}"
+    else if it.source == SOURCE_CODE do
+        return "code:{it.code_id}"
+    end
+    return "item:{it.id}"
+end
+
+private function make(int id, string name, string flavor, int condition, double param, int[] kinds, double[] amounts) returns ItemDef
+    var it = ItemDef(id, name, flavor, condition, param)
+    Effect[] list = []
+    var bad = false
+    for i in 0..<kinds.length do
+        list.push(Effect(kinds[i], amounts[i]))
+        bad = bad or amounts[i] < 0
+    end
+    it.effects = list
+    it.tier = TIER_CURSED if bad else (TIER_RARE if kinds.length > 1 or condition != W_ALWAYS else TIER_COMMON)
+    return it
+end
+
+# Every built-in item. The first twelve are the originals (their ids are kept for old builds).
+function builtins() returns ItemDef[]
+    var A = W_ALWAYS
+    return [
+        make(0, "IRON SKIN", "Hammered on, one plate at a time.", A, 0, [E_ARMOR], [25.0]),
+        make(1, "WHETSTONE", "Every edge is sharper for it.", A, 0, [E_DAMAGE], [25.0]),
+        make(2, "SWIFT BOOTS", "Light soles, quick feet.", A, 0, [E_SPEED], [20.0]),
+        make(3, "SECOND HEART", "It beats a little out of time.", A, 0, [E_HEALTH], [35.0]),
+        make(4, "HOURGLASS", "The sand runs uphill for you.", A, 0, [E_COOLDOWN], [35.0]),
+        make(5, "WELLSPRING", "It never quite runs dry.", A, 0, [E_BAR], [75.0]),
+        make(6, "LEECH FANG", "Still hungry.", A, 0, [E_LIFESTEAL], [15.0]),
+        make(7, "EMBER CORE", "Warm to the touch, and getting warmer.", A, 0, [E_SUPER], [60.0]),
+        make(8, "FEATHER STEP", "Hardly touching the ground.", A, 0, [E_DASH], [75.0]),
+        make(9, "THORN MAIL", "Hug it and find out.", A, 0, [E_THORNS], [35.0]),
+        make(10, "MOSS", "Grows back over anything, given a moment.", W_UNHURT, 2, [E_REGEN], [5.0]),
+        make(11, "ANVIL HANDS", "Heavy enough to ring a skull.", A, 0, [E_STUN], [35.0]),
+        make(12, "BERSERKER BRAND", "Burns brighter the closer you are to the end.", W_HP_BELOW, 40, [E_DAMAGE], [40.0]),
+        make(13, "GLASS CANNON", "Hits like a cannon. Breaks like glass.", A, 0, [E_DAMAGE, E_ARMOR], [45.0, -25.0]),
+        make(14, "BULWARK", "A door you carry on your arm.", A, 0, [E_GUARD], [70.0]),
+        make(15, "VIPER FANG", "Pulled from something that is still angry.", A, 0, [E_POISON], [1.5]),
+        make(16, "FROST SHARD", "Never melts. Never stops biting.", A, 0, [E_SLOW], [0.6]),
+        make(17, "LUCKY COIN", "Heads, they lose. Tails, they lose twice.", A, 0, [E_CRIT], [15.0]),
+        make(18, "SLEDGEHAMMER", "For problems that need to be further away.", A, 0, [E_PUSH, E_DAMAGE], [50.0, 10.0]),
+        make(19, "CAPACITOR", "Stores every jolt for later.", A, 0, [E_BAR_HIT], [6.0]),
+        make(20, "SOUL SIPHON", "A little of them stays with you.", A, 0, [E_SUPER_HIT], [3.0]),
+        make(21, "MIRROR GUARD", "Turned well, it gives something back.", A, 0, [E_PARRY_HEAL], [12.0]),
+        make(22, "HAIR TRIGGER", "Faster than thinking about it.", A, 0, [E_PARRY_TIME], [4.0]),
+        make(23, "KNUCKLE DUSTERS", "The basics, with brass on.", A, 0, [E_BASIC], [35.0]),
+        make(24, "SPELLBOOK", "Dog-eared at every page that matters.", A, 0, [E_SKILL], [25.0]),
+        make(25, "BRAWLER TAPE", "Wrapped tight, knuckles first.", A, 0, [E_MELEE], [20.0]),
+        make(26, "SCOPE", "Close enough to count the eyelashes.", A, 0, [E_RANGED], [30.0]),
+        make(27, "AEGIS", "Takes the first few blows for you.", A, 0, [E_SHIELD], [40.0]),
+        make(28, "SHADOW SILK", "Hard to hit what is not quite there.", A, 0, [E_DODGE], [12.0]),
+        make(29, "PHOENIX FEATHER", "Ash is only a phase.", A, 0, [E_REVIVE], [25.0]),
+        make(30, "UPDRAFT", "Every hit gives them a little lift.", A, 0, [E_LAUNCH], [3.0]),
+        make(31, "ZEN BEADS", "Count them. Breathe. Hit again.", A, 0, [E_SPAM], [40.0]),
+        make(32, "CLOCKWORK", "Every blow winds it a little tighter.", A, 0, [E_REFUND], [0.5]),
+        make(33, "PICKPOCKET GLOVE", "Light fingers, heavy pockets.", A, 0, [E_STEAL], [2.0]),
+        make(34, "VAMPIRE TOOTH", "A sip with every bite.", A, 0, [E_HEAL_HIT], [2.0]),
+        make(35, "OVERCHARGE", "Arrives already humming.", A, 0, [E_SUPER_START], [30.0]),
+        make(36, "EXECUTIONER", "Finishes what was started.", W_FOE_HP_BELOW, 30, [E_DAMAGE], [40.0]),
+        make(37, "OPENING GAMBIT", "The first impression is the one that hurts.", W_FOE_HP_ABOVE, 90, [E_DAMAGE], [60.0]),
+        make(38, "UNDERDOG CHARM", "Nobody expected anything. Good.", W_BEHIND, 0, [E_DAMAGE, E_ARMOR], [30.0, 15.0]),
+        make(39, "CROWN OF THORNS", "Heavy is the head.", A, 0, [E_THORNS, E_ARMOR], [20.0, 10.0]),
+        make(40, "SNIPER PATIENCE", "Wait. Wait. Now.", W_FAR, 6, [E_DAMAGE], [35.0]),
+        make(41, "BRAWL GLOVES", "Close enough to smell the fear.", W_CLOSE, 2.5, [E_DAMAGE], [25.0]),
+        make(42, "MOMENTUM", "Never stop. Never slow down.", W_MOVING, 0, [E_SPEED, E_DAMAGE], [15.0, 15.0]),
+        make(43, "STILLNESS", "The mountain does not flinch.", W_STILL, 0, [E_ARMOR], [30.0]),
+        make(44, "COUNTERWEIGHT", "What they put in, you send back harder.", W_AFTER_PARRY, 3, [E_DAMAGE], [60.0]),
+        make(45, "ADRENALINE", "Pain is a starting pistol.", W_AFTER_HURT, 2, [E_SPEED, E_DAMAGE], [25.0, 10.0]),
+        make(46, "LAST BREATH", "Not yet. Not like this.", W_HP_BELOW, 30, [E_REGEN], [4.0]),
+        make(47, "COMBO METER", "Keep it going and it keeps going.", W_COMBO, 3, [E_DAMAGE], [20.0]),
+        make(48, "QUICKSTART", "Out of the blocks before the bell stops ringing.", W_EARLY, 10, [E_SPEED, E_COOLDOWN], [30.0, 30.0]),
+        make(49, "SUDDEN DEATH", "The clock is running out. So is their luck.", W_LATE, 30, [E_DAMAGE], [30.0]),
+        make(50, "FINAL STAND", "Everything on one round.", W_DECIDER, 0, [E_DAMAGE, E_ARMOR], [25.0, 25.0]),
+        make(51, "TOXIC BLOOM", "Feeds on what is already rotting.", W_FOE_POISONED, 0, [E_DAMAGE], [35.0]),
+        make(52, "FROSTBITE", "Slow things break easier.", W_FOE_SLOWED, 0, [E_DAMAGE], [30.0]),
+        make(53, "FULL TANK", "Topped up and spoiling for it.", W_BAR_ABOVE, 75, [E_DAMAGE], [20.0]),
+        make(54, "RESERVE TANK", "Something always left at the bottom.", W_BAR_BELOW, 25, [E_BAR], [150.0]),
+        make(55, "JUGGLER BELT", "Keep them up. Keep them up.", W_FOE_AIRBORNE, 0, [E_DAMAGE], [30.0]),
+        make(56, "SUPERNOVA", "Your world, your rules, your damage.", W_MY_SUPER, 0, [E_DAMAGE], [25.0]),
+        make(57, "STORM SHELTER", "Somewhere to wait out someone else's weather.", W_THEIR_SUPER, 0, [E_ARMOR], [25.0]),
+        make(58, "BACKSTABBER", "Nothing personal. Mostly.", W_BEHIND_FOE, 0, [E_DAMAGE], [40.0]),
+        make(59, "READY OR NOT", "Something is coming and they know it.", W_SUPER_READY, 0, [E_SPEED, E_ARMOR], [20.0, 10.0]),
+        make(60, "TORTOISE SHELL", "Slow and very, very steady.", A, 0, [E_ARMOR, E_SPEED], [30.0, -15.0]),
+        make(61, "FEATHERWEIGHT", "Less of you to hit, and less of you to hurt.", A, 0, [E_SPEED, E_HEALTH], [25.0, -15.0]),
+        make(62, "HEAVY HEART", "Carrying more than anyone should.", A, 0, [E_HEALTH, E_SPEED], [60.0, -10.0]),
+        make(63, "GAMBLER DICE", "Loaded, but not in your favor every time.", A, 0, [E_CRIT, E_DAMAGE], [30.0, -10.0]),
+        make(64, "THICK SKULL", "Shakes it off before it lands.", A, 0, [E_TENACITY], [35.0]),
+        make(65, "BLOOD PACT", "Signed in red. Paid in red.", A, 0, [E_LIFESTEAL, E_HEALTH], [25.0, -15.0]),
+        make(66, "HEX NAIL", "Weaker blows, longer misery.", A, 0, [E_POISON, E_DAMAGE], [3.0, -10.0]),
+        make(67, "STATIC GLOVES", "Every touch leaves them twitching.", A, 0, [E_SLOW, E_BAR_HIT], [0.4, 3.0]),
+        make(68, "WAR DRUM", "Everyone moves to its beat.", A, 0, [E_DAMAGE, E_SPEED], [12.0, 12.0]),
+        make(69, "PILGRIM SANDALS", "Worn thin by the long way round.", A, 0, [E_DASH, E_SPEED], [50.0, 10.0]),
+        make(70, "IRON LUNG", "Breathes through anything.", W_BLOCKING, 0, [E_ARMOR, E_BAR], [20.0, 100.0]),
+        make(71, "TRUE GRIT", "Bleeds, but keeps coming.", W_HP_BELOW, 50, [E_TENACITY, E_ARMOR], [40.0, 10.0])
+    ]
+end
+
+# --- What the game asks -----------------------------------------------------------------------------
+# A fighter's situation this tick, filled in by the game: what the conditions look at.
+class Situation
+    double health = 1                # shares of the maximum
+    double foe_health = 1
+    bool foe_poisoned = false
+    bool foe_slowed = false
+    int rounds_behind = 0
+    int rounds_ahead = 0
+    bool my_super = false
+    bool their_super = false
+    double distance = 3
+    bool moving = false
+    bool blocking = false
+    double since_parry = 999         # seconds
+    double since_hurt = 999
+    int combo = 0
+    double round_time = 0            # seconds fought this round
+    double clock = 99                # seconds left
+    bool decider = false
+    double bar = 1                   # share of the special bar
+    bool behind_foe = false
+    bool foe_airborne = false
+    bool super_ready = false
+end
+
+function holds(int c, double p, Situation s) returns bool
+    if c == W_ALWAYS do
+        return true
+    else if c == W_HP_BELOW do
+        return s.health * 100 < p
+    else if c == W_HP_ABOVE do
+        return s.health * 100 > p
+    else if c == W_FOE_HP_BELOW do
+        return s.foe_health * 100 < p
+    else if c == W_FOE_HP_ABOVE do
+        return s.foe_health * 100 > p
+    else if c == W_FOE_POISONED do
+        return s.foe_poisoned
+    else if c == W_FOE_SLOWED do
+        return s.foe_slowed
+    else if c == W_BEHIND do
+        return s.rounds_behind > 0
+    else if c == W_AHEAD do
+        return s.rounds_ahead > 0
+    else if c == W_MY_SUPER do
+        return s.my_super
+    else if c == W_THEIR_SUPER do
+        return s.their_super
+    else if c == W_CLOSE do
+        return s.distance <= p
+    else if c == W_FAR do
+        return s.distance > p
+    else if c == W_MOVING do
+        return s.moving
+    else if c == W_STILL do
+        return not s.moving
+    else if c == W_BLOCKING do
+        return s.blocking
+    else if c == W_AFTER_PARRY do
+        return s.since_parry <= p
+    else if c == W_AFTER_HURT do
+        return s.since_hurt <= p
+    else if c == W_UNHURT do
+        return s.since_hurt > p
+    else if c == W_COMBO do
+        return double(s.combo) >= p
+    else if c == W_EARLY do
+        return s.round_time <= p
+    else if c == W_LATE do
+        return s.clock < p
+    else if c == W_DECIDER do
+        return s.decider
+    else if c == W_BAR_ABOVE do
+        return s.bar * 100 > p
+    else if c == W_BAR_BELOW do
+        return s.bar * 100 < p
+    else if c == W_BEHIND_FOE do
+        return s.behind_foe
+    else if c == W_FOE_AIRBORNE do
+        return s.foe_airborne
+    else if c == W_SUPER_READY do
+        return s.super_ready
+    end
+    return false
+end
+
+# Every effect added up over the items held, for the situation now. `held` are indexes into `defs`.
+function totals(ItemDef[] defs, int[] held, Situation s) returns double[]
+    double[] sum = []
+    for i in 0..<EFFECT_COUNT do
+        sum.push(0.0)
+    end
+    for index in held do
+        if index < 0 or index >= defs.length do
+            continue
+        end
+        var it = defs[index]
+        if not holds(it.condition, it.param, s) do
+            continue
+        end
+        for e in it.effects do
+            if e.kind >= 0 and e.kind < EFFECT_COUNT do
+                sum[e.kind] += e.amount
+            end
+        end
+    end
+    return sum
+end
+
+# A percent as a multiplier that never goes below `floor`: 25 -> 1.25, -30 -> 0.7.
+function more(double percent, double floor = 0.1) returns double
+    return math.max(1 + percent / 100, floor)
+end
+# A reduction as a multiplier: 25 -> 0.75 (capped so nothing reaches zero).
+function less(double percent, double cap = 85) returns double
+    return 1 - math.min(percent, cap) / 100
+end

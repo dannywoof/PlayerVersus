@@ -1,6 +1,6 @@
 # Sound sources
 
-Every effect in `blades/`, `creatures/`, `impacts/`, `magic/`, `ui/`, `voice/` and `weapons/` is cut from
+Every effect in `blades/`, `creatures/`, `impacts/`, `magic/`, `money/`, `ui/`, `voice/` and `weapons/` is cut from
 human-made recordings or sound design released under **CC0** (public domain: free for commercial use,
 no attribution required), except the two Snake gunshots noted below. The CC0 sources were published
 between 2010 and 2021, before generative audio tools existed; the Snake pack (2022) states that no
@@ -30,6 +30,12 @@ it starts, cuts it to length, fades it out and normalizes it to 44.1 kHz 16-bit 
 | [80 CC0 creature SFX](https://opengameart.org/content/80-cc0-creature-sfx) | rubberduck | 2018 | hiss, spit |
 | [Magic Spell SFX](https://opengameart.org/content/magic-spell-sfx) | JaggedStone | 2014 | heal, shimmer, wisp |
 | [Male Grunt/Yelling sounds](https://opengameart.org/content/male-gruntyelling-sounds) | HaelDB | 2012 | kiai (dual-licensed OGA-BY 3.0 / CC0; used under CC0) |
+| Kenney [Casino Audio](https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips) (OpenGameArt upload) | Kenney | 2012 | chips, card shuffle, card fan, card place (MONOPOLIST, CAT, the item draft) |
+| Kenney [RPG Audio](https://opengameart.org/content/50-rpg-sound-effects) (OpenGameArt upload) | Kenney | 2014 | coin handling, knife slice, drawing a knife, chop, book page, cloth, creak |
+| [12 Coin Sound Effects](https://opengameart.org/content/12-coin-sound-effects) | StarNinjas | 2021 | coins (recorded by rumbling real coins) |
+| [Coin Drop](https://opengameart.org/content/coin-drop) | Vinrax | 2014 | coin drop (bankruptcy) |
+| [Coin Splash](https://opengameart.org/content/coin-splash) | LordTomorrow | 2020 | coin splash |
+| [Sack of Gold](https://opengameart.org/content/sack-of-gold) | Amarikah | 2020 | sack of gold (SOLD!, the bailout, saving) |
 
 Credit is not required, but these authors are worth thanking in the game's credits.
 

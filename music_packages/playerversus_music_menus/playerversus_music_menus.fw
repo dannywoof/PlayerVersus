@@ -1,0 +1,9 @@
+# playerversus_music_menus: part of the soundtrack of PLAYER VERSUS (the menus, the item shop, the result jingles and the finale tracks). The soundtrack is split
+# over several packages so each one is small enough for the registry to take. The tracks are the
+# .ogg files in music/ (credits in music/SOURCES.md).
+#
+# Flywheel doesn't tell a module where its files are, so PLAYER VERSUS finds this package's folder
+# itself (music.fw looks where Pulley puts dependencies) and plays music/<name>.ogg from it.
+
+# The folder inside this package that holds the tracks.
+const string MUSIC_FOLDER = "music"

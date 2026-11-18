@@ -122,3 +122,25 @@ make("ui/move", k("interface-sounds", "click_001.ogg"), 0.15, fade=0.03, gain=-4
 make("ui/pick", k("interface-sounds", "confirmation_001.ogg"), 0.6, fade=0.1, gain=-3)
 make("ui/deny", k("interface-sounds", "error_004.ogg"), 0.4, fade=0.1, gain=-3)
 make("ui/bell", k("impact-sounds", "impactBell_heavy_000.ogg"), 1.5, fade=0.5)
+
+# --- Money, cards and odd jobs (added for MONOPOLIST, CAT, STAB and the item draft). Kenney's casino and
+# RPG packs here are the OpenGameArt uploads (kenney/casino-audio, kenney/rpg-audio: "54 Casino sound
+# effects" and "50 RPG sound effects").
+make("money/coin_a", o("12-coin-sound-effects", "coins_-_starninjas", "coin.1.ogg"), 0.45, fade=0.15)
+make("money/coin_b", o("12-coin-sound-effects", "coins_-_starninjas", "coin.5.ogg"), 0.6, fade=0.2)
+make("money/coin_drop", o("coin-drop", "coin_drop.wav"), 1.4, fade=0.4)
+make("money/coin_splash", o("coin-splash", "coinsplash_0.ogg"), 0.33, fade=0.1)
+make("money/gold_sack", o("sack-of-gold", "gold_sack.wav"), 1.2, fade=0.4)
+make("money/coins_handle", k("rpg-audio", "handleCoins.ogg"), 0.6, fade=0.2)
+make("money/coins_handle2", k("rpg-audio", "handleCoins2.ogg"), 0.6, fade=0.2)
+make("money/chips", k("casino-audio", "chips-collide-1.ogg"), 0.5, fade=0.15)
+make("money/chip_stack", k("casino-audio", "chips-handle-2.ogg"), 0.6, fade=0.2)
+make("money/card_shuffle", k("casino-audio", "card-shuffle.ogg"), 0.9, fade=0.3)
+make("money/card_fan", k("casino-audio", "card-fan-1.ogg"), 0.5, fade=0.15)
+make("money/card_place", k("casino-audio", "card-place-1.ogg"), 0.3, fade=0.1)
+make("blades/knife_slice", k("rpg-audio", "knifeSlice.ogg"), 0.4, fade=0.1)
+make("blades/draw_knife", k("rpg-audio", "drawKnife1.ogg"), 0.4, fade=0.1)
+make("blades/chop", k("rpg-audio", "chop.ogg"), 0.4, fade=0.1)
+make("magic/book_flip", k("rpg-audio", "bookFlip1.ogg"), 0.4, fade=0.1)
+make("impacts/cloth", k("rpg-audio", "cloth2.ogg"), 0.4, fade=0.1)
+make("impacts/creak", k("rpg-audio", "creak1.ogg"), 0.7, fade=0.2)

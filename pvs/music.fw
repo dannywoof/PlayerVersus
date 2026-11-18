@@ -1,0 +1,137 @@
+# The soundtrack of PLAYER VERSUS: which track should be playing, and getting there smoothly.
+#
+# The game says what it wants every tick with `want(name)` and calls `update()`; the director
+# fades the old track out, starts the new one and fades it in. One track streams at a time
+# (Aperture's music stream), so a change is a short dip rather than an overlap. A name is a file
+# in the music folder without its extension; "" is silence.
+#
+# The tracks come in their own packages, the playerversus_music_* dependencies, so this one stays
+# small enough to publish. Every track is a human-made CC0 piece: see each one's music/SOURCES.md.
+import aperture as ap
+import fs
+
+const int FADE_OUT = 36              # ticks to fade the old track away...
+const int FADE_IN = 50               # ...and to bring the new one up
+const double VOLUME = 0.55
+
+# The fights rotate through these, round by round; a deciding round gets a finale track.
+const string[] FIGHT_TRACKS = ["fight_1", "fight_2", "fight_3", "fight_4", "fight_5", "fight_6", "fight_7",
+    "fight_8", "fight_9"]
+const string[] FINALE_TRACKS = ["finale_1", "finale_2"]
+
+class Director
+    string[] dirs = []               # the folders with the .ogg files
+    string playing = ""              # the track streaming now
+    string wanted = ""               # the track asked for
+    bool looping = true
+    bool want_loop = true
+    int fade = 0                     # ticks into fading out (>0) or in (<0)
+    double level = 0                 # the volume the stream is at, 0..1 of VOLUME
+    double master = 1                # the player's music volume, 0..1
+    bool missing = false
+end
+
+var director = Director()
+
+# Where the tracks are. They come in several packages (each small enough for the registry), and
+# Pulley puts those dependencies in the project's .flywheel-modules/ when you run from the source,
+# and next to this package (in the same .flywheel-modules/) when the game is installed. A local
+# assets/music/ still works too.
+const string[] MUSIC_PACKAGES = ["playerversus_music_menus", "playerversus_music_fights",
+    "playerversus_music_supers_1", "playerversus_music_supers_2", "playerversus_music_supers_3"]
+function find_dirs(string game_dir) returns string[]
+    string[] at = [fs.join(game_dir, "assets", "music")]
+    var installed_beside = fs.dirname(fs.absolute(game_dir))
+    for pkg in MUSIC_PACKAGES do
+        at.push(fs.join(game_dir, ".flywheel-modules", pkg, "music"))
+        at.push(fs.join(installed_beside, pkg, "music"))
+    end
+    string[] found = []
+    for dir in at do
+        if fs.is_dir(dir) do
+            found.push(dir)
+        end
+    end
+    return found
+end
+
+function setup(string game_dir)
+    director.dirs = find_dirs(game_dir)
+    director.missing = director.dirs.length == 0
+end
+
+# The file for a track, or "" when no music folder has it.
+function path_of(string name) returns string
+    for dir in director.dirs do
+        var path = fs.join(dir, "{name}.ogg")
+        if fs.exists(path) do
+            return path
+        end
+    end
+    return ""
+end
+
+function exists(string name) returns bool
+    return name != "" and not director.missing and path_of(name) != ""
+end
+
+# What should be playing. Asking for what is already playing changes nothing.
+function want(string name, bool loop = true)
+    director.wanted = name if exists(name) else ""
+    director.want_loop = loop
+end
+
+# The player's music volume (0 silences it).
+function set_volume(double share)
+    director.master = share
+    if director.playing != "" do
+        ap.music_volume(VOLUME * director.level * director.master)
+    end
+end
+
+function current() returns string
+    return director.playing
+end
+
+# Whether a track that was not looping has finished.
+function finished() returns bool
+    return director.playing != "" and not director.looping and not ap.music_playing()
+end
+
+# One tick: fade toward whatever is wanted.
+function update()
+    var d = director
+    if d.wanted != d.playing do
+        if d.playing == "" or d.level <= 0.001 do
+            # Silent: switch at once and fade the new one in.
+            if d.wanted == "" do
+                ap.stop_music()
+            else do
+                ap.play_music(path_of(d.wanted), 0.0, d.want_loop)
+            end
+            d.playing = d.wanted
+            d.looping = d.want_loop
+            d.level = 0
+        else do
+            d.level = ap.approach(d.level, 0.0, 1.0 / double(FADE_OUT))
+        end
+    else if d.playing != "" do
+        d.level = ap.approach(d.level, 1.0, 1.0 / double(FADE_IN))
+    end
+    if d.playing != "" do
+        ap.music_volume(VOLUME * d.level * d.master)
+    end
+end
+
+# A track for round `round` of a match: the rotation moves on every round, from `seed`.
+function fight_track(int seed, int round, bool decider) returns string
+    if decider do
+        return FINALE_TRACKS[(seed + round) % FINALE_TRACKS.length]
+    end
+    return FIGHT_TRACKS[(seed + round) % FIGHT_TRACKS.length]
+end
+
+# A fighter's super theme: "super_" and their name in lower case.
+function super_track(string fighter) returns string
+    return "super_{fighter.lower()}"
+end
