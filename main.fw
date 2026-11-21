@@ -1,0 +1,23 @@
+interface Entity
+    function tick
+end
+
+class Person implements Entity
+    string name
+    int age
+
+    constructor string name, int age
+        this.name = name
+        this.age = age
+    end
+
+    function tick
+        this.age += 1
+        print(this.name + " is now " + string(this.age) + " years old.")
+    end
+end
+
+Person person = Person("Alice", 30)
+
+bool ticking = true
+while ticking run person.tick

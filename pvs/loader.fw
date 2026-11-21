@@ -1,0 +1,143 @@
+# PLAYER VERSUS's loading screen. Start the game with ./play or the installed `playerversus` command
+# (pulley.toml [commands] runs this file): it opens this window straight away,
+# shows a loading bar while the game is built (or finds the last build still good), then starts
+# the game and closes the moment the game's own window has drawn its title.
+#
+# The game is built to .playerversus in the game's folder (__dir__, so the current directory doesn't
+# matter). It has to sit there, not in .cache/: a built program's __dir__ is wherever the executable
+# is at run time, and the game finds its sounds, music and pulley.toml from __dir__. This loader is
+# built to .loader beside it for the same reason. .playerversus is rebuilt only when a .fw file (or
+# Flywheel) is newer than it. .cache/ holds the rest: build_seconds remembers how long the last
+# build took, so the bar can move at about the right speed, and build.log the last build's output.
+# Arguments given to ./play (__args__) are passed on to the game.
+import aperture as ap
+import fs
+import math
+import os
+import time
+
+const string CACHE = fs.join(__dir__, ".cache")
+const string GAME = fs.join(__dir__, ".playerversus")
+const string NEXT = fs.join(CACHE, "playerversus.next")
+const string READY = fs.join(CACHE, "ready")
+const string TIMING = fs.join(CACHE, "build_seconds")
+const string LOG = fs.join(CACHE, "build.log")
+
+const int STAGE_BUILD = 0          # Flywheel is building the game
+const int STAGE_START = 1          # the game is starting; waiting for its first frame
+const int STAGE_FAILED = 2         # something went wrong: say what, and wait to be closed
+
+ap.open("PLAYER VERSUS", 1280, 720, ap.RESIZABLE)
+ap.virtual_size(640, 360)
+
+function label_centered(string words, double x, double y, double size, ap.Color color)
+    var w = ap.measure(words, size).x
+    ap.text(words, x - w / 2 + size / 8, y + size / 8, size, ap.BLACK.fade(double(color.a) / 255 * 0.8))
+    ap.text(words, x - w / 2, y, size, color)
+end
+
+# Whether the last build is still good: nothing it was built from has changed since.
+function build_is_fresh() returns bool
+    var check = "cd '{__dir__}' && test -x .playerversus && test -z \"$(find -L . -name '*.fw' -newer .playerversus -not -path './.cache/*' 2>/dev/null | head -n 1)\"" +
+        " && ! test \"$(command -v flywheel)\" -nt .playerversus"
+    return os.shell(check) == 0
+end
+
+function last_build_seconds() returns double
+    try
+        if fs.exists(TIMING) do
+            return math.max(double(fs.read(TIMING).trim()), 1.0)
+        end
+    catch e
+    end
+    return 9
+end
+
+function start_game() returns int
+    if fs.exists(READY) do
+        fs.remove(READY)
+    end
+    string[] command = ["env", "PVS_READY={READY}", GAME]
+    for arg in __args__ do
+        command.push(arg)
+    end
+    return os.start(command)
+end
+
+if not fs.is_dir(CACHE) do
+    fs.mkdir(CACHE)
+end
+
+var stage = STAGE_BUILD
+var shown = 0.0                    # the bar as drawn, 0..1
+var began = time.monotonic()
+var expected = last_build_seconds()
+var builder = -1
+var game = -1
+var problem = ""
+var fresh = build_is_fresh()
+if fresh do
+    game = start_game()
+    stage = STAGE_START
+else do
+    if fs.exists(LOG) do
+        fs.remove(LOG)
+    end
+    builder = os.start(["flywheel", "-b", "-O0", fs.join(__dir__, "playerversus.fw"), "-o", NEXT], LOG)
+end
+
+while ap.frame() do
+    var now = time.monotonic() - began
+    var target = 0.0
+    if stage == STAGE_BUILD do
+        # About how far along the build is, from how long the last one took: never quite there
+        # until it is done.
+        target = 0.9 * (1 - math.exp(-2.0 * now / expected))
+        if not os.alive(builder) do
+            if os.wait(builder) == 0 and fs.exists(NEXT) do
+                fs.move(NEXT, GAME)
+                fs.write(TIMING, "{now}")
+                game = start_game()
+                stage = STAGE_START
+            else do
+                problem = "THE BUILD FAILED: SEE .cache/build.log"
+                stage = STAGE_FAILED
+                if fs.exists(LOG) do
+                    print(fs.read(LOG))
+                end
+            end
+        end
+    else if stage == STAGE_START do
+        target = 1.0
+        if fs.exists(READY) do
+            # Its window is up and drawing: this one goes.
+            fs.remove(READY)
+            break
+        end
+        if not os.alive(game) do
+            problem = "THE GAME STOPPED BEFORE IT OPENED"
+            stage = STAGE_FAILED
+        end
+    end
+    shown = shown + (target - shown) * 0.12
+
+    ap.clear(ap.Color(14, 12, 22))
+    label_centered("PLAYER", 320, 92, 48, ap.WHITE)
+    label_centered("VERSUS", 320, 142, 48, ap.Color(170, 110, 255))
+    ap.rect(196, 196, 248, 2, ap.Color(170, 110, 255))
+    # The bar.
+    ap.rect(196, 252, 248, 10, ap.Color(40, 34, 60))
+    ap.rect(197, 253, 246 * shown, 8, ap.Color(170, 110, 255))
+    var words = "BUILDING THE GAME" if stage == STAGE_BUILD else "LOADING"
+    if stage == STAGE_FAILED do
+        words = problem
+    end
+    label_centered(words, 320, 270, 8, ap.Color(255, 120, 90) if stage == STAGE_FAILED else ap.Color(150, 145, 175))
+    if stage == STAGE_BUILD and not fresh do
+        label_centered("ONLY AFTER A CHANGE: NEXT TIME IT STARTS AT ONCE", 320, 340, 8, ap.Color(110, 106, 130))
+    end
+end
+if builder >= 0 and os.alive(builder) do
+    os.kill(builder)
+end
+ap.close()

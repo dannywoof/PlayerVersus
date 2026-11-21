@@ -26,11 +26,19 @@ class SaveData
     Build[] builds = []
     SimpleItem[] simple = []
     int items_mode = 0
-    int mode = 0
+    int mode = 0                     # the old ten-mode list; read only when `setup` is 0
+    int setup = 0                    # 1: the mode toggles below are saved
+    bool duo = false
+    int length = 1                   # single round, best of, endless
+    int best_of = 3
+    int lineup = 0                   # one each, team, random, random team
+    int team_of = 3
+    string[] banned = []             # fighters left out of the random modes, by name
     int level = 1
     double music = 1.0
     double sounds = 1.0
     double pace = 0                  # how much slower fights run (0: the game's default)
+    bool classic_models = false      # draw the fighters in the classic boxes, not the faceted style
 end
 
 # An environment variable, or "" when it is not set (os.env throws then).

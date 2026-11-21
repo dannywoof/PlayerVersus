@@ -1,0 +1,11 @@
+#!/bin/sh
+# Starts PLAYER VERSUS: the loading screen opens at once and starts the game (see loader.fw).
+# The loading screen is built once, the first time; after that it opens straight away.
+cd "$(dirname "$0")" || exit 1
+mkdir -p .cache
+# Built programs find their files from where the executable is, so .loader sits here, not in .cache/.
+if [ ! -x .loader ] || [ loader.fw -nt .loader ] || [ "$(command -v flywheel)" -nt .loader ]; then
+    flywheel -b -O0 loader.fw -o .loader || exit 1
+fi
+rm -f .cache/loader .cache/playerversus
+exec ./.loader "$@"

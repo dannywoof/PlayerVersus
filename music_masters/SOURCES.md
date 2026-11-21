@@ -3,7 +3,8 @@
 Every track here is human-made music released under **CC0** (public domain: free for commercial
 use, no attribution required) on [OpenGameArt](https://opengameart.org). All of them were
 published between 2010 and 2020, before generative music tools were in use, and none of the pages
-mentions AI. Three are dual-licensed OGA-BY 3.0 / CC0 and are used under CC0.
+mentions AI. Some are dual-licensed (OGA-BY 3.0, CC-BY 3.0 or GPL 3.0, each alongside CC0) and are used under CC0.
+The Holst recording is a U.S. government work, in the public domain, and marked CC0 on OpenGameArt.
 
 Each was converted unedited (apart from the format) to Ogg Vorbis, quality 3, 44.1 kHz, with
 EBU R128 loudness normalization to -16 LUFS so that tracks sit at the same volume:
@@ -58,7 +59,24 @@ deciding round), the item draft, the result jingle, and each fighter's own theme
 | super_teleman.ogg | Life in Corrupted Binary | HaelDB | 2011 | [life-corrupted-binary](https://opengameart.org/content/life-corrupted-binary) (OGA-BY 3.0 / CC0) |
 | super_dismantle.ogg | Zombies' March (Zombies Are Coming) | yd | 2012 | [zombies-march](https://opengameart.org/content/zombies-march) |
 | super_spruce.ogg | Shrine | yd | 2012 | [shrine](https://opengameart.org/content/shrine) |
+| super_clockwork.ogg | Clocktower / Clockwise / Clockwork / Time Passing / Loop | KiluaBoy | 2018 | [clocktower-clockwise-clockwork-time-passing-loop](https://opengameart.org/content/clocktower-clockwise-clockwork-time-passing-loop) |
+| super_conductor.ogg | Chase! | Wolfgang_ | 2018 | [chase](https://opengameart.org/content/chase) |
+| super_deadbolt.ogg | Dark Rooms and Scary Things | isaiah658 | 2016 | [dark-rooms-and-scary-things](https://opengameart.org/content/dark-rooms-and-scary-things) |
+| super_death.ogg | The Plague | Indieteur | 2018 | [the-plague](https://opengameart.org/content/the-plague) |
+| super_flasque.ogg | The Hex (mix Hex 09) | Steven Ruud (The Cynic Project, cynicmusic) | 2018 | [the-hex](https://opengameart.org/content/the-hex) |
+| super_hammerhead.ogg | War on Water: Chapter 3 | yd | 2013 | [war-on-water-tracks](https://opengameart.org/content/war-on-water-tracks) |
+| super_hollow.ogg | Evil Battle (Battle- Reborn) | KarateStudios | 2019 | [evil-battle](https://opengameart.org/content/evil-battle) |
+| super_maestro.ogg | Mars, the Bringer of War (Holst, The Planets) | Gustav Holst (1914-16), played by the U.S. Air Force Heritage of America Band (1998); uploaded by XCVG | 2015 | [holst-the-planets-suite](https://opengameart.org/content/holst-the-planets-suite) (public domain: a U.S. government recording) |
+| super_moth.ogg | Lunar Moth | Locomule | 2019 | [lunar-moth](https://opengameart.org/content/lunar-moth) (GPL 3.0 / CC0) |
+| super_oracle.ogg | Mystical Enigmatic Background Music | Cleyton Kauffman | 2015 | [mystical-enigmatic-background-music](https://opengameart.org/content/mystical-enigmatic-background-music) |
+| super_raven.ogg | "Crow Man's Stage" (fast) | Spring Spring | 2018 | [crow-mans-stage](https://opengameart.org/content/crow-mans-stage) |
+| super_scarecrow.ogg | scarecrow [16bit] | obscure music | 2017 | [scarecrow-16bit](https://opengameart.org/content/scarecrow-16bit) (CC-BY 3.0 / CC0) |
+| super_strongman.ogg | Fistauffjustice | Sudocolon | 2015 | [fistauffjustice](https://opengameart.org/content/fistauffjustice) |
+| super_tinker.ogg | Welcome to the machine (Tale on the Late) | Komiku (Loyalty Freak Music) | 2018 | [welcome-to-the-machine](https://opengameart.org/content/welcome-to-the-machine) |
+| super_undertaker.ogg | Kokopelli's Graveyard Theme | Cleyton Kauffman | 2018 | [kokopellis-graveyard-theme](https://opengameart.org/content/kokopellis-graveyard-theme) |
+| super_warden.ogg | Synthia's Prison Escape (in-game) | Spring Spring | 2018 | [synthias-prison-escape](https://opengameart.org/content/synthias-prison-escape) |
+| super_zero.ogg | ring master (battle, black) | Bobjt | 2018 | [ring-master](https://opengameart.org/content/ring-master) |
 
 Credit is not required by any of these licenses, but several authors ask kindly for it (Joth,
 Cleyton Kauffman, Section 31, Bojidar Marinov, Kistol, Alex McCulloch, Ville Nousiainen and XCVG,
-Juhani Junkala), and all of them are worth thanking in the game's credits.
+Juhani Junkala, Bobjt, The Cynic Project, Indieteur), and all of them are worth thanking in the game's credits.

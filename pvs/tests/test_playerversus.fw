@@ -201,3 +201,52 @@ function test_every_fighter_has_a_bio
         testing.assert(c.bio.length > 40)
     end
 end
+
+function test_the_second_wave_is_all_there
+    var names = ["DEATH", "ZERO", "WARDEN", "TINKER", "ORACLE", "UNDERTAKER", "HUNTER", "HAMMERHEAD", "FLASQUE",
+        "SCARECROW", "CONDUCTOR", "STRONGMAN", "CLOCKWORK", "MOTH", "HOLLOW", "MAESTRO", "DEADBOLT", "RAVEN"]
+    var cast = roster.build()
+    int[] scenes = []
+    for name in names do
+        var found = false
+        for c in cast do
+            if c.name == name do
+                found = true
+                # Each has a mechanic of its own and a super with a place of its own.
+                testing.assert(c.mech != roster.MECH_NONE, "{name} has no mechanic")
+                testing.assert(c.maximum.place != "" and c.maximum.note != "", "{name}'s super is not described")
+                testing.assert(c.bio != "", "{name} has no bio")
+                for k in scenes do
+                    testing.assert(k != c.maximum.scene, "{name} shares a super scene")
+                end
+                scenes.push(c.maximum.scene)
+            end
+        end
+        testing.assert(found, "{name} is missing")
+    end
+end
+
+function test_second_wave_rules
+    for c in roster.build() do
+        if c.name == "FLASQUE" do
+            # Four potions, priced one to four coins, and coins kept in pips.
+            for i, a in c.skills do
+                testing.assert(a.special == roster.SP_BUY and a.potion == i + 1)
+            end
+            testing.assert(c.bar_max == 7 and c.bar_pips and c.maximum.repeat_g)
+            testing.assert(c.basics[0].cost == 0 and c.basics[0].shot == roster.SHOT_NONE)
+        else if c.name == "DEADBOLT" do
+            testing.assert(c.bar_max == 3 and c.bar_pips)
+        else if c.name == "HUNTER" do
+            testing.assert(c.maximum.silent and c.maximum.vanish and c.ultimate.special == roster.SP_GOLDEN)
+        else if c.name == "HOLLOW" do
+            testing.assert(c.arsenal.length == 4 and c.skills[3].special == roster.SP_SHED)
+        else if c.name == "CLOCKWORK" do
+            testing.assert(c.maximum.foe_slowmo > 1)
+        end
+        # Moves that only mean something to their owner never reach CAT's pool.
+        for a in roster.move_pool([c]) do
+            testing.assert(not roster.owner_only(a))
+        end
+    end
+end

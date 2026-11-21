@@ -50,6 +50,15 @@ const int SHOT_ROCK = 14     # a chunk torn out of the floor
 const int SHOT_COIN = 15     # a gold coin, flicked
 const int SHOT_FEATHER = 16  # a black feather, sharp as glass
 const int SHOT_SPIKE = 17    # a ridge of stone that runs along the ground
+const int SHOT_VIAL = 18     # a stoppered bottle of something unwholesome
+const int SHOT_CARD = 19     # a razor-edged card (or a tarot card), spinning flat
+const int SHOT_ARROW = 20    # a crossbow bolt
+const int SHOT_NOTE = 21     # a musical note, sung through the air
+const int SHOT_EMBER = 22    # a drifting mote of lamplight
+const int SHOT_POTION = 23   # a round flask, its color the brew inside
+const int SHOT_ANCHOR = 24   # a rusted anchor on a length of chain
+const int SHOT_DUMBBELL = 25 # an iron dumbbell, thrown end over end
+const int SHOT_KEYBOLT = 26  # an iron key, loosed from a crossbow in place of a bolt
 
 # --- What kind of thing a move is ---------------------------------------------------------------
 const int KIND_STRIKE = 0    # an attack: a melee hit or a shot
@@ -67,6 +76,8 @@ const int KIND_GLASS = 11    # trades places with one of the user's mirror copie
 const int KIND_SHATTER = 12  # the user's mirror copies burst, cutting whoever is near
 const int KIND_WALL = 13     # a pillar of stone rises a few steps ahead
 const int KIND_SWITCH = 14   # the user and the opponent trade places
+const int KIND_WAVE = 15     # one of the second wave's tricks: `special` says which (see SP_ below)
+const int KIND_QUIVER = 16   # a fresh quiver: the arrows back to full (HUNTER)
 
 const int BUFF_NONE = 0
 const int BUFF_MIST = 1      # cannot be hit, moves faster
@@ -103,6 +114,25 @@ const int HEAD_VEIL = 22     # long hair under a torn black veil
 const int HEAD_CREST = 23    # an open helm with a crest
 const int HEAD_STITCHED = 24 # a bald, stitched-up skull with a hanging jaw
 const int HEAD_TOPKNOT = 25  # hair in a topknot and a cloth headband
+const int HEAD_PLAGUE = 26   # a plague doctor's beaked mask under a wide hat
+const int HEAD_JESTER = 27   # a two-horned jester's cap with bells, and a painted grin
+const int HEAD_EXECUTIONER = 28 # a black hood with two eye holes
+const int HEAD_GEARS = 29    # half a face of brass, a magnifying lens over one eye
+const int HEAD_SEER = 30     # a headscarf hung with coins, and a third eye painted on
+const int HEAD_MOURNER = 31  # a stovepipe hat with a black band and crape, and a pale face
+const int HEAD_HUNTRESS = 32 # a wide-brimmed hunting hat over a long braid
+const int HEAD_SHARK = 33    # a hammerhead's wide flat skull, an eye at each end
+const int HEAD_RESPIRATOR = 34 # a leather cap, round goggles and a respirator snout
+const int HEAD_SACK = 35     # a burlap sack face with a stitched grin, under a straw hat
+const int HEAD_CONDUCTOR = 36 # a conductor's peaked cap with a brass badge, and a moustache
+const int HEAD_STRONGMAN = 37 # bald, with a curled handlebar moustache
+const int HEAD_CLOCK = 38    # a clock face for a head, hands turning
+const int HEAD_MOTH = 39     # a furred head, feathered antennae and great dark eyes
+const int HEAD_HOLLOW = 40   # a dented great helm; nothing inside but a faint light
+const int HEAD_MAESTRO = 41  # wild swept-back white hair
+const int HEAD_PADLOCK = 42  # a padlock for a helmet, a keyhole for a visor
+const int HEAD_RAVEN = 43    # a feathered hood with a black beak
+const int HEAD_WISP = 44     # no head at all: a cold flame where one was (HOLLOW, its helm gone)
 
 const int WEAPON_CLAWS = 0
 const int WEAPON_FISTS = 1
@@ -125,6 +155,24 @@ const int WEAPON_CANE = 17   # a black cane with a gold knob
 const int WEAPON_SHARD = 18  # a blade of mirror glass
 const int WEAPON_BIGAXE = 19 # a huge two-headed axe, and a hooked chain in the other hand
 const int WEAPON_BO = 20     # a long plain staff held in the middle
+const int WEAPON_SAW = 21    # an oversized bone saw
+const int WEAPON_CARDS = 22  # a fan of cards in each hand
+const int WEAPON_FLAIL = 23  # a heavy spiked ball on a chain
+const int WEAPON_GAUNTLET = 24 # a huge mechanical fist on the right arm
+const int WEAPON_SCYTHE = 25 # a scythe as tall as its owner
+const int WEAPON_CROSSBOW = 26 # a repeating crossbow with a box magazine
+const int WEAPON_CUTLASS = 27 # a rusted, curved cutlass
+const int WEAPON_LAUNCHER = 28 # a stubby launcher with a drum of flasks
+const int WEAPON_PITCHFORK = 29 # a three-pronged pitchfork
+const int WEAPON_LANTERN = 30 # a lantern on a short pole
+const int WEAPON_DUMBBELL = 31 # an iron dumbbell, far too big
+const int WEAPON_CLOCKBLADES = 32 # a clock hand for a blade in each fist
+const int WEAPON_SHIELD = 33 # a greatshield on the left arm, a broken sword in the right
+const int WEAPON_VIOLIN = 34 # a violin under the chin, its bow in the right hand
+const int WEAPON_KEY = 35    # an iron key in the left hand, a crossbow in the right
+const int WEAPON_FEATHERS = 36 # a fan of black feather blades in each hand
+const int WEAPON_BROKEN = 37 # a broken sword, nothing else (HOLLOW, its shield gone)
+const int WEAPON_HANDS = 38  # nothing at all: bare hands, free for whatever they pick up (FLASQUE)
 
 # --- How a fighter stands when idle (see puppet.fw) -------------------------------------------
 const int STANCE_GUARD = 0     # a plain guard, for fighters without a stance of their own
@@ -176,6 +224,15 @@ const int ICON_TV = 22
 const int ICON_BLADES = 23
 const int ICON_SKULL = 24
 const int ICON_LEAF = 25
+const int ICON_CARD = 26     # a playing card
+const int ICON_CHAIN = 27    # links of chain
+const int ICON_GEAR = 28     # a cog
+const int ICON_GRAVE = 29    # a headstone
+const int ICON_KEY = 30      # one key per pip
+const int ICON_NOTE = 31     # a musical note
+const int ICON_TICKET = 32   # a punched ticket
+const int ICON_DUMBBELL = 33 # one dumbbell per pip
+const int ICON_SHIELD = 34   # a shield, cracked as the bar drains
 
 # --- The effects and sounds a move sets off (see playerversus.fw) ------------------------------
 const int FX_NONE = 0
@@ -244,7 +301,94 @@ class Attack
     bool inject = false       # a dose: enough of them and a clone of the victim joins the user (BOB)
     double steal = 0          # super bar taken from the victim when it lands
     bool crater = false       # torn out of the floor: leaves a hole where the user stood
+    int special = 0           # a second-wave effect (SP_ below): a trick for KIND_WAVE, else on landing
+    double need = 0           # the special bar must hold this much, though none of it is spent
+    int potion = 0            # FLASQUE: which potion a Buy move buys
+    int ragdoll = 0           # over 0: the victim goes limp, flies (up with `launch`, else back), and lies this many ticks once down
 end
+
+# Second-wave fighters: what each one's own mechanic is (see playerversus.fw's "second wave").
+const int MECH_NONE = 0
+const int MECH_DEATH = 1
+const int MECH_ZERO = 2
+const int MECH_WARDEN = 3
+const int MECH_TINKER = 4
+const int MECH_ORACLE = 5
+const int MECH_UNDERTAKER = 6
+const int MECH_HUNTER = 7
+const int MECH_HAMMERHEAD = 8
+const int MECH_FLASQUE = 9
+const int MECH_SCARECROW = 10
+const int MECH_CONDUCTOR = 11
+const int MECH_STRONGMAN = 12
+const int MECH_CLOCKWORK = 13
+const int MECH_MOTH = 14
+const int MECH_HOLLOW = 15
+const int MECH_MAESTRO = 16
+const int MECH_DEADBOLT = 17
+const int MECH_RAVEN = 18
+
+# What a second-wave move does (Attack.special).
+const int SP_NONE = 0
+const int SP_ROT = 1          # DEATH: an ailment each
+const int SP_FEVER = 2
+const int SP_PALSY = 3
+const int SP_AMPUTATE = 4     # more for every ailment on them, and cures them all
+const int SP_DIAGNOSIS = 5    # every reaction goes off
+const int SP_JOKER = 6        # ZERO: a wild effect, sure to happen and doubled
+const int SP_PUNCHLINE = 7
+const int SP_SHACKLE = 8      # WARDEN: chained to where they stand
+const int SP_DRAG = 9
+const int SP_SENTENCE = 10
+const int SP_VERDICT = 11     # their damage this round, a third of it, back at them
+const int SP_TURRET = 12      # TINKER: gadgets
+const int SP_TRAP = 13
+const int SP_COIL = 14
+const int SP_OVERCLOCK = 15
+const int SP_RESHUFFLE = 16   # ORACLE: a new card now
+const int SP_GRAVE = 17       # UNDERTAKER: a gravestone, set off, stepped out of
+const int SP_EXHUME = 18
+const int SP_GRAVEWALK = 19
+const int SP_COFFIN = 20
+const int SP_GOLDEN = 21      # HUNTER: the golden arrow
+const int SP_POOL = 22        # HAMMERHEAD: water
+const int SP_RIPTIDE = 23
+const int SP_ANCHOR = 24
+const int SP_UNDERTOW = 25
+const int SP_DRAG_UNDER = 26
+const int SP_BUY = 27         # FLASQUE: a potion bought (Attack.potion), or the next one set to brew
+const int SP_SELL = 28
+const int SP_DECOY = 29       # SCARECROW: straw men
+const int SP_IGNITE = 30
+const int SP_SWAPCROW = 31
+const int SP_TRACK = 32       # CONDUCTOR: rails, and the ticket
+const int SP_TICKET = 33
+const int SP_BRAKE = 34
+const int SP_EXERCISE = 35    # STRONGMAN: one more rep
+const int SP_WIND_UP = 36     # CLOCKWORK: the whole fight faster...
+const int SP_WIND_DOWN = 37   # ...or slower
+const int SP_LIGHT = 38       # MOTH: lights, and the dive from the sun
+const int SP_FLARE = 39
+const int SP_DIVE = 40
+const int SP_SHED = 41        # HOLLOW: an armor piece dropped
+const int SP_CRESCENDO = 42   # MAESTRO: louder for every note on the beat
+const int SP_LOCKOUT = 43     # DEADBOLT: a key turned in one of their skills
+const int SP_SLAM_DOOR = 44
+const int SP_DOOR = 51        # DEADBOLT: a locked door; two open into each other, for him alone
+const int SP_OMEN_HASTE = 45  # RAVEN: omens
+const int SP_OMEN_GREED = 46
+const int SP_OMEN_FEAR = 47
+const int SP_OMEN_LETTER = 48
+const int SP_NEVERMORE = 49
+const int SP_SHARK = 50       # HAMMERHEAD: the bite from below, in THE BLACK TIDE
+
+# FLASQUE's potions: what each costs in coins.
+const int POTION_NONE = 0
+const int POTION_VENOM = 1
+const int POTION_FIRE = 2
+const int POTION_FROST = 3
+const int POTION_THUNDER = 4
+const string[] POTION_NAMES = ["", "VENOM", "FIRE", "FROST", "THUNDER"]
 
 class Look
     ap.Color skin = ap.Color(232, 190, 160)
@@ -298,6 +442,24 @@ const int SCENE_LAB = 22
 const int SCENE_STUDIO = 23
 const int SCENE_PIT = 24
 const int SCENE_GROVE = 25
+const int SCENE_WARD = 26      # DEATH: a plague ward of curtained beds
+const int SCENE_CIRCUS = 27    # ZERO: a twisted circus ring under a torn big top
+const int SCENE_GALLOWS = 28   # WARDEN: a prison cell block
+const int SCENE_WORKSHOP = 29  # TINKER: an automated factory floor
+const int SCENE_FATE = 30      # ORACLE: a fortune teller's tent among the stars
+const int SCENE_CEMETERY = 31  # UNDERTAKER: rows of graves
+const int SCENE_WILDWOOD = 32  # HUNTER: a dense forest at dusk
+const int SCENE_TIDE = 33      # HAMMERHEAD: the arena under black water
+const int SCENE_ALCHEMY = 34   # FLASQUE: an unstable laboratory
+const int SCENE_CORN = 35      # SCARECROW: an enormous cornfield
+const int SCENE_TRAIN = 36     # CONDUCTOR: the aisle of an old train
+const int SCENE_SIDESHOW = 37  # STRONGMAN: a circus strongman's stage
+const int SCENE_CLOCK = 38     # CLOCKWORK: the works of a clock tower
+const int SCENE_SUNLIT = 39    # MOTH: a field of lamps under a blinding sun
+const int SCENE_FORTRESS = 40  # HOLLOW: castle walls closing in
+const int SCENE_CONCERT = 41   # MAESTRO: a concert hall
+const int SCENE_DOOR = 42      # DEADBOLT: a void and the door in it
+const int SCENE_ROOST = 43     # RAVEN: a dead tree full of ravens under a storm
 
 class Maximum
     string name = "SUPER"
@@ -342,6 +504,10 @@ class Maximum
     bool labs = false                 # extra machines; every dose makes a clone (BOB)
     bool jammer = false               # not a place: used inside the foe's super, it switches it off (TELEMAN)
     double parry_heal = 0             # health the user gets back from every parry
+    bool silent = false               # no music at all: only the wind (HUNTER)
+    bool steady = false               # the user cannot be staggered at all
+    int foe_slowmo = 1                # the foe moves one tick in this many (CLOCKWORK)
+    bool repeat_g = false             # G inside it can be used again and again
 end
 
 # One weapon of a fighter who carries several (COMBATANT): its basic chain, skills 1-3 and fallback.
@@ -371,6 +537,7 @@ class Character
     bool machine = false             # cannot be poisoned or slowed
     bool copycat = false             # skill 1 becomes the last skill that hit them
     bool reload_all = false          # the reload puts every bullet in at once, at the end
+    int quiver = 0                   # arrows a full quiver holds: every arrow shot takes one (HUNTER)
     # The special bar.
     string bar_name = "ENERGY"
     string bar_note = ""
@@ -395,6 +562,7 @@ class Character
     int inject_need = 3              # doses that make a clone
     double clone_cool = 10           # seconds after a clone dies before another can be made
     double revive = 0                # over 0: the first knockout of a round, they get up with this share of health
+    int mech = MECH_NONE             # a second-wave fighter's own mechanic (see playerversus.fw)
     Look look = Look()
     Maximum maximum = Maximum()
 end
@@ -518,6 +686,7 @@ function aster() returns Character
     var straight = skill(hit("Dash Straight", 9, 9, 18, 1.9, 70, 3.8, 22, 6, ANIM_PUNCH), 3, 15, "A punch that dashes 4 m")
     var upper = skill(hit("Uppercut", 10, 8, 22, 1.7, 90, 0.5, 30, 1, ANIM_UPPERCUT), 5, 20, "Launches them for a juggle")
     upper.launch = 8.5
+    upper.ragdoll = 50
     var fists = skill(hit("Hundred Fists", 3.2, 8, 22, 1.8, 100, 2.4, 14, 1.5, ANIM_PUNCH), 7, 40, "A seven-hit rush")
     fists.hits = 7
     fists.interval = 5
@@ -732,6 +901,7 @@ function void_blade() returns Character
     var wave = skill(fire("Void Wave", 8, 13, 18, SHOT_WAVE, 17, 18, 3, ANIM_SWING), 5, 20, "A slash projectile")
     var moon = skill(hit("Rising Moon", 9, 9, 22, 2.3, 100, 0.6, 30, 1, ANIM_UPPERCUT), 6, 0, "An upward cut that launches")
     moon.launch = 8
+    moon.ragdoll = 50
     var blink = skill(trick("Blink", KIND_BLINK, ANIM_FOCUS), 4, 15, "Teleports 4.5 m the way you steer")
     blink.blink = 4.5
     c.skills = [step, wave, moon, blink]
@@ -782,6 +952,7 @@ function sherman() returns Character
     rocket.blast = 2.2
     rocket.fx = FX_ROCKET
     var rush = skill(hit("Bull Rush", 10, 16, 28, 1.8, 120, 4.5, 30, 10, ANIM_CHARGE), 9, 0, "Unstaggerable 4.5 m charge")
+    rush.ragdoll = 60
     rush.sturdy = true
     var brace = skill(trick("Brace", KIND_BUFF, ANIM_FOCUS), 14, 0, "3s: take 55% less, no stagger")
     brace.buff = BUFF_GUARD
@@ -876,6 +1047,7 @@ function don() returns Character
     seekers.shot_life = 3.2
     seekers.fx = FX_BOLT
     var nova = skill(hit("Nova", 16, 20, 30, 3.6, 360, 0, 30, 13, ANIM_CAST), 8, 45, "Hits all around; big knockback")
+    nova.ragdoll = 60
     nova.radial = true
     nova.fx = FX_NOVA
     var blink = skill(trick("Blink", KIND_BLINK, ANIM_FOCUS), 5, 20, "Teleports 5 m the way you steer")
@@ -923,6 +1095,7 @@ function hotline() returns Character
     var cab = skill(fire("Taxi", 13, 14, 22, SHOT_CAR, 22, 34, 12, ANIM_THROW), 8, 30, "A cab drives through from behind you")
     cab.summon = 9
     cab.launch = 6
+    cab.ragdoll = 60
     cab.shot_life = 1.4
     var prank = skill(fire("Wrong Number", 2, 14, 20, SHOT_RING, 30, 60, 0, ANIM_FOCUS), 12, 25, "Homing ring; no damage, long stun")
     prank.homing = 400
@@ -986,6 +1159,7 @@ function buckshot() returns Character
     kick.restock = 1
     var slug = skill(fire("Slug", 14, 12, 20, SHOT_BULLET, 55, 24, 9, ANIM_SHOOT), 5, 1, "One long-range heavy round")
     var breach = skill(hit("Breach", 9, 12, 22, 1.9, 100, 1.2, 28, 13, ANIM_CHARGE), 7, 0, "Unblockable shove")
+    breach.ragdoll = 60
     breach.unblockable = true
     var both = skill(pellets("Both Barrels", 3.4, 10), 8, 2, "10 pellets; knocks you back")
     both.recoil = 12
@@ -1088,6 +1262,7 @@ function atomic() returns Character
     var door = skill(trick("Portal", KIND_PORTAL, ANIM_THRUST), 2, 15, "Places a portal; 2 link. Burns foes")
     door.blink = 3.5
     var repulse = skill(hit("Repulse", 5, 9, 18, 2.4, 110, 0.3, 26, 17, ANIM_CAST), 5, 15, "Huge knockback shove")
+    repulse.ragdoll = 60
     var trap = skill(fire("Fission Trap", 16, 10, 16, SHOT_MINE, 0, 32, 9, ANIM_PLANT), 9, 25, "Floor mine; portals can feed it")
     trap.blast = 2.2
     trap.shot_life = 25
@@ -1362,9 +1537,11 @@ function combatant() returns Character
     whirl.interval = 8
     whirl.sturdy = true
     var sunder = skill(hit("Sunder", 20, 24, 28, 2.7, 70, 1.2, 36, 10, ANIM_SLAM), 8, 0, "Slow unblockable 20-damage slam")
+    sunder.ragdoll = 60
     sunder.unblockable = true
     var lift = skill(hit("Uplift", 11, 13, 24, 2.5, 100, 0.6, 30, 1, ANIM_UPPERCUT), 6, 0, "A rising cut that launches")
     lift.launch = 8.5
+    lift.ragdoll = 50
     # The hand axe: quick and mean.
     Attack[] axe = [hit("Hack", 5, 6, 10, 1.8, 100, 0.5, 16, 2, ANIM_SWING),
         hit("Hack", 5, 6, 10, 1.8, 100, 0.5, 16, 2, ANIM_BACKSWING),
@@ -1437,6 +1614,7 @@ function phantom() returns Character
     var glide = skill(hit("Glide", 6, 9, 14, 1.9, 120, 4.6, 18, 3, ANIM_POUNCE), 5, 0, "Untouchable dash that hits")
     glide.evade = true
     var gale = skill(hit("Gale", 5, 12, 22, 3.2, 360, 0, 24, 14, ANIM_CAST), 9, 25, "Hits all around; big knockback")
+    gale.ragdoll = 60
     gale.radial = true
     gale.fx = FX_NOVA
     c.skills = [storm, siphon, glide, gale]
@@ -1493,6 +1671,7 @@ function carbon() returns Character
     wall.blink = 3
     var fault = skill(fire("Fault Line", 9, 12, 20, SHOT_SPIKE, 13, 28, 3, ANIM_SLAM), 6, 20, "Ground wave that launches")
     fault.launch = 6.5
+    fault.ragdoll = 45
     fault.shot_life = 1.4
     var quake = skill(hit("Quake", 8, 14, 24, 4.0, 360, 0, 30, 5, ANIM_SLAM), 9, 30, "Hits all around; slows 2.5s")
     quake.radial = true
@@ -1736,6 +1915,7 @@ function dismantle() returns Character
     sweep.interval = 7
     sweep.fx = FX_CHAIN
     var cleave = skill(hit("Grave Cleave", 22, 26, 30, 2.6, 70, 1.0, 40, 12, ANIM_SLAM), 8, 40, "Very slow unblockable 22 dmg")
+    cleave.ragdoll = 60
     cleave.unblockable = true
     var lurch = skill(hit("Lurch", 10, 14, 26, 1.9, 120, 4.6, 28, 9, ANIM_CHARGE), 7, 20, "Unstaggerable 4.6 m charge")
     lurch.sturdy = true
@@ -1786,6 +1966,7 @@ function spruce() returns Character
     var sweep = skill(hit("Leg Sweep", 5, 24, 22, 2.6, 120, 0.3, 30, 1, ANIM_COUNTER), 7, 15, "Counter: if hit, launches them")
     sweep.counter = true
     sweep.launch = 8.5
+    sweep.ragdoll = 50
     var vault = skill(hit("Pole Vault", 8, 10, 16, 2.0, 110, 4.6, 22, 4, ANIM_POUNCE), 5, 15, "Untouchable leap that hits")
     vault.evade = true
     var still = skill(trick("Still Water", KIND_BUFF, ANIM_FOCUS), 12, 30, "4s: every block is a parry")
@@ -1811,6 +1992,943 @@ function spruce() returns Character
     l.weapon = WEAPON_BO
     l.stance = STANCE_BO
     l.bulk = 0.94
+    return c
+end
+
+# --- The second wave -------------------------------------------------------------------------------
+# Eighteen fighters whose mechanics are their own: playerversus.fw's "second wave" section runs
+# them, keyed on `mech` and on each move's `special`.
+
+# A second-wave trick: not an attack, but KIND_WAVE, with `special` saying what it does.
+function wave_trick(string name, int special, int anim) returns Attack
+    var a = trick(name, KIND_WAVE, anim)
+    a.special = special
+    return a
+end
+
+function death() returns Character
+    var c = Character("DEATH", "THE PHYSICIAN")
+    c.mech = MECH_DEATH
+    c.blurb = "Ailments react: Rot+Fever, Fever+Palsy, Rot+Palsy."
+    c.style = "Debuffs, close control"
+    c.health = 130
+    c.speed = 5.3
+    c.bar_name = "TONICS"
+    c.bar_icon = ICON_FLASK
+    c.bar_note = "Bottles; refill slowly and on hits"
+    c.bar_start = 60
+    c.bar_regen = 5
+    c.dot_name = "ROTTING"
+    c.basics = [hit("Saw", 5, 7, 12, 1.9, 100, 0.4, 18, 2, ANIM_SWING),
+        hit("Saw", 5, 7, 12, 1.9, 100, 0.4, 18, 2, ANIM_BACKSWING),
+        hit("Hack", 9, 11, 18, 2.0, 110, 0.6, 24, 4, ANIM_SLAM)]
+    c.basics[0].gain = 6
+    c.basics[1].gain = 6
+    c.basics[2].gain = 10
+    var rot = skill(fire("Tincture of Rot", 4, 12, 16, SHOT_VIAL, 13, 14, 1, ANIM_THROW), 4, 20, "Lobbed: ROT, 2 HP/s for 6s")
+    rot.lob = true
+    rot.special = SP_ROT
+    var fever = skill(fire("Fever Draught", 4, 12, 16, SHOT_VIAL, 13, 14, 1, ANIM_THROW), 5, 20, "Lobbed: FEVER, +20% damage taken")
+    fever.lob = true
+    fever.special = SP_FEVER
+    var palsy = skill(hit("Palsy Needle", 6, 8, 14, 1.9, 70, 1.6, 22, 1, ANIM_THRUST), 5, 15, "A jab: PALSY, slow, slow cooldowns")
+    palsy.special = SP_PALSY
+    var amputate = skill(hit("Amputate", 10, 16, 24, 2.1, 110, 0.8, 30, 5, ANIM_SLAM), 9, 0, "+9 per ailment on them; cures them")
+    amputate.special = SP_AMPUTATE
+    c.skills = [rot, fever, palsy, amputate]
+    c.ultimate = hit("Final Diagnosis", 8, 14, 30, 2.2, 120, 2.5, 30, 3, ANIM_SLAM)
+    c.ultimate.hits = 3
+    c.ultimate.interval = 10
+    c.ultimate.special = SP_DIAGNOSIS
+    c.ultimate.note = "Three cuts; every reaction goes off"
+    c.ai_range = 2.4
+    var l = c.look
+    l.skin = ap.Color(236, 230, 214)
+    l.body = ap.Color(30, 28, 32)
+    l.legs = ap.Color(22, 20, 24)
+    l.trim = ap.Color(110, 92, 70)
+    l.accent = ap.Color(170, 220, 90)
+    l.metal = ap.Color(196, 192, 180)
+    l.eyes = ap.Color(200, 240, 120)
+    l.glowing_eyes = true
+    l.head = HEAD_PLAGUE
+    l.weapon = WEAPON_SAW
+    l.stance = STANCE_WATCH
+    l.cape = true
+    l.cape_color = ap.Color(20, 18, 22)
+    l.tall = 1.06
+    return c
+end
+
+function zero() returns Character
+    var c = Character("ZERO", "THE FOOL")
+    c.mech = MECH_ZERO
+    c.blurb = "Every hit that lands may do something else as well."
+    c.style = "Trickery, wild combos"
+    c.health = 120
+    c.speed = 6.1
+    c.bar_name = "DECK"
+    c.bar_icon = ICON_CARD
+    c.bar_note = "52 cards; shuffled back in"
+    c.bar_max = 52
+    c.bar_start = 52
+    c.bar_regen = 4
+    c.basics = [hit("Cut", 4, 6, 10, 1.7, 110, 0.5, 16, 1.5, ANIM_SWING),
+        hit("Cut", 4, 6, 10, 1.7, 110, 0.5, 16, 1.5, ANIM_BACKSWING),
+        hit("Flourish", 8, 9, 16, 1.8, 140, 0.6, 22, 4, ANIM_SPIN)]
+    var toss = skill(fire("Card Toss", 4, 8, 14, SHOT_CARD, 26, 12, 1, ANIM_THROW), 2, 6, "Three spinning cards")
+    toss.volley = 3
+    toss.spread = 12
+    var pickup = skill(hit("Fifty-Two Pickup", 7, 12, 22, 3.0, 360, 0, 20, 5, ANIM_SPIN), 7, 14, "Cards burst out all around")
+    pickup.radial = true
+    var act = skill(trick("Vanishing Act", KIND_BLINK, ANIM_FOCUS), 6, 8, "Gone, and 5 m away")
+    act.blink = 5
+    var joker = skill(fire("The Joker", 6, 10, 16, SHOT_CARD, 30, 16, 2, ANIM_THROW), 8, 10, "A sure wild effect, doubled")
+    joker.special = SP_JOKER
+    c.skills = [toss, pickup, act, joker]
+    c.ultimate = fire("Punchline", 5, 14, 28, SHOT_CARD, 28, 16, 2, ANIM_THROW)
+    c.ultimate.volley = 7
+    c.ultimate.spread = 9
+    c.ultimate.special = SP_PUNCHLINE
+    c.ultimate.note = "Seven cards, every one with a wild effect"
+    c.ai_range = 3
+    var l = c.look
+    l.skin = ap.Color(240, 236, 232)
+    l.body = ap.Color(120, 30, 60)
+    l.legs = ap.Color(30, 26, 40)
+    l.trim = ap.Color(230, 200, 80)
+    l.accent = ap.Color(255, 90, 160)
+    l.metal = ap.Color(245, 245, 250)
+    l.eyes = ap.Color(30, 20, 30)
+    l.head = HEAD_JESTER
+    l.weapon = WEAPON_CARDS
+    l.stance = STANCE_KNIVES
+    l.bulk = 0.92
+    return c
+end
+
+function warden() returns Character
+    var c = Character("WARDEN", "THE EXECUTIONER")
+    c.mech = MECH_WARDEN
+    c.blurb = "Chains them to the spot; trying to leave hurts."
+    c.style = "Grappling, punishment"
+    c.health = 155
+    c.speed = 4.9
+    c.armor = 0.92
+    c.poise = true
+    c.bar_name = "SENTENCE"
+    c.bar_icon = ICON_CHAIN
+    c.bar_note = "Fills on hits and escape attempts"
+    c.bar_start = 0
+    c.basics = [hit("Flail", 7, 11, 18, 2.6, 110, 0.4, 22, 3, ANIM_SWING),
+        hit("Flail", 7, 11, 18, 2.6, 110, 0.4, 22, 3, ANIM_BACKSWING),
+        hit("Crush", 11, 15, 24, 2.7, 100, 0.6, 30, 6, ANIM_SLAM)]
+    c.basics[0].gain = 8
+    c.basics[1].gain = 8
+    c.basics[2].gain = 12
+    var shackle = skill(hit("Shackle", 5, 14, 20, 6.5, 26, 0, 20, 0, ANIM_THROW), 9, 0, "Chained 6s; pulling free hurts")
+    shackle.fx = FX_CHAIN
+    shackle.special = SP_SHACKLE
+    var drag = skill(hit("To the Block", 6, 12, 20, 6.5, 26, 0, 24, -11, ANIM_HOOK), 6, 0, "Hauls them in; chained, it stuns")
+    drag.fx = FX_CHAIN
+    drag.special = SP_DRAG
+    var wheel = skill(hit("Breaking Wheel", 5, 13, 24, 3.0, 360, 0, 18, 4, ANIM_SPIN), 7, 0, "Three swings of the flail all round")
+    wheel.radial = true
+    wheel.hits = 3
+    wheel.interval = 9
+    var sentence = skill(hit("Sentence", 16, 22, 26, 2.8, 90, 0.8, 36, 8, ANIM_SLAM), 8, 40, "+60% to a chained foe")
+    sentence.special = SP_SENTENCE
+    c.skills = [shackle, drag, wheel, sentence]
+    c.ultimate = wave_trick("The Verdict", SP_VERDICT, ANIM_SLAM)
+    c.ultimate.startup = 30
+    c.ultimate.recovery = 20
+    c.ultimate.sturdy = true      # nothing stops it once begun (see unstoppable)
+    c.ultimate.note = "A third of their damage to you, back at them"
+    c.ai_range = 2.5
+    var l = c.look
+    l.skin = ap.Color(200, 160, 130)
+    l.body = ap.Color(36, 30, 30)
+    l.legs = ap.Color(30, 26, 26)
+    l.trim = ap.Color(110, 80, 50)
+    l.accent = ap.Color(200, 60, 40)
+    l.metal = ap.Color(120, 118, 120)
+    l.eyes = ap.Color(240, 220, 200)
+    l.head = HEAD_EXECUTIONER
+    l.weapon = WEAPON_FLAIL
+    l.stance = STANCE_BULWARK
+    l.bulk = 1.22
+    l.tall = 1.08
+    return c
+end
+
+function tinker() returns Character
+    var c = Character("TINKER", "THE INVENTOR")
+    c.mech = MECH_TINKER
+    c.blurb = "Builds gadgets mid-fight: turrets, traps, coils."
+    c.style = "Traps, engineering"
+    c.health = 125
+    c.speed = 5.4
+    c.bar_name = "PARTS"
+    c.bar_icon = ICON_GEAR
+    c.bar_note = "Build gadgets; refill over time"
+    c.bar_start = 50
+    c.bar_regen = 6
+    c.machine = true
+    c.basics = [hit("Jab", 4, 6, 10, 1.7, 90, 0.4, 16, 1.5, ANIM_PUNCH),
+        hit("Cross", 5, 7, 11, 1.7, 90, 0.5, 17, 2, ANIM_CROSS),
+        hit("Piston", 9, 11, 18, 1.9, 100, 0.8, 24, 7, ANIM_PUNCH)]
+    var turret = skill(wave_trick("Turret", SP_TURRET, ANIM_PLANT), 6, 35, "A turret: bolts at them for 10s")
+    var trap = skill(wave_trick("Snare Trap", SP_TRAP, ANIM_PLANT), 5, 20, "A trap that snares the next step")
+    var coil = skill(wave_trick("Tesla Coil", SP_COIL, ANIM_PLANT), 9, 40, "Zaps anyone near it for 8s")
+    var clock = skill(wave_trick("Overclock", SP_OVERCLOCK, ANIM_FOCUS), 10, 0, "All gadgets fire, then burst")
+    c.skills = [turret, trap, coil, clock]
+    c.ultimate = fire("Grand Prototype", 26, 24, 30, SHOT_FIST, 22, 40, 10, ANIM_CAST)
+    c.ultimate.skyfall = true
+    c.ultimate.blast = 3.2
+    c.ultimate.shot_life = 2
+    c.ultimate.note = "A giant fist drops out of the sky"
+    c.ai_range = 4.5
+    var l = c.look
+    l.skin = ap.Color(214, 180, 150)
+    l.body = ap.Color(96, 70, 44)
+    l.legs = ap.Color(50, 44, 40)
+    l.trim = ap.Color(200, 150, 70)
+    l.accent = ap.Color(255, 170, 50)
+    l.metal = ap.Color(180, 140, 80)
+    l.eyes = ap.Color(255, 190, 80)
+    l.glowing_eyes = true
+    l.head = HEAD_GEARS
+    l.weapon = WEAPON_GAUNTLET
+    l.stance = STANCE_TINKER
+    return c
+end
+
+function oracle() returns Character
+    var c = Character("ORACLE", "THE SEER")
+    c.mech = MECH_ORACLE
+    c.blurb = "A tarot card, 0 to 21, sets how well her next move goes."
+    c.style = "Prediction, counterplay"
+    c.health = 115
+    c.speed = 5.6
+    c.bar_name = "SIGHT"
+    c.bar_icon = ICON_EYE
+    c.bar_note = "Refills; the card is drawn after each move"
+    c.bar_regen = 10
+    c.basics = [hit("Cut Card", 4, 6, 10, 1.8, 100, 0.4, 16, 1.5, ANIM_SWING),
+        hit("Cut Card", 4, 6, 10, 1.8, 100, 0.4, 16, 1.5, ANIM_BACKSWING),
+        hit("Spread", 8, 10, 16, 1.9, 140, 0.5, 22, 4, ANIM_CAST)]
+    var swords = skill(fire("Three of Swords", 5, 9, 15, SHOT_CARD, 26, 14, 1, ANIM_THROW), 3, 15, "Three cards, scaled by the card")
+    swords.volley = 3
+    swords.spread = 10
+    var tower = skill(fire("The Tower", 11, 16, 18, SHOT_METEOR, 22, 26, 6, ANIM_CAST), 6, 25, "Lightning falls where they stand")
+    tower.skyfall = true
+    tower.blast = 1.7
+    tower.shot_life = 2
+    var sight = skill(hit("Foresight", 7, 26, 18, 2.2, 100, 0.4, 26, 5, ANIM_COUNTER), 7, 15, "Counter: she saw it coming")
+    sight.counter = true
+    var shuffle = skill(wave_trick("Reshuffle", SP_RESHUFFLE, ANIM_CAST), 5, 10, "Draws a new card now")
+    shuffle.startup = 6
+    shuffle.recovery = 8
+    c.skills = [swords, tower, sight, shuffle]
+    c.ultimate = hit("Judgement", 14, 20, 30, 0, 0, 0, 40, 8, ANIM_CAST)
+    c.ultimate.beam = 16
+    c.ultimate.unblockable = true
+    c.ultimate.note = "A ray drawn on XXI, THE WORLD"
+    c.ai_range = 4
+    var l = c.look
+    l.skin = ap.Color(206, 160, 126)
+    l.body = ap.Color(70, 30, 90)
+    l.legs = ap.Color(40, 24, 54)
+    l.trim = ap.Color(230, 190, 90)
+    l.accent = ap.Color(190, 120, 255)
+    l.metal = ap.Color(245, 236, 210)
+    l.eyes = ap.Color(200, 160, 255)
+    l.glowing_eyes = true
+    l.glowing_weapon = true
+    l.head = HEAD_SEER
+    l.weapon = WEAPON_CARDS
+    l.stance = STANCE_LEVITATE
+    l.hover = 0.12
+    return c
+end
+
+function undertaker() returns Character
+    var c = Character("UNDERTAKER", "THE LAST RITES")
+    c.mech = MECH_UNDERTAKER
+    c.blurb = "Plants gravestones to set off or step out of."
+    c.style = "Area control, traps"
+    c.health = 135
+    c.speed = 5.2
+    c.bar_name = "RITES"
+    c.bar_icon = ICON_GRAVE
+    c.bar_note = "Refills slowly"
+    c.bar_regen = 7
+    c.basics = [hit("Reap", 6, 8, 13, 2.5, 140, 0.4, 19, 2, ANIM_SWING),
+        hit("Reap", 6, 8, 13, 2.5, 140, 0.4, 19, 2, ANIM_BACKSWING),
+        hit("Harvest", 10, 13, 20, 2.6, 160, 0.6, 26, 5, ANIM_SPIN)]
+    var grave = skill(wave_trick("Lay to Rest", SP_GRAVE, ANIM_PLANT), 3, 20, "Plants a gravestone (up to 3)")
+    var exhume = skill(wave_trick("Exhume", SP_EXHUME, ANIM_SLAM), 6, 25, "Every gravestone bursts")
+    var walk = skill(wave_trick("Grave Walk", SP_GRAVEWALK, ANIM_FOCUS), 5, 15, "Steps out of the grave nearest them")
+    walk.startup = 8
+    var rites = skill(hit("Last Rites", 9, 14, 22, 3.0, 170, 0.3, 26, -6, ANIM_SPIN), 7, 0, "A wide reap that drags them in")
+    c.skills = [grave, exhume, walk, rites]
+    c.ultimate = wave_trick("Six Feet Under", SP_COFFIN, ANIM_SLAM)
+    c.ultimate.startup = 16
+    c.ultimate.recovery = 20
+    c.ultimate.note = "A coffin; stunned first, they stay sealed"
+    c.ai_range = 3
+    var l = c.look
+    l.skin = ap.Color(210, 206, 200)
+    l.body = ap.Color(24, 22, 26)
+    l.legs = ap.Color(20, 18, 22)
+    l.trim = ap.Color(80, 76, 80)
+    l.accent = ap.Color(140, 220, 200)
+    l.metal = ap.Color(170, 176, 180)
+    l.eyes = ap.Color(30, 30, 34)
+    l.head = HEAD_MOURNER
+    l.weapon = WEAPON_SCYTHE
+    l.stance = STANCE_IAI
+    l.tall = 1.12
+    l.bulk = 0.92
+    l.cape = true
+    l.cape_color = ap.Color(18, 16, 20)
+    return c
+end
+
+function hunter() returns Character
+    var c = Character("HUNTER", "THE BOUNTY KILLER")
+    c.mech = MECH_HUNTER
+    c.blurb = "Melee up close; one arrow at a time for heavy STUDY bolts."
+    c.style = "Melee and bolts, adaptation"
+    c.health = 120
+    c.speed = 5.8
+    c.bar_name = "STUDY"
+    c.bar_icon = ICON_EYE
+    c.bar_note = "Fills slowly watching and hitting them; lost when hit"
+    c.bar_start = 0
+    c.parry_gain = 6
+    c.quiver = 1
+    # Up close it is the stock of the crossbow and a skinning knife; arrows are kept for the skills.
+    c.basics = [hit("Stock Bash", 3, 6, 12, 1.7, 100, 0.4, 14, 1.5, ANIM_SWING),
+        hit("Stock Bash", 3, 6, 12, 1.7, 100, 0.4, 14, 1.5, ANIM_BACKSWING),
+        hit("Skinning Knife", 5, 9, 16, 1.6, 90, 0.6, 20, 3, ANIM_THRUST)]
+    var barbed = skill(fire("Barbed Bolt", 9, 9, 14, SHOT_ARROW, 34, 20, 3, ANIM_SHOOT), 4, 0, "STUDY 25: 9 damage, bleeds 8s")
+    barbed.need = 25
+    barbed.poison = 8
+    var bolas = skill(fire("Bolas Bolt", 10, 10, 16, SHOT_ARROW, 30, 70, 0, ANIM_SHOOT), 6, 0, "STUDY 50: 10 damage, ties them up")
+    bolas.need = 50
+    bolas.slow = 5
+    bolas.unblockable = true
+    var blast = skill(fire("Blast Bolt", 26, 14, 20, SHOT_ARROW, 30, 30, 12, ANIM_SHOOT), 7, 0, "STUDY 80: 26 damage blast, throws them")
+    blast.need = 80
+    blast.blast = 2.8
+    blast.ragdoll = 70
+    var change = skill(trick("Pull Arrow", KIND_QUIVER, ANIM_FOCUS), 6, 0, "Draws an arrow and nocks it")
+    change.startup = 24
+    change.recovery = 8
+    c.skills = [barbed, bolas, blast, change]
+    c.ultimate = hit("Golden Arrow", 120, 150, 30, 0, 0, 0, 100, 10, ANIM_SHOOT)
+    c.ultimate.beam = 40
+    c.ultimate.unblockable = true
+    c.ultimate.special = SP_GOLDEN
+    c.ultimate.sturdy = true      # nothing stops it once begun (see unstoppable)
+    c.ultimate.note = "Seen at last: a long aim, one arrow"
+    c.ai_range = 1.6
+    var l = c.look
+    l.skin = ap.Color(214, 170, 130)
+    l.body = ap.Color(70, 86, 50)
+    l.legs = ap.Color(66, 50, 36)
+    l.trim = ap.Color(150, 110, 70)
+    l.accent = ap.Color(255, 210, 90)
+    l.metal = ap.Color(120, 90, 60)
+    l.eyes = ap.Color(40, 60, 40)
+    l.head = HEAD_HUNTRESS
+    l.weapon = WEAPON_CROSSBOW
+    l.stance = STANCE_AIM
+    l.cape = true
+    l.cape_color = ap.Color(56, 70, 40)
+    return c
+end
+
+function hammerhead() returns Character
+    var c = Character("HAMMERHEAD", "THE SHARK")
+    c.mech = MECH_HAMMERHEAD
+    c.blurb = "Spills water: it slows them and drives his blows."
+    c.style = "Mobility, environment"
+    c.health = 140
+    c.speed = 5.6
+    c.bar_name = "TIDE"
+    c.bar_icon = ICON_DROP
+    c.bar_note = "Rises with every hit"
+    c.bar_start = 40
+    c.bar_regen = 3
+    c.basics = [hit("Cutlass", 6, 7, 12, 2.0, 110, 0.5, 18, 2, ANIM_SWING),
+        hit("Cutlass", 6, 7, 12, 2.0, 110, 0.5, 18, 2, ANIM_BACKSWING),
+        hit("Keelhaul", 10, 12, 20, 2.1, 100, 0.8, 26, 6, ANIM_THRUST)]
+    c.basics[0].gain = 8
+    c.basics[1].gain = 8
+    c.basics[2].gain = 12
+    var bilge = skill(wave_trick("Bilge Spill", SP_POOL, ANIM_SLAM), 4, 25, "A pool: slows them, drives you")
+    var rip = skill(hit("Riptide", 9, 10, 18, 2.0, 90, 5.0, 24, 4, ANIM_CHARGE), 6, 15, "A charge that leaves water behind")
+    rip.special = SP_RIPTIDE
+    var anchor = skill(fire("Anchor Drop", 11, 14, 20, SHOT_ANCHOR, 14, 28, 6, ANIM_THROW), 7, 30, "A thrown anchor; it splashes a pool")
+    anchor.lob = true
+    anchor.blast = 1.6
+    anchor.special = SP_ANCHOR
+    var undertow = skill(wave_trick("Undertow", SP_UNDERTOW, ANIM_HOOK), 8, 20, "Drags anyone in his water to him")
+    c.skills = [bilge, rip, anchor, undertow]
+    c.ultimate = wave_trick("Drag Under", SP_DRAG_UNDER, ANIM_BITE)
+    c.ultimate.startup = 12
+    c.ultimate.recovery = 20
+    c.ultimate.note = "Held under 5s: bleeding and no air"
+    c.ai_range = 2.2
+    var l = c.look
+    l.skin = ap.Color(120, 140, 150)
+    l.body = ap.Color(40, 50, 70)
+    l.legs = ap.Color(60, 50, 40)
+    l.trim = ap.Color(200, 170, 90)
+    l.accent = ap.Color(70, 200, 220)
+    l.metal = ap.Color(150, 110, 80)
+    l.eyes = ap.Color(20, 20, 24)
+    l.head = HEAD_SHARK
+    l.weapon = WEAPON_CUTLASS
+    l.stance = STANCE_EN_GARDE
+    l.bulk = 1.1
+    return c
+end
+
+# FLASQUE's four Buy moves: pressed with coins, they put a potion in the hand.
+function buy(string name, int potion, string note) returns Attack
+    var a = skill(wave_trick(name, SP_BUY, ANIM_PLANT), 0.5, 0, note)
+    a.potion = potion
+    a.startup = 6
+    a.recovery = 8
+    return a
+end
+
+function flasque() returns Character
+    var c = Character("FLASQUE", "THE ALCHEMIST")
+    c.mech = MECH_FLASQUE
+    c.blurb = "No super bar: collect coins to buy potions to throw."
+    c.style = "Zoning, combinations"
+    c.health = 120
+    c.speed = 5.7
+    c.bar_name = "COINS"
+    c.bar_icon = ICON_COIN
+    c.bar_note = "Pick up coins; kept round to round"
+    c.bar_max = 7
+    c.bar_start = 0
+    c.bar_pips = true
+    c.parry_gain = 0
+    # R slaps (coins are only spent on potions and the super). A potion in hand, R throws that.
+    c.basics = [hit("Slap", 4, 6, 12, 1.6, 100, 0.4, 14, 1.5, ANIM_PUNCH),
+        hit("Slap", 4, 6, 12, 1.6, 100, 0.4, 14, 1.5, ANIM_PUNCH),
+        hit("Backhand", 6, 8, 16, 1.7, 110, 0.5, 18, 2.5, ANIM_PUNCH)]
+    c.skills = [buy("Venom", POTION_VENOM, "1 coin: R throws it, F braces"),
+        buy("Fire", POTION_FIRE, "2 coins: R throws it, F braces"),
+        buy("Frost", POTION_FROST, "3 coins: R throws it, F braces"),
+        buy("Thunder", POTION_THUNDER, "4 coins: R throws it, F braces")]
+    c.ultimate = wave_trick("Sell", SP_SELL, ANIM_CAST)
+    c.ultimate.startup = 8
+    c.ultimate.recovery = 10
+    c.ultimate.note = "In the Great Work: sold for 2s a coin"
+    c.ai_range = 6
+    var l = c.look
+    l.skin = ap.Color(220, 190, 160)
+    l.body = ap.Color(90, 60, 36)
+    l.legs = ap.Color(50, 40, 34)
+    l.trim = ap.Color(220, 180, 60)
+    l.accent = ap.Color(250, 210, 60)
+    l.metal = ap.Color(150, 120, 80)
+    l.eyes = ap.Color(120, 230, 160)
+    l.glowing_eyes = true
+    l.head = HEAD_RESPIRATOR
+    l.weapon = WEAPON_HANDS
+    l.stance = STANCE_GUARD
+    return c
+end
+
+function scarecrow() returns Character
+    var c = Character("SCARECROW", "THE HARVESTER")
+    c.mech = MECH_SCARECROW
+    c.blurb = "Straw decoys that look like him and burst up close."
+    c.style = "Deception, traps"
+    c.health = 130
+    c.speed = 5.4
+    c.bar_name = "STRAW"
+    c.bar_icon = ICON_LEAF
+    c.bar_note = "Refills; the chaff drains it"
+    c.bar_regen = 8
+    c.bar_drain = 30
+    c.basics = [hit("Prod", 5, 7, 12, 2.4, 60, 0.4, 18, 2, ANIM_THRUST),
+        hit("Prod", 5, 7, 12, 2.4, 60, 0.4, 18, 2, ANIM_THRUST),
+        hit("Toss", 9, 11, 18, 2.4, 100, 0.5, 24, 1, ANIM_UPPERCUT)]
+    c.basics[2].launch = 6
+    var straw = skill(wave_trick("Straw Man", SP_DECOY, ANIM_PLANT), 4, 30, "A decoy that bursts up close (max 3)")
+    var pitch = skill(hit("Pitch", 4, 8, 20, 2.5, 60, 2.0, 15, 1, ANIM_THRUST), 5, 0, "Three quick stabs")
+    pitch.hits = 3
+    pitch.interval = 7
+    pitch.finish = 4
+    var chaff = skill(trick("Chaff", KIND_CLOAK, ANIM_FOCUS), 6, 0, "Hidden in blown straw; drains STRAW")
+    var kindle = skill(wave_trick("Kindle", SP_IGNITE, ANIM_CAST), 6, 10, "Every decoy bursts at once")
+    c.skills = [straw, pitch, chaff, kindle]
+    c.ultimate = wave_trick("Swap", SP_SWAPCROW, ANIM_FOCUS)
+    c.ultimate.startup = 4
+    c.ultimate.recovery = 6
+    c.ultimate.note = "In the Harvest: trade places with a copy"
+    c.ai_range = 2.6
+    var l = c.look
+    l.skin = ap.Color(196, 170, 120)
+    l.body = ap.Color(90, 110, 140)
+    l.legs = ap.Color(80, 70, 56)
+    l.trim = ap.Color(220, 190, 100)
+    l.accent = ap.Color(255, 150, 40)
+    l.metal = ap.Color(150, 150, 150)
+    l.eyes = ap.Color(255, 150, 40)
+    l.glowing_eyes = true
+    l.head = HEAD_SACK
+    l.weapon = WEAPON_PITCHFORK
+    l.stance = STANCE_SHAMBLE
+    l.bulk = 0.95
+    l.tall = 1.08
+    return c
+end
+
+function conductor() returns Character
+    var c = Character("CONDUCTOR", "THE ENGINEER")
+    c.mech = MECH_CONDUCTOR
+    c.blurb = "Lays rails: on them he moves and strikes faster."
+    c.style = "Mobility, positioning"
+    c.health = 130
+    c.speed = 5.5
+    c.bar_name = "STEAM"
+    c.bar_icon = ICON_TICKET
+    c.bar_note = "Builds back up on its own"
+    c.bar_regen = 10
+    c.basics = [hit("Lantern", 5, 7, 12, 2.0, 110, 0.5, 18, 2, ANIM_SWING),
+        hit("Punch Ticket", 5, 6, 12, 1.8, 70, 0.6, 18, 2, ANIM_THRUST),
+        hit("Coupling", 9, 11, 18, 2.0, 100, 0.7, 24, 6, ANIM_SLAM)]
+    var track = skill(wave_trick("Lay Track", SP_TRACK, ANIM_PLANT), 3, 25, "Rails ahead for 15s: faster on them")
+    var ticket = skill(hit("Ticket Please", 6, 8, 14, 1.9, 80, 1.0, 20, 2, ANIM_THRUST), 4, 0, "PUNCHED: his next hit +60%")
+    ticket.special = SP_TICKET
+    var aboard = skill(hit("All Aboard", 10, 12, 22, 2.0, 90, 6.0, 26, 8, ANIM_CHARGE), 6, 20, "A 6 m charge, farther on rails")
+    aboard.sturdy = true
+    var whistle = skill(hit("Whistle", 4, 10, 18, 3.0, 360, 0, 22, 9, ANIM_CAST), 8, 25, "A blast of steam all round")
+    whistle.radial = true
+    c.skills = [track, ticket, aboard, whistle]
+    c.ultimate = wave_trick("Emergency Brake", SP_BRAKE, ANIM_PLANT)
+    c.ultimate.startup = 8
+    c.ultimate.recovery = 10
+    c.ultimate.note = "Stops the train early; a smaller fine"
+    c.ai_range = 2.3
+    var l = c.look
+    l.skin = ap.Color(224, 186, 156)
+    l.body = ap.Color(30, 40, 80)
+    l.legs = ap.Color(26, 30, 50)
+    l.trim = ap.Color(220, 180, 80)
+    l.accent = ap.Color(255, 200, 90)
+    l.metal = ap.Color(90, 80, 70)
+    l.eyes = ap.Color(30, 26, 22)
+    l.head = HEAD_CONDUCTOR
+    l.weapon = WEAPON_LANTERN
+    l.stance = STANCE_GUARD
+    return c
+end
+
+function strongman() returns Character
+    var c = Character("STRONGMAN", "THE ATTRACTION")
+    c.mech = MECH_STRONGMAN
+    c.blurb = "Hold a move to charge it; exercise for stacking buffs."
+    c.style = "Heavyweight, charge"
+    c.health = 155
+    c.speed = 5.0
+    c.bar_name = "PUMP"
+    c.bar_icon = ICON_DUMBBELL
+    c.bar_note = "Reps: +7% damage, -4% taken each"
+    c.bar_max = 5
+    c.bar_start = 0
+    c.bar_pips = true
+    c.parry_gain = 0
+    c.basics = [hit("Dumbbell", 7, 10, 16, 2.0, 110, 0.4, 20, 3, ANIM_SWING),
+        hit("Dumbbell", 7, 10, 16, 2.0, 110, 0.4, 20, 3, ANIM_BACKSWING),
+        hit("Overhead Press", 12, 14, 22, 2.1, 100, 0.6, 28, 7, ANIM_SLAM)]
+    var rep = skill(wave_trick("Clean and Jerk", SP_EXERCISE, ANIM_SLAM), 3, 0, "A rep: one more PUMP (up to 5)")
+    rep.startup = 60
+    rep.recovery = 18
+    var toss = skill(fire("Dumbbell Toss", 12, 14, 20, SHOT_DUMBBELL, 14, 26, 7, ANIM_THROW), 6, 0, "Lobbed; hold to throw it harder")
+    toss.lob = true
+    toss.blast = 1.4
+    var slam = skill(hit("Body Slam", 12, 13, 24, 2.0, 100, 4.0, 30, 6, ANIM_POUNCE), 7, 0, "A leap and a landing")
+    slam.ragdoll = 60
+    slam.sturdy = true
+    var flex = skill(trick("Flex", KIND_BUFF, ANIM_FOCUS), 10, 0, "2.5s: takes far less, unstaggered")
+    flex.buff = BUFF_GUARD
+    flex.buff_time = 2.5
+    c.skills = [rep, toss, slam, flex]
+    c.ultimate = hit("Feat of Strength", 26, 22, 30, 3.6, 360, 0, 50, 6, ANIM_SLAM)
+    c.ultimate.radial = true
+    c.ultimate.launch = 9
+    c.ultimate.note = "The floor itself: a slam all round"
+    c.ai_range = 2.0
+    var l = c.look
+    l.skin = ap.Color(214, 160, 120)
+    l.body = ap.Color(200, 50, 50)
+    l.legs = ap.Color(30, 30, 40)
+    l.trim = ap.Color(240, 240, 240)
+    l.accent = ap.Color(255, 220, 80)
+    l.metal = ap.Color(60, 60, 66)
+    l.eyes = ap.Color(30, 24, 20)
+    l.head = HEAD_STRONGMAN
+    l.weapon = WEAPON_DUMBBELL
+    l.stance = STANCE_BOXER
+    l.bulk = 1.3
+    l.tall = 1.04
+    return c
+end
+
+function clockwork() returns Character
+    var c = Character("CLOCKWORK", "THE TIMEKEEPER")
+    c.mech = MECH_CLOCKWORK
+    c.blurb = "Winds the whole fight faster or slower for a while."
+    c.style = "Timing, disruption"
+    c.health = 120
+    c.speed = 5.9
+    c.bar_name = "SPRING"
+    c.bar_icon = ICON_GEAR
+    c.bar_note = "Wound back up over time"
+    c.bar_regen = 6
+    c.machine = true
+    c.basics = [hit("Tick", 4, 5, 9, 1.7, 100, 0.4, 15, 1.5, ANIM_SWING),
+        hit("Tock", 4, 5, 9, 1.7, 100, 0.4, 15, 1.5, ANIM_BACKSWING),
+        hit("Chime", 8, 9, 16, 1.8, 120, 0.6, 22, 4, ANIM_SPIN)]
+    var fast = skill(wave_trick("Wind Up", SP_WIND_UP, ANIM_FOCUS), 9, 35, "The whole fight runs 30% faster, 6s")
+    var slow = skill(wave_trick("Wind Down", SP_WIND_DOWN, ANIM_FOCUS), 9, 35, "The whole fight runs 30% slower, 6s")
+    var second = skill(hit("Second Hand", 8, 14, 18, 1.8, 100, 0.4, 22, 3, ANIM_THRUST), 6, 15, "Appears behind them to strike")
+    second.teleport = true
+    var pendulum = skill(hit("Pendulum", 3, 8, 18, 2.0, 180, 1.0, 13, 1, ANIM_SWING), 6, 15, "Four swings back and forth")
+    pendulum.hits = 4
+    pendulum.interval = 6
+    pendulum.finish = 4
+    c.skills = [fast, slow, second, pendulum]
+    c.ultimate = hit("Midnight", 2.6, 10, 30, 2.0, 140, 2.0, 12, 1, ANIM_HOOK)
+    c.ultimate.hits = 12
+    c.ultimate.interval = 4
+    c.ultimate.finish = 10
+    c.ultimate.fx = FX_RUSH
+    c.ultimate.note = "Twelve strokes"
+    c.ai_range = 2.0
+    var l = c.look
+    l.skin = ap.Color(200, 170, 110)
+    l.body = ap.Color(60, 40, 30)
+    l.legs = ap.Color(40, 30, 24)
+    l.trim = ap.Color(220, 180, 90)
+    l.accent = ap.Color(120, 220, 255)
+    l.metal = ap.Color(220, 190, 110)
+    l.eyes = ap.Color(30, 24, 20)
+    l.head = HEAD_CLOCK
+    l.weapon = WEAPON_CLOCKBLADES
+    l.stance = STANCE_ROBOT
+    return c
+end
+
+function moth() returns Character
+    var c = Character("MOTH", "THE LAMPLIGHTER")
+    c.mech = MECH_MOTH
+    c.blurb = "Lights that pull shots in and turn them around."
+    c.style = "Aerial, projectiles"
+    c.health = 115
+    c.speed = 5.7
+    c.bar_name = "GLOW"
+    c.bar_icon = ICON_SUN
+    c.bar_note = "Refills; lights and embers spend it"
+    c.bar_regen = 9
+    c.basics = [hit("Lantern", 4, 6, 11, 1.9, 110, 0.5, 16, 2, ANIM_SWING),
+        hit("Lantern", 4, 6, 11, 1.9, 110, 0.5, 16, 2, ANIM_BACKSWING),
+        hit("Flicker", 7, 9, 16, 2.0, 120, 0.8, 22, 4, ANIM_SPIN)]
+    var lamp = skill(wave_trick("Lamplight", SP_LIGHT, ANIM_CAST), 3, 25, "A light that turns shots around")
+    var embers = skill(fire("Ember Dust", 4, 10, 16, SHOT_EMBER, 12, 12, 1, ANIM_CAST), 4, 20, "Three slow homing embers")
+    embers.volley = 3
+    embers.spread = 20
+    embers.homing = 110
+    embers.shot_life = 3.2
+    var flutter = skill(hit("Flutter", 0, 10, 8, 0, 0, 4.2, 0, 0, ANIM_POUNCE), 4, 0, "Untouchable on the wing")
+    flutter.evade = true
+    var flare = skill(wave_trick("Flare", SP_FLARE, ANIM_CAST), 8, 30, "Every light bursts")
+    c.skills = [lamp, embers, flutter, flare]
+    c.ultimate = wave_trick("Plasma Dive", SP_DIVE, ANIM_POUNCE)
+    c.ultimate.startup = 12
+    c.ultimate.recovery = 20
+    c.ultimate.note = "Up to the sun, then down where you aim"
+    c.ai_range = 4
+    var l = c.look
+    l.skin = ap.Color(220, 210, 190)
+    l.body = ap.Color(150, 130, 100)
+    l.legs = ap.Color(90, 80, 66)
+    l.trim = ap.Color(240, 230, 200)
+    l.accent = ap.Color(255, 230, 140)
+    l.metal = ap.Color(160, 120, 60)
+    l.eyes = ap.Color(20, 16, 14)
+    l.head = HEAD_MOTH
+    l.weapon = WEAPON_LANTERN
+    l.stance = STANCE_HOVER
+    l.wings = true
+    l.wing_color = ap.Color(190, 170, 130)
+    l.hover = 0.3
+    l.glowing_weapon = true
+    return c
+end
+
+function hollow() returns Character
+    var c = Character("HOLLOW", "THE EMPTY ARMOR")
+    c.mech = MECH_HOLLOW
+    c.blurb = "Sheds armor as the round goes on: faster, frailer, deadlier."
+    c.style = "Defense, transformation"
+    c.health = 160
+    c.speed = 4.4
+    c.armor = 0.5
+    c.bar_name = "ARMOR"
+    c.bar_icon = ICON_SHIELD
+    c.bar_note = "Three pieces; one falls off every 20s"
+    c.bar_max = 3
+    c.bar_start = 3
+    c.bar_pips = true
+    c.parry_gain = 0
+    var shed = skill(wave_trick("Shedding", SP_SHED, ANIM_FOCUS), 0, 0, "The armor falls off by itself as the round goes on")
+    # FORTRESS: everything on.
+    Attack[] f_basic = [hit("Shield Bash", 6, 9, 14, 1.8, 110, 0.4, 20, 4, ANIM_PUNCH),
+        hit("Shield Bash", 6, 9, 14, 1.8, 110, 0.4, 20, 4, ANIM_PUNCH),
+        hit("Pommel", 10, 12, 20, 1.9, 100, 0.6, 26, 7, ANIM_SLAM)]
+    var bulwark = skill(trick("Bulwark", KIND_BUFF, ANIM_FOCUS), 9, 0, "3s: takes far less, unstaggered")
+    bulwark.buff = BUFF_GUARD
+    bulwark.buff_time = 3
+    var charge = skill(hit("Shield Charge", 10, 12, 22, 1.9, 100, 4.0, 26, 9, ANIM_CHARGE), 6, 0, "Behind the shield, 4 m")
+    charge.sturdy = true
+    var brace = skill(hit("Brace", 8, 26, 18, 2.0, 120, 0.3, 28, 8, ANIM_COUNTER), 7, 0, "Counter: struck, it bashes back")
+    brace.counter = true
+    # KNIGHT: the helm gone.
+    Attack[] k_basic = [hit("Broken Sword", 6, 7, 12, 2.0, 110, 0.5, 18, 2, ANIM_SWING),
+        hit("Broken Sword", 6, 7, 12, 2.0, 110, 0.5, 18, 2, ANIM_BACKSWING),
+        hit("Oathbreaker", 10, 11, 18, 2.1, 100, 0.7, 24, 5, ANIM_THRUST)]
+    var riposte = skill(hit("Riposte", 9, 24, 16, 2.1, 100, 0.5, 26, 5, ANIM_COUNTER), 6, 0, "Counter: struck, it runs them through")
+    riposte.counter = true
+    var crusade = skill(hit("Crusade", 9, 10, 18, 2.0, 90, 4.4, 24, 5, ANIM_THRUST), 5, 0, "A lunging thrust, 4 m")
+    var toss = skill(fire("Shield Toss", 9, 12, 18, SHOT_WAVE, 18, 22, 5, ANIM_THROW), 6, 0, "The shield, thrown")
+    # WRAITH: the plate gone.
+    Attack[] w_basic = [hit("Rake", 4, 5, 9, 1.9, 120, 0.5, 15, 1.5, ANIM_SWING),
+        hit("Rake", 4, 5, 9, 1.9, 120, 0.5, 15, 1.5, ANIM_BACKSWING),
+        hit("Rake", 4, 5, 9, 1.9, 120, 0.5, 15, 1.5, ANIM_SWING),
+        hit("Gutting", 8, 9, 16, 2.0, 100, 0.8, 22, 4, ANIM_THRUST)]
+    var step = skill(hit("Phantom Step", 8, 14, 16, 1.9, 100, 0.4, 22, 3, ANIM_SWING), 5, 0, "Appears behind them to cut")
+    step.teleport = true
+    var spectral = skill(fire("Spectral Cut", 8, 10, 16, SHOT_WAVE, 22, 18, 3, ANIM_SWING), 4, 0, "A cut that flies")
+    var rend = skill(hit("Rend", 4, 9, 20, 2.0, 110, 1.6, 15, 1, ANIM_HOOK), 6, 0, "Four cuts")
+    rend.hits = 4
+    rend.interval = 5
+    rend.finish = 4
+    # HOLLOW: nothing left but the will.
+    Attack[] h_basic = [hit("Grasp", 5, 5, 9, 1.9, 120, 0.6, 16, 2, ANIM_SWING),
+        hit("Grasp", 5, 5, 9, 1.9, 120, 0.6, 16, 2, ANIM_BACKSWING),
+        hit("Hollow Blow", 10, 9, 16, 2.0, 120, 0.8, 24, 6, ANIM_SLAM)]
+    var burst = skill(hit("Soul Burst", 9, 12, 22, 3.0, 360, 0, 24, 8, ANIM_CAST), 6, 0, "A burst of cold light all round")
+    burst.radial = true
+    var lunge = skill(hit("Void Lunge", 12, 10, 18, 2.0, 90, 5.5, 26, 6, ANIM_CHARGE), 5, 0, "A 5 m lunge")
+    var howl = skill(hit("Hollow Howl", 3, 12, 20, 4.0, 360, 0, 16, 3, ANIM_CAST), 8, 0, "Slows everyone near 3s")
+    howl.radial = true
+    howl.slow = 3
+    c.arsenal = [Arsenal("FORTRESS", WEAPON_SHIELD, f_basic, [bulwark, charge, brace], Attack(""), 1.8),
+        Arsenal("KNIGHT", WEAPON_SHIELD, k_basic, [riposte, crusade, toss], Attack(""), 2.0),
+        Arsenal("WRAITH", WEAPON_BROKEN, w_basic, [step, spectral, rend], Attack(""), 2.0),
+        Arsenal("HOLLOW", WEAPON_BROKEN, h_basic, [burst, lunge, howl], Attack(""), 2.0)]
+    c.basics = f_basic
+    c.skills = [bulwark, charge, brace, shed]
+    c.ultimate = hit("Siege Breaker", 28, 20, 30, 2.4, 140, 1.0, 44, 12, ANIM_SLAM)
+    c.ultimate.sturdy = true
+    c.ultimate.unblockable = true
+    c.ultimate.note = "The fortress falls on them"
+    # Each form hits for its share of the numbers above: the fortress barely hurts, the hollow
+    # thing at the end hits hardest of all.
+    for k, form in c.arsenal do
+        for a in form.basics do
+            weaken(a, HOLLOW_FORM_DAMAGE[k])
+        end
+        for a in form.skills do
+            weaken(a, HOLLOW_FORM_DAMAGE[k])
+        end
+    end
+    weaken(c.ultimate, HOLLOW_DAMAGE)
+    c.ai_range = 1.9
+    var l = c.look
+    l.skin = ap.Color(160, 230, 255)
+    l.body = ap.Color(110, 114, 120)
+    l.legs = ap.Color(80, 82, 88)
+    l.trim = ap.Color(150, 130, 90)
+    l.accent = ap.Color(150, 220, 255)
+    l.metal = ap.Color(170, 174, 180)
+    l.eyes = ap.Color(160, 230, 255)
+    l.glowing_eyes = true
+    l.head = HEAD_HOLLOW
+    l.weapon = WEAPON_SHIELD
+    l.stance = STANCE_BULWARK
+    l.bulk = 1.25
+    l.tall = 1.06
+    l.cape = true
+    l.cape_color = ap.Color(80, 30, 30)
+    return c
+end
+
+const double HOLLOW_DAMAGE = 0.7     # HOLLOW's super (and its riposte) do this share of their listed damage
+const double[] HOLLOW_FORM_DAMAGE = [0.2, 0.5, 1.0, 1.5]   # ...and each form's moves (FORTRESS..HOLLOW)
+
+function weaken(Attack a, double share)
+    a.damage *= share
+    a.finish *= share
+end
+
+# HOLLOW's fourth skill once there is nothing left to shed.
+function last_breath() returns Attack
+    var breath = skill(hit("Last Breath", 22, 20, 26, 2.2, 100, 1.0, 40, 10, ANIM_SLAM), 9, 0, "Nothing left to shed: one huge blow")
+    breath.ragdoll = 70
+    weaken(breath, HOLLOW_FORM_DAMAGE[3])
+    return breath
+end
+
+function maestro() returns Character
+    var c = Character("MAESTRO", "THE MUSICIAN")
+    c.mech = MECH_MAESTRO
+    c.blurb = "Moves started on his beat hit harder, and build."
+    c.style = "Rhythm, combos"
+    c.health = 120
+    c.speed = 5.7
+    c.bar_name = "TEMPO"
+    c.bar_icon = ICON_NOTE
+    c.bar_note = "Refills; the beat shows round him"
+    c.bar_regen = 10
+    c.basics = [hit("Bow", 4, 6, 10, 1.9, 110, 0.4, 16, 1.5, ANIM_SWING),
+        hit("Bow", 4, 6, 10, 1.9, 110, 0.4, 16, 1.5, ANIM_BACKSWING),
+        hit("Flourish", 8, 9, 16, 2.0, 130, 0.5, 22, 4, ANIM_SPIN)]
+    var staccato = skill(fire("Staccato", 3, 8, 14, SHOT_NOTE, 18, 12, 1, ANIM_SHOOT), 3, 15, "Three notes, fired in rhythm")
+    staccato.hits = 3
+    staccato.interval = 9
+    staccato.homing = 60
+    var pizz = skill(hit("Pizzicato", 8, 7, 14, 1.9, 80, 0.8, 26, 3, ANIM_THRUST), 4, 0, "A sharp pluck that holds them")
+    var cresc = skill(hit("Crescendo", 6, 12, 22, 3.2, 360, 0, 22, 7, ANIM_CAST), 8, 30, "Sound all round, louder on a streak")
+    cresc.radial = true
+    cresc.special = SP_CRESCENDO
+    var fermata = skill(hit("Fermata", 8, 26, 16, 2.0, 100, 0.4, 26, 5, ANIM_COUNTER), 7, 15, "Counter: a held note that answers")
+    fermata.counter = true
+    c.skills = [staccato, pizz, cresc, fermata]
+    c.ultimate = fire("Grand Finale", 4, 12, 30, SHOT_NOTE, 20, 14, 2, ANIM_SHOOT)
+    c.ultimate.hits = 8
+    c.ultimate.interval = 6
+    c.ultimate.volley = 3
+    c.ultimate.spread = 14
+    c.ultimate.homing = 80
+    c.ultimate.note = "Eight chords of three notes"
+    c.ai_range = 3.5
+    var l = c.look
+    l.skin = ap.Color(232, 206, 186)
+    l.body = ap.Color(22, 22, 28)
+    l.legs = ap.Color(20, 20, 26)
+    l.trim = ap.Color(240, 240, 240)
+    l.accent = ap.Color(255, 120, 90)
+    l.metal = ap.Color(150, 70, 36)
+    l.eyes = ap.Color(30, 24, 22)
+    l.head = HEAD_MAESTRO
+    l.weapon = WEAPON_VIOLIN
+    l.stance = STANCE_EN_GARDE
+    l.cape = true
+    l.cape_color = ap.Color(16, 16, 20)
+    return c
+end
+
+function deadbolt() returns Character
+    var c = Character("DEADBOLT", "THE KEYMASTER")
+    c.mech = MECH_DEADBOLT
+    c.blurb = "Keys: lock one of their skills for 10s, or shoot one."
+    c.style = "Disruption, control"
+    c.health = 130
+    c.speed = 5.5
+    c.bar_name = "KEYS"
+    c.bar_icon = ICON_KEY
+    c.bar_note = "Up to 3; one forged every 8s"
+    c.bar_max = 3
+    c.bar_start = 1
+    c.bar_regen = 0.125
+    c.bar_pips = true
+    c.parry_gain = 0.5
+    c.basics = [hit("Key", 5, 7, 12, 1.8, 100, 0.4, 18, 2, ANIM_CROSS),
+        hit("Key", 5, 7, 12, 1.8, 100, 0.4, 18, 2, ANIM_HOOK),
+        hit("Bolt Home", 9, 11, 18, 1.9, 90, 0.6, 24, 5, ANIM_CROSS)]
+    var lock = skill(wave_trick("Lock Out", SP_LOCKOUT, ANIM_CAST), 2, 1, "1 key: locks their last skill 10s")
+    var keybolt = skill(fire("Key Shot", 18, 12, 18, SHOT_KEYBOLT, 36, 26, 6, ANIM_SHOOT), 2, 1, "1 key: shot from the crossbow, no block stops it")
+    keybolt.unblockable = true
+    var door = skill(wave_trick("Locked Door", SP_DOOR, ANIM_PLANT), 5, 0, "Counters a blow; two open as his own portal")
+    var turn = skill(hit("Turn the Key", 9, 11, 20, 1.9, 90, 0.8, 40, 1, ANIM_THRUST), 7, 0, "A twist of the key that holds them")
+    c.skills = [lock, keybolt, door, turn]
+    c.ultimate = wave_trick("Slam the Door", SP_SLAM_DOOR, ANIM_SLAM)
+    c.ultimate.startup = 20
+    c.ultimate.recovery = 20
+    c.ultimate.note = "Near the door: 30 damage and held"
+    c.ai_range = 4
+    var l = c.look
+    l.skin = ap.Color(210, 176, 150)
+    l.body = ap.Color(70, 60, 50)
+    l.legs = ap.Color(44, 40, 36)
+    l.trim = ap.Color(180, 150, 80)
+    l.accent = ap.Color(230, 200, 110)
+    l.metal = ap.Color(110, 104, 96)
+    l.eyes = ap.Color(230, 200, 110)
+    l.glowing_eyes = true
+    l.head = HEAD_PADLOCK
+    l.weapon = WEAPON_KEY
+    l.stance = STANCE_AIM
+    l.bulk = 1.08
+    return c
+end
+
+function raven() returns Character
+    var c = Character("RAVEN", "THE OMEN")
+    c.mech = MECH_RAVEN
+    c.blurb = "Omens on them go off when they dash, hit or block."
+    c.style = "Traps, delayed damage"
+    c.health = 115
+    c.speed = 6.0
+    c.bar_name = "OMENS"
+    c.bar_icon = ICON_WING
+    c.bar_note = "Refills; each omen costs some"
+    c.bar_regen = 8
+    c.basics = [hit("Feather", 4, 5, 9, 1.8, 110, 0.5, 15, 1.5, ANIM_SWING),
+        hit("Feather", 4, 5, 9, 1.8, 110, 0.5, 15, 1.5, ANIM_BACKSWING),
+        hit("Quill", 8, 9, 16, 1.9, 100, 0.7, 22, 4, ANIM_THRUST)]
+    var haste = skill(fire("Omen of Haste", 3, 8, 14, SHOT_FEATHER, 28, 10, 1, ANIM_THROW), 4, 15, "Their next dash: 14 and a stagger")
+    haste.special = SP_OMEN_HASTE
+    var greed = skill(fire("Omen of Greed", 3, 8, 14, SHOT_FEATHER, 28, 10, 1, ANIM_THROW), 4, 15, "Their next hit landed costs them 12")
+    greed.special = SP_OMEN_GREED
+    var fear = skill(fire("Omen of Fear", 3, 8, 14, SHOT_FEATHER, 28, 10, 1, ANIM_THROW), 4, 15, "Their next block breaks: 10")
+    fear.special = SP_OMEN_FEAR
+    var letter = skill(fire("Final Letter", 4, 12, 18, SHOT_FEATHER, 22, 12, 1, ANIM_THROW), 10, 30, "18 damage in 6 seconds, whatever")
+    letter.special = SP_OMEN_LETTER
+    letter.homing = 90
+    c.skills = [haste, greed, fear, letter]
+    c.ultimate = wave_trick("Nevermore", SP_NEVERMORE, ANIM_CAST)
+    c.ultimate.startup = 18
+    c.ultimate.recovery = 20
+    c.ultimate.note = "Every omen on them comes due, doubled"
+    c.ai_range = 3.5
+    var l = c.look
+    l.skin = ap.Color(200, 196, 200)
+    l.body = ap.Color(20, 20, 26)
+    l.legs = ap.Color(18, 18, 22)
+    l.trim = ap.Color(70, 60, 90)
+    l.accent = ap.Color(160, 120, 255)
+    l.metal = ap.Color(40, 40, 50)
+    l.eyes = ap.Color(220, 60, 60)
+    l.glowing_eyes = true
+    l.head = HEAD_RAVEN
+    l.weapon = WEAPON_FEATHERS
+    l.stance = STANCE_SERPENT
+    l.cape = true
+    l.cape_color = ap.Color(14, 14, 18)
     return c
 end
 
@@ -1860,6 +2978,10 @@ function copy(Attack a) returns Attack
     b.inject = a.inject
     b.steal = a.steal
     b.crater = a.crater
+    b.special = a.special
+    b.need = a.need
+    b.potion = a.potion
+    b.ragdoll = a.ragdoll
     return b
 end
 
@@ -1876,7 +2998,7 @@ function adapt(Attack from, double price) returns Attack
         # Bullets mean nothing to it: four shots, paid for once.
         a.kind = KIND_STRIKE
         a.hits = 4
-    else if a.kind == KIND_RELOAD do
+    else if a.kind == KIND_RELOAD or a.kind == KIND_QUIVER do
         # Nothing to reload: it takes a nap instead.
         a = skill(trick("Catnap", KIND_BUFF, ANIM_PLANT), 14, price, "Heals 6 a second for 3s")
         a.buff = BUFF_REGEN
@@ -1889,7 +3011,15 @@ end
 # Whether a move still means something in someone else's hands.
 function portable(Attack a) returns bool
     return a.name != "" and a.startup > 1 and not a.inject and a.kind != KIND_SWAP and a.kind != KIND_RECALL and
-        a.kind != KIND_LOCK
+        a.kind != KIND_LOCK and not owner_only(a)
+end
+
+# Second-wave moves that only mean something to the fighter they belong to (coins, armor, a super's place).
+function owner_only(Attack a) returns bool
+    var sp = a.special
+    return sp == SP_BUY or sp == SP_SELL or sp == SP_SHED or sp == SP_VERDICT or sp == SP_SWAPCROW or sp == SP_BRAKE or
+        sp == SP_DIVE or sp == SP_COFFIN or sp == SP_DRAG_UNDER or sp == SP_SLAM_DOOR or sp == SP_EXERCISE or
+        sp == SP_RESHUFFLE or sp == SP_GOLDEN or a.need > 0
 end
 
 # Every skill in the game that a copycat could be handed at random.
@@ -1947,7 +3077,9 @@ end
 function build() returns Character[]
     Character[] cast = [fangs(), aster(), anaconda(), rapier(), quickdraw(), void_blade(), sherman(), shepherd(), don(),
         hotline(), buckshot(), stab(), atomic(), cat(), droid(), laser(), eagle(), combatant(), phantom(), carbon(),
-        monopolist(), mirrorman(), bob(), teleman(), dismantle(), spruce()]
+        monopolist(), mirrorman(), bob(), teleman(), dismantle(), spruce(), death(), zero(), warden(), tinker(),
+        oracle(), undertaker(), hunter(), hammerhead(), flasque(), scarecrow(), conductor(), strongman(), clockwork(),
+        moth(), hollow(), maestro(), deadbolt(), raven()]
     for c in cast do
         c.maximum = maximum_of(c.name)
         c.bio = bio_of(c.name)
@@ -2010,6 +3142,42 @@ function bio_of(string who) returns string
         return "A gravedigger stitched back together from what the plague pits left behind. Slow, enormous, and very hard to keep in the ground."
     else if who == "SPRUCE" do
         return "A monk from a mountain temple who has not lost her temper in forty years. She waits by the water with her staff and lets you beat yourself."
+    else if who == "DEATH" do
+        return "A plague doctor who spent decades treating a village that had already died. He carries an oversized medical saw and a collection of suspicious bottles."
+    else if who == "ZERO" do
+        return "A former royal entertainer who was executed for making the wrong joke. Somehow, he found the whole experience hilarious."
+    else if who == "WARDEN" do
+        return "An executioner who eventually ran out of prisoners. He now wanders looking for someone worthy of his final sentence."
+    else if who == "TINKER" do
+        return "An obsessive inventor who replaced almost his entire body with machinery. His inventions are brilliant, dangerous and rarely finished."
+    else if who == "ORACLE" do
+        return "A fortune teller who foresaw her own death but somehow managed to avoid it. She now sees every possible outcome except her own future."
+    else if who == "UNDERTAKER" do
+        return "A funeral director who has attended every funeral in his town. Unfortunately, he has started attending funerals before their guests have died."
+    else if who == "HUNTER" do
+        return "A professional monster hunter who has never encountered a monster she couldn't collect a bounty for."
+    else if who == "HAMMERHEAD" do
+        return "A pirate captain whose ship sank with its entire crew aboard. He has been sailing the same stretch of ocean ever since."
+    else if who == "FLASQUE" do
+        return "A failed alchemist who accidentally discovered how to turn gold into something considerably less useful."
+    else if who == "SCARECROW" do
+        return "A scarecrow that became conscious after years of watching the same field. It has developed a rather unhealthy hatred of birds."
+    else if who == "CONDUCTOR" do
+        return "A train conductor who never arrived at his final destination. He still punches tickets, although his passengers are usually unwilling."
+    else if who == "STRONGMAN" do
+        return "A travelling circus strongman who challenged death itself to a contest of strength. Death never showed up."
+    else if who == "CLOCKWORK" do
+        return "A clockmaker who attempted to build a machine capable of stopping time. It worked, but only for everyone except him."
+    else if who == "MOTH" do
+        return "A moth-like creature that has spent centuries chasing a light that disappears whenever it gets close."
+    else if who == "HOLLOW" do
+        return "A suit of armor that has continued fighting long after its knight died. Nobody knows what is keeping it moving."
+    else if who == "MAESTRO" do
+        return "A musician whose final performance was interrupted by an audience that refused to applaud. He has never stopped playing."
+    else if who == "DEADBOLT" do
+        return "A locksmith who discovered a door that was never meant to be opened. He has been trying to lock it again ever since."
+    else if who == "RAVEN" do
+        return "A mysterious messenger who delivers letters announcing deaths that haven't happened yet. Nobody has ever seen him deliver good news."
     end
     return ""
 end
@@ -2490,6 +3658,310 @@ function maximum_of(string who) returns Maximum
         m.fog_far = 70
         m.perfect_guard = true
         m.parry_heal = 10
+    else if who == "DEATH" do
+        m.name = "THE QUARANTINE"
+        m.place = "THE PLAGUE WARD"
+        m.note = "They catch a new ailment every 3s"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_WARD
+        m.sky = ap.Color(30, 34, 24)
+        m.ambient = ap.Color(96, 104, 80)
+        m.sun = ap.Color(210, 220, 170)
+        m.ground = ap.Color(70, 70, 60)
+        m.floor = ap.Color(200, 205, 180)
+        m.glow = ap.Color(170, 220, 90)
+        m.mote = ap.Color(180, 210, 120)
+        m.drift = 0.15
+        m.fog_near = 8
+        m.fog_far = 46
+    else if who == "ZERO" do
+        m.name = "THE LAST LAUGH"
+        m.place = "THE TWISTED CIRCUS"
+        m.note = "Every attack changes, at random"
+        m.anim = ANIM_SPIN
+        m.scene = SCENE_CIRCUS
+        m.sky = ap.Color(30, 10, 30)
+        m.ambient = ap.Color(120, 80, 110)
+        m.sun = ap.Color(255, 200, 230)
+        m.ground = ap.Color(80, 40, 60)
+        m.floor = ap.Color(255, 210, 220)
+        m.glow = ap.Color(255, 90, 160)
+        m.mote = ap.Color(255, 230, 120)
+        m.drift = -0.3
+        m.fog_near = 14
+        m.fog_far = 64
+    else if who == "WARDEN" do
+        m.name = "THE GALLOWS"
+        m.place = "THE CELL BLOCK"
+        m.note = "Caged; G repays 1/3 of their damage"
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_GALLOWS
+        m.sky = ap.Color(14, 14, 16)
+        m.ambient = ap.Color(80, 80, 86)
+        m.sun = ap.Color(200, 200, 210)
+        m.ground = ap.Color(56, 56, 60)
+        m.floor = ap.Color(170, 170, 176)
+        m.glow = ap.Color(220, 70, 50)
+        m.mote = ap.Color(150, 150, 150)
+        m.drift = 0.05
+        m.fog_near = 10
+        m.fog_far = 50
+    else if who == "TINKER" do
+        m.name = "THE WORKSHOP"
+        m.place = "THE AUTOMATED FACTORY"
+        m.note = "Machines roll off the line at them"
+        m.anim = ANIM_PLANT
+        m.scene = SCENE_WORKSHOP
+        m.sky = ap.Color(30, 24, 18)
+        m.ambient = ap.Color(110, 96, 80)
+        m.sun = ap.Color(255, 210, 150)
+        m.ground = ap.Color(70, 64, 56)
+        m.floor = ap.Color(210, 196, 170)
+        m.glow = ap.Color(255, 170, 50)
+        m.mote = ap.Color(255, 200, 100)
+        m.drift = 0.8
+        m.fog_near = 12
+        m.fog_far = 60
+        m.bar_regen = 12
+    else if who == "ORACLE" do
+        m.name = "FATE'S REVISION"
+        m.place = "THE STARLIT TENT"
+        m.note = "Rewinds 8s of wounds; high cards"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_FATE
+        m.sky = ap.Color(12, 8, 30)
+        m.ambient = ap.Color(80, 60, 120)
+        m.sun = ap.Color(210, 180, 255)
+        m.ground = ap.Color(50, 30, 70)
+        m.floor = ap.Color(210, 180, 240)
+        m.glow = ap.Color(190, 120, 255)
+        m.mote = ap.Color(255, 240, 200)
+        m.drift = -0.2
+        m.fog_near = 14
+        m.fog_far = 70
+    else if who == "UNDERTAKER" do
+        m.name = "THE CEMETERY"
+        m.place = "THE BURIAL GROUND"
+        m.note = "Hands from the graves hold them down"
+        m.anim = ANIM_PLANT
+        m.scene = SCENE_CEMETERY
+        m.sky = ap.Color(20, 26, 30)
+        m.ambient = ap.Color(80, 96, 100)
+        m.sun = ap.Color(170, 200, 210)
+        m.ground = ap.Color(40, 46, 44)
+        m.floor = ap.Color(170, 186, 180)
+        m.glow = ap.Color(140, 220, 200)
+        m.mote = ap.Color(190, 230, 220)
+        m.drift = 0.1
+        m.fog_near = 6
+        m.fog_far = 36
+    else if who == "HUNTER" do
+        m.name = "WANTED DEAD"
+        m.place = "THE DEEP WOODS"
+        m.note = "Unseen in trees; G: one golden arrow"
+        m.anim = ANIM_SHOOT
+        m.scene = SCENE_WILDWOOD
+        m.sky = ap.Color(40, 46, 40)
+        m.ambient = ap.Color(70, 86, 70)
+        m.sun = ap.Color(220, 200, 160)
+        m.ground = ap.Color(46, 54, 36)
+        m.floor = ap.Color(150, 170, 120)
+        m.glow = ap.Color(255, 210, 90)
+        m.mote = ap.Color(120, 140, 80)
+        m.drift = -0.15
+        m.fog_near = 6
+        m.fog_far = 34
+        m.vanish = true
+        m.silent = true
+    else if who == "HAMMERHEAD" do
+        m.name = "THE BLACK TIDE"
+        m.place = "THE DROWNED ARENA"
+        m.note = "Swims under: R bites, G drags down"
+        m.seconds = 10
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_TIDE
+        m.sky = ap.Color(8, 16, 22)
+        m.ambient = ap.Color(50, 80, 100)
+        m.sun = ap.Color(140, 190, 210)
+        m.ground = ap.Color(20, 34, 40)
+        m.floor = ap.Color(110, 150, 170)
+        m.glow = ap.Color(70, 200, 220)
+        m.mote = ap.Color(150, 220, 230)
+        m.drift = 0.3
+        m.fog_near = 6
+        m.fog_far = 40
+        m.foe_slow = true
+    else if who == "FLASQUE" do
+        m.name = "THE GREAT WORK"
+        m.place = "THE UNSTABLE LAB"
+        m.note = "7 coins: potions brew, sold for time"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_ALCHEMY
+        m.sky = ap.Color(24, 14, 30)
+        m.ambient = ap.Color(110, 90, 110)
+        m.sun = ap.Color(255, 220, 180)
+        m.ground = ap.Color(70, 56, 60)
+        m.floor = ap.Color(230, 210, 200)
+        m.glow = ap.Color(250, 210, 60)
+        m.mote = ap.Color(170, 255, 170)
+        m.drift = 0.4
+        m.fog_near = 12
+        m.fog_far = 60
+        m.seconds = 20
+        m.repeat_g = true
+    else if who == "SCARECROW" do
+        m.name = "THE HARVEST"
+        m.place = "THE ENDLESS CORN"
+        m.note = "Scarecrows all round; G swaps places"
+        m.anim = ANIM_PLANT
+        m.scene = SCENE_CORN
+        m.sky = ap.Color(60, 40, 30)
+        m.ambient = ap.Color(120, 100, 70)
+        m.sun = ap.Color(255, 190, 120)
+        m.ground = ap.Color(90, 70, 40)
+        m.floor = ap.Color(230, 200, 150)
+        m.glow = ap.Color(255, 150, 40)
+        m.mote = ap.Color(230, 200, 120)
+        m.drift = 0.05
+        m.fog_near = 5
+        m.fog_far = 30
+        m.repeat_g = true
+    else if who == "CONDUCTOR" do
+        m.name = "FINAL DESTINATION"
+        m.place = "THE LAST TRAIN"
+        m.note = "A narrow ride; fined by its length"
+        m.anim = ANIM_PLANT
+        m.scene = SCENE_TRAIN
+        m.sky = ap.Color(34, 40, 72)
+        m.ambient = ap.Color(120, 100, 90)
+        m.sun = ap.Color(255, 220, 170)
+        m.ground = ap.Color(80, 50, 40)
+        m.floor = ap.Color(220, 170, 140)
+        m.glow = ap.Color(255, 200, 90)
+        m.mote = ap.Color(220, 200, 170)
+        m.drift = 0.05
+        m.fog_near = 16
+        m.fog_far = 70
+        m.armor = 1.6
+    else if who == "STRONGMAN" do
+        m.name = "WORLD'S STRONGEST"
+        m.place = "THE SIDESHOW"
+        m.note = "+50% damage, takes less, unstaggered"
+        m.anim = ANIM_SLAM
+        m.scene = SCENE_SIDESHOW
+        m.sky = ap.Color(40, 14, 14)
+        m.ambient = ap.Color(130, 90, 80)
+        m.sun = ap.Color(255, 220, 170)
+        m.ground = ap.Color(110, 50, 40)
+        m.floor = ap.Color(255, 220, 190)
+        m.glow = ap.Color(255, 220, 80)
+        m.mote = ap.Color(255, 230, 180)
+        m.drift = 0.1
+        m.fog_near = 14
+        m.fog_far = 64
+        m.power = 1.5
+        m.armor = 0.75
+        m.steady = true
+    else if who == "CLOCKWORK" do
+        m.name = "STOP THE CLOCK"
+        m.place = "THE CLOCK TOWER"
+        m.note = "They move in slow motion; he doesn't"
+        m.anim = ANIM_FOCUS
+        m.scene = SCENE_CLOCK
+        m.sky = ap.Color(20, 18, 30)
+        m.ambient = ap.Color(100, 96, 120)
+        m.sun = ap.Color(220, 220, 255)
+        m.ground = ap.Color(70, 60, 50)
+        m.floor = ap.Color(220, 210, 190)
+        m.glow = ap.Color(120, 220, 255)
+        m.mote = ap.Color(200, 230, 255)
+        m.drift = 0
+        m.fog_near = 14
+        m.fog_far = 64
+        m.foe_slowmo = 3
+        m.seconds = 12
+    else if who == "MOTH" do
+        m.name = "ETERNAL LIGHT"
+        m.place = "UNDER THE SUN"
+        m.note = "+35% damage; G: dive, all burns"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_SUNLIT
+        m.sky = ap.Color(250, 236, 200)
+        m.ambient = ap.Color(210, 190, 150)
+        m.sun = ap.Color(255, 250, 230)
+        m.ground = ap.Color(200, 170, 120)
+        m.floor = ap.Color(255, 245, 220)
+        m.glow = ap.Color(255, 240, 160)
+        m.mote = ap.Color(255, 240, 200)
+        m.drift = 0.6
+        m.fog_near = 18
+        m.fog_far = 80
+        m.power = 1.35
+    else if who == "HOLLOW" do
+        m.name = "LAST STAND"
+        m.place = "THE LAST KEEP"
+        m.note = "4 changes form at will; parries hit back"
+        m.anim = ANIM_COUNTER
+        m.scene = SCENE_FORTRESS
+        m.sky = ap.Color(30, 30, 40)
+        m.ambient = ap.Color(100, 104, 120)
+        m.sun = ap.Color(210, 220, 240)
+        m.ground = ap.Color(80, 80, 90)
+        m.floor = ap.Color(200, 204, 214)
+        m.glow = ap.Color(150, 220, 255)
+        m.mote = ap.Color(200, 220, 240)
+        m.drift = 0.2
+        m.fog_near = 12
+        m.fog_far = 60
+        m.perfect_guard = true
+    else if who == "MAESTRO" do
+        m.name = "THE FINAL SYMPHONY"
+        m.place = "THE CONCERT HALL"
+        m.note = "Every beat sends a note at them"
+        m.anim = ANIM_SHOOT
+        m.scene = SCENE_CONCERT
+        m.sky = ap.Color(30, 10, 12)
+        m.ambient = ap.Color(130, 90, 80)
+        m.sun = ap.Color(255, 220, 180)
+        m.ground = ap.Color(90, 30, 30)
+        m.floor = ap.Color(240, 200, 170)
+        m.glow = ap.Color(255, 120, 90)
+        m.mote = ap.Color(255, 220, 160)
+        m.drift = -0.1
+        m.fog_near = 16
+        m.fog_far = 70
+    else if who == "DEADBOLT" do
+        m.name = "THE FORBIDDEN DOOR"
+        m.place = "BEHIND THE DOOR"
+        m.note = "A door that keeps pulling them in"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_DOOR
+        m.sky = ap.Color(4, 4, 8)
+        m.ambient = ap.Color(70, 60, 80)
+        m.sun = ap.Color(200, 180, 140)
+        m.ground = ap.Color(30, 28, 34)
+        m.floor = ap.Color(150, 140, 150)
+        m.glow = ap.Color(230, 200, 110)
+        m.mote = ap.Color(200, 180, 140)
+        m.drift = -0.5
+        m.fog_near = 8
+        m.fog_far = 50
+    else if who == "RAVEN" do
+        m.name = "BAD OMEN"
+        m.place = "THE ROOST"
+        m.note = "Ravens peck whoever presses too hard"
+        m.anim = ANIM_CAST
+        m.scene = SCENE_ROOST
+        m.sky = ap.Color(26, 24, 34)
+        m.ambient = ap.Color(80, 76, 100)
+        m.sun = ap.Color(180, 170, 210)
+        m.ground = ap.Color(36, 34, 40)
+        m.floor = ap.Color(160, 154, 176)
+        m.glow = ap.Color(160, 120, 255)
+        m.mote = ap.Color(30, 30, 36)
+        m.drift = -0.3
+        m.fog_near = 10
+        m.fog_far = 50
     end
     return m
 end

@@ -8,3 +8,67 @@ registry = "wednesware.org"
 distribution = "polymorphia.aperture"
 version = "2.5"
 sha256 = "78f65bb54c875b1020a27cdb3963d7ef62fa493c9b2a3c9cdc5aceb7979b04ce"
+
+[[package]]
+aliases = ["playerversus_music_fights"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_fights"
+version = "3.1"
+sha256 = "6f6abab03096bcc30ed7b78a845f419b2668e22f55f47cba2fd9e7a074e9b309"
+
+[[package]]
+aliases = ["playerversus_music_menus"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_menus"
+version = "3.1"
+sha256 = "02030e867f347b2631c546fcfd95b6a026fbc9c5342a92069aca3be5a3387fc1"
+
+[[package]]
+aliases = ["playerversus_music_supers_1"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_supers_1"
+version = "3.1"
+sha256 = "f33283359ffc7f98c09d246c100f802a448cd745c0bf3dc955bd19c578a8ab42"
+
+[[package]]
+aliases = ["playerversus_music_supers_2"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_supers_2"
+version = "3.1"
+sha256 = "c93b16687c84989e9ebbe63e960e8d9730856d59c1fe06e528d11ac3ac272059"
+
+[[package]]
+aliases = ["playerversus_music_supers_3"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_supers_3"
+version = "3.1"
+sha256 = "ad766dc3aff75b406a435826537535591d0bb20a135078fa43aa15b2febb1ccb"
+
+[[package]]
+aliases = ["playerversus_music_supers_4"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_supers_4"
+version = "1.0"
+sha256 = "11666d9bbc02f28a673b6dd33af934bd4b6f534faead4dce565f5e3b4571e22a"
+
+[[package]]
+aliases = ["playerversus_music_supers_5"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_supers_5"
+version = "1.0"
+sha256 = "9ae79e120e113263f94f9be55fb4b2885676df5e1403ff8127a2188c51812bc7"
+
+[[package]]
+aliases = ["playerversus_music_supers_6"]
+source = "registry"
+registry = "wednesware.org"
+distribution = "danny.playerversus_music_supers_6"
+version = "1.0"
+sha256 = "5112a151a1a2441a553f1ee5b31966e5c660e4097d195b525bef69f99febec78"

@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_music_supers_4"
+author = "danny"
+version = "1.0"
+description = "Part of the soundtrack of PLAYER VERSUS: the super themes, clockwork to flasque (5 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md)"
+main = "playerversus_music_supers_4.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

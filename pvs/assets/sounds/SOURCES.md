@@ -25,7 +25,7 @@ it starts, cuts it to length, fades it out and normalizes it to 44.1 kHz 16-bit 
 | [20 Sword Sound Effects](https://opengameart.org/content/20-sword-sound-effects-attacks-and-clashes) | StarNinjas | 2021 | slash, blade clashes, parry |
 | [10 Impact/Shield Blocks](https://opengameart.org/content/10-impactshield-blocks) | StarNinjas | 2021 | block |
 | [25 CC0 bang / firework SFX](https://opengameart.org/content/25-cc0-bang-firework-sfx) | rubberduck | 2019 | explosion, rocket launch |
-| [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx) | rubberduck | 2018 | splash |
+| [40 CC0 water / splash / slime SFX](https://opengameart.org/content/40-cc0-water-splash-slime-sfx) | rubberduck | 2018 | splash; HAMMERHEAD's drag under (plunge, bubbles, surfacing) |
 | [80 CC0 RPG SFX](https://opengameart.org/content/80-cc0-rpg-sfx) | rubberduck | 2018 | growl, fire cast |
 | [80 CC0 creature SFX](https://opengameart.org/content/80-cc0-creature-sfx) | rubberduck | 2018 | hiss, spit |
 | [Magic Spell SFX](https://opengameart.org/content/magic-spell-sfx) | JaggedStone | 2014 | heal, shimmer, wisp |

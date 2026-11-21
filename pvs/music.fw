@@ -38,7 +38,8 @@ var director = Director()
 # and next to this package (in the same .flywheel-modules/) when the game is installed. A local
 # assets/music/ still works too.
 const string[] MUSIC_PACKAGES = ["playerversus_music_menus", "playerversus_music_fights",
-    "playerversus_music_supers_1", "playerversus_music_supers_2", "playerversus_music_supers_3"]
+    "playerversus_music_supers_1", "playerversus_music_supers_2", "playerversus_music_supers_3",
+    "playerversus_music_supers_4", "playerversus_music_supers_5", "playerversus_music_supers_6"]
 function find_dirs(string game_dir) returns string[]
     string[] at = [fs.join(game_dir, "assets", "music")]
     var installed_beside = fs.dirname(fs.absolute(game_dir))
@@ -55,8 +56,10 @@ function find_dirs(string game_dir) returns string[]
     return found
 end
 
-function setup(string game_dir)
-    director.dirs = find_dirs(game_dir)
+# Finds the music next to the game (music.fw sits beside playerversus.fw, so that is __dir__),
+# wherever it is started from.
+function setup()
+    director.dirs = find_dirs(__dir__)
     director.missing = director.dirs.length == 0
 end
 

@@ -1,0 +1,61 @@
+import desktop
+import html.*
+import os
+import fs
+
+const string BACKGROUND_COLOR = "#222233"
+const string TEXT_COLOR = "#a9a9a9"
+const string FONT = "Arial, sans-serif"
+const element STYLE = <style>
+body {
+    background-color: {BACKGROUND_COLOR};
+    color: {TEXT_COLOR};
+    font-family: {FONT};
+}
+</style>
+
+# `play` sits next to this launcher (__dir__ is this file's folder, absolute), so the launcher
+# works from anywhere. Arguments given to the launcher (__args__) are passed on to the game.
+const string PLAY = fs.join(__dir__, "play")
+const string LOG = fs.join(fs.temp_dir(), "playerversus-launcher.log")
+
+# The page calls launch(); what it returns goes through JSON.parse on the page, so it must be JSON.
+function launch_game() returns string
+    if __os__ == "windows" do
+        return "\"The game starts with ./play, a shell script: run it from WSL or Git Bash\""
+    end
+    if not fs.exists(PLAY) do
+        print "Could not find {PLAY}"
+        return "\"Could not find the game's play script (see the terminal)\""
+    end
+    print "Launching Player Versus..."
+    try
+        string[] command = [PLAY]
+        for arg in __args__ do
+            command.push(arg)
+        end
+        # os.start, not os.run: the game runs on its own and the launcher stays responsive.
+        os.start(command, LOG)
+        return "\"Launched\""
+    catch e
+        print "Could not start the game: {e}"
+        return "\"Could not start the game (see the terminal)\""
+    end
+end
+
+desktop.window app = desktop.window "Player Versus Launcher"
+app.bind "launch", function(string args) returns string
+    return launch_game()
+end
+app.load <html> {STYLE}
+
+    <body>
+        <h1>Player Versus Launcher</h1>
+        <button onclick="launch().then(function (m) { document.getElementById('status').textContent = m; })">Enter</button>
+        <p id="status"></p>
+        <p><small>Game output goes to {LOG}</small></p>
+    </body>
+
+</html>
+
+app.run

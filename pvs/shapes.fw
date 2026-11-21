@@ -1,0 +1,189 @@
+# The shapes the fighters are built from in the faceted style (puppet.fw), made in code: no model
+# or image files. Blocky low-poly: few, large triangles, each lit flat (its own normal) and each a
+# shade lighter or darker than its neighbour, so every flat face shows as its two triangles even in
+# one color.
+#
+# Most shapes are lofts: a stack of rings, each a squared-off rectangle (a superellipse) at some
+# height, stitched together with triangles. A ring of size 0 closes the shape there.
+import aperture as ap
+import math
+
+# One ring of a loft: at height `y`, `w` across (half-width, along x) and `d` deep (half-depth,
+# along z), centered `z` forward. `p` is how square the ring is: 2 an ellipse, 7 nearly a square
+# with its corners clipped.
+class Ring
+    double y
+    double w
+    double d
+    double z = 0
+    double p = 2
+end
+
+const double BLOCKY = 7              # how square the rings of the body are
+
+# Where angle `a` (radians, 0 at the back, -z) falls on ring `r`.
+private function ring_point(Ring r, double a) returns ap.Vec3
+    var sx = math.sin(a)
+    var sz = -math.cos(a)
+    var e = 2 / r.p
+    var x = (1.0 if sx >= 0 else -1.0) * math.pow(math.abs(sx), e)
+    var z = (1.0 if sz >= 0 else -1.0) * math.pow(math.abs(sz), e)
+    return ap.Vec3(r.w * x, r.y, r.z + r.d * z)
+end
+
+private function hash(int x, int y, int seed) returns double
+    var v = math.sin(double(x) * 12.9898 + double(y) * 78.233 + double(seed) * 37.719) * 43758.5453
+    return v - math.floor(v)
+end
+
+# One flat triangle, turned to face away from `inside`, a shade off white. The two triangles of a
+# face differ clearly (even and odd `seed`), so the split shows.
+private function facet_triangle(ap.MeshBuilder b, ap.Vec3 p0, ap.Vec3 p1, ap.Vec3 p2, ap.Vec3 inside, int seed)
+    var n = (p1 - p0).cross(p2 - p0)
+    if n.length() < 0.0000001 do
+        return
+    end
+    var c = (p0 + p1 + p2) * (1.0 / 3)
+    var q1 = p1
+    var q2 = p2
+    if n.dot(c - inside) < 0 do
+        n = n * -1
+        q1 = p2
+        q2 = p1
+    end
+    var g = (214 if seed % 2 == 0 else 236) + int(hash(seed, seed * 7 + 3, 17) * 19)
+    b.color(ap.Color(g, g, g))
+    var nn = n.normalized()
+    var a = b.vertex(p0, nn)
+    var bb = b.vertex(q1, nn)
+    var cc = b.vertex(q2, nn)
+    b.triangle(a, bb, cc)
+end
+
+# A faceted closed mesh through `rings` (bottom to top), `around` points to a ring. Every facet
+# faces away from the middle of the whole shape (these shapes are near enough convex), which also
+# sorts out flat end caps.
+function loft(Ring[] rings, int around = 8) returns ap.Mesh
+    var n = rings.length
+    ap.Vec3[][] points = []
+    for r in rings do
+        ap.Vec3[] row = []
+        for i in 0..<around do
+            row.push(ring_point(r, double(i) / double(around) * 2 * math.PI))
+        end
+        points.push(row)
+    end
+    var middle = ap.Vec3(0, 0, 0)
+    for row in points do
+        for q in row do
+            middle = middle + q
+        end
+    end
+    middle = middle * (1.0 / double(n * around))
+    var b = ap.MeshBuilder()
+    var seed = 0
+    for k in 0..<(n - 1) do
+        for i in 0..<around do
+            var j = (i + 1) % around
+            facet_triangle(b, points[k][i], points[k + 1][i], points[k + 1][j], middle, seed)
+            facet_triangle(b, points[k][i], points[k + 1][j], points[k][j], middle, seed + 1)
+            seed += 2
+        end
+    end
+    return b.build()
+end
+
+# A ring: `radius` to the middle of the tube (unit size 1 across), `tube` its thickness. Square
+# in section.
+function torus(double radius = 0.4, double tube = 0.1, int rings = 8, int sides = 4) returns ap.Mesh
+    var b = ap.MeshBuilder()
+    ap.Vec3[][] points = []
+    ap.Vec3[] centers = []
+    for k in 0..<rings do
+        var a = double(k) / double(rings) * 2 * math.PI
+        var center = ap.Vec3(math.cos(a) * radius, 0, math.sin(a) * radius)
+        centers.push(center)
+        var out = ap.Vec3(math.cos(a), 0, math.sin(a))
+        ap.Vec3[] row = []
+        for i in 0..<sides do
+            var t = (double(i) + 0.5) / double(sides) * 2 * math.PI
+            row.push(center + out * (math.cos(t) * tube) + ap.Vec3(0, math.sin(t) * tube, 0))
+        end
+        points.push(row)
+    end
+    var seed = 0
+    for k in 0..<rings do
+        var k2 = (k + 1) % rings
+        var inside = (centers[k] + centers[k2]) * 0.5
+        for i in 0..<sides do
+            var j = (i + 1) % sides
+            facet_triangle(b, points[k][i], points[k2][i], points[k2][j], inside, seed)
+            facet_triangle(b, points[k][i], points[k2][j], points[k][j], inside, seed + 1)
+            seed += 2
+        end
+    end
+    return b.build()
+end
+
+# The unit cube, every face split into two shaded triangles: what the boxes of the classic style
+# become (hats, masks, weapons, everything not given a shape of its own).
+function cube() returns ap.Mesh
+    var b = ap.MeshBuilder()
+    var c = [ap.Vec3(-0.5, -0.5, -0.5), ap.Vec3(0.5, -0.5, -0.5), ap.Vec3(0.5, 0.5, -0.5), ap.Vec3(-0.5, 0.5, -0.5),
+        ap.Vec3(-0.5, -0.5, 0.5), ap.Vec3(0.5, -0.5, 0.5), ap.Vec3(0.5, 0.5, 0.5), ap.Vec3(-0.5, 0.5, 0.5)]
+    var faces = [[0, 1, 2, 3], [5, 4, 7, 6], [4, 0, 3, 7], [1, 5, 6, 2], [3, 2, 6, 7], [4, 5, 1, 0]]
+    var middle = ap.Vec3(0, 0, 0)
+    for k, f in faces do
+        facet_triangle(b, c[f[0]], c[f[1]], c[f[2]], middle, k * 2)
+        facet_triangle(b, c[f[0]], c[f[2]], c[f[3]], middle, k * 2 + 1)
+    end
+    return b.build()
+end
+
+# A gem-cut ball filling the unit cube: knees, elbows, shoulders, hair, buttons, eyes.
+function ball() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.25, 0.5, 0.5, 0, BLOCKY), Ring(0.25, 0.5, 0.5, 0, BLOCKY), Ring(0.5, 0, 0)], 8)
+end
+
+# A six-sided cone filling the unit cube, point up.
+function cone() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.5, 0.5, 0.5), Ring(0.5, 0, 0)], 6)
+end
+
+# The torso in meters, from the hips (y 0) to the base of the neck (0.6): square, broad at the
+# shoulders, a little narrower at the waist. It keeps inside the classic box (0.46 x 0.6 x 0.27)
+# so everything worn on the chest sits on it as before.
+function torso() returns ap.Mesh
+    return loft([Ring(0.0, 0, 0), Ring(0.0, 0.2, 0.125, 0, BLOCKY), Ring(0.17, 0.2, 0.125, 0, BLOCKY),
+        Ring(0.45, 0.23, 0.135, 0, BLOCKY), Ring(0.57, 0.225, 0.13, 0, BLOCKY), Ring(0.6, 0.17, 0.1, 0, BLOCKY),
+        Ring(0.6, 0, 0)], 8)
+end
+
+# The head in meters, from the chin (y 0.01) to the crown (0.31), the face toward +z: the classic
+# head's box with a narrower jaw, so hats, masks and faces fit it as they did.
+function head() returns ap.Mesh
+    return loft([Ring(0.01, 0, 0), Ring(0.01, 0.105, 0.1, 0, BLOCKY), Ring(0.09, 0.14, 0.138, 0, BLOCKY),
+        Ring(0.27, 0.14, 0.138, 0, BLOCKY), Ring(0.31, 0.12, 0.118, 0, BLOCKY), Ring(0.31, 0, 0)], 8)
+end
+
+# A block filling the unit cube, a little narrower at the bottom (belts, gloves, plates).
+function block() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.46, 0.4, 0.4, 0, BLOCKY), Ring(0.46, 0.5, 0.5, 0, BLOCKY), Ring(0.5, 0, 0)], 8)
+end
+
+# A limb filling the unit cube, `bottom` times as wide at its foot (a thigh to the knee, an arm).
+function limb(double bottom = 0.8) returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.46, 0.5 * bottom, 0.5 * bottom, 0, BLOCKY), Ring(0.46, 0.5, 0.5, 0, BLOCKY),
+        Ring(0.5, 0, 0)], 8)
+end
+
+# A boot filling the unit cube: the toe in front (+z), a flat sole, the heel behind.
+function boot() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0, 0.02), Ring(-0.48, 0.5, 0.5, 0.0, BLOCKY), Ring(0.1, 0.47, 0.44, -0.05, BLOCKY),
+        Ring(0.5, 0.38, 0.27, -0.2, BLOCKY), Ring(0.5, 0, 0, -0.2)], 8)
+end
+
+# A cylinder of `around` flat sides filling the unit cube, `top` times as wide at the top.
+function drum(double top = 1, int around = 6) returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.5, 0.5, 0.5), Ring(0.5, 0.5 * top, 0.5 * top), Ring(0.5, 0, 0)], around)
+end

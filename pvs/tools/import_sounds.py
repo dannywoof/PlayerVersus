@@ -96,6 +96,11 @@ make("impacts/explosion", o("25-cc0-bang-firework-sfx", "bang_01.ogg"), 0.9, fad
 make("impacts/explosion_big", k("sci-fi-sounds", "lowFrequency_explosion_000.ogg"), 1.6, fade=0.5)
 make("impacts/launch", o("25-cc0-bang-firework-sfx", "fw_01.ogg"), 0.7, fade=0.2)
 make("impacts/splash", o("40-cc0-water-splash-slime-sfx", "splash_02.ogg"), 0.5)
+# HAMMERHEAD's drag under: the plunge, the air going out, coming back up.
+make("impacts/plunge", o("40-cc0-water-splash-slime-sfx", "splash_04.ogg"), 1.0, fade=0.25)
+make("impacts/bubbles_a", o("40-cc0-water-splash-slime-sfx", "bubble_01.ogg"), 0.7, fade=0.15, gain=-4.0)
+make("impacts/bubbles_b", o("40-cc0-water-splash-slime-sfx", "bubble_02.ogg"), 0.36, fade=0.1, gain=-4.0)
+make("impacts/surface", o("40-cc0-water-splash-slime-sfx", "splash_10.ogg"), 0.32, fade=0.1)
 
 # --- Creatures and voices
 make("creatures/growl", o("80-cc0-rpg-sfx", "creature_roar_01.ogg"), 0.6, fade=0.15)

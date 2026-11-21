@@ -11,12 +11,9 @@ import "../item_api.fw" as api
 import "../custom_items.fw" as custom
 
 function test_every_track_is_there
-    # The tests run from the project folder or from tests/; the tracks are the playerversus_music_*
+    # music.fw finds the tracks next to itself, from any folder; they are the playerversus_music_*
     # dependencies (`pulley pull` installs them).
-    music.setup(".")
-    if music.director.missing do
-        music.setup("..")
-    end
+    music.setup()
     testing.assert(not music.director.missing, "no music: run `pulley pull` to install the playerversus_music_* packages")
     string[] names = ["title", "select", "shop", "victory", "defeat", "results"]
     for t in music.FIGHT_TRACKS do
@@ -26,7 +23,10 @@ function test_every_track_is_there
         names.push(t)
     end
     for c in roster.build() do
-        names.push(music.super_track(c.name))
+        # Every super has its own theme; WANTED DEAD has no music at all, on purpose.
+        if not c.maximum.silent do
+            names.push(music.super_track(c.name))
+        end
     end
     for name in names do
         testing.assert(music.path_of(name) != "", "missing {name}.ogg")
