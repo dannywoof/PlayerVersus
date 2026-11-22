@@ -37,6 +37,11 @@ class Rig
     ap.Mesh rod                      # a four-sided one, for poles and shafts
     ap.Mesh ring                     # a square-section ring
     ap.Mesh orb                      # a gem-cut ball
+    ap.Mesh blade                    # diamond-section, pointed (blades, claws, feathers)
+    ap.Mesh spike                    # a four-sided pyramid (studs, fangs, horns)
+    ap.Mesh wedge                    # a three-sided bar (lapels, folds, hems)
+    ap.Mesh gear                     # a flat cog
+    ap.Mesh taper                    # a six-sided cylinder narrowing to half its width at the top
 end
 
 # How the fighters are drawn: the blocky low-poly faceted style, or the classic boxes (a setting
@@ -71,9 +76,15 @@ function make_rig() returns Rig
     var rod = shapes.drum(1.0, 4)
     var ring = shapes.torus()
     var orb = shapes.ball()
-    facet_rig = Rig(shapes.cube(), orb, shapes.cone(), torso, skull, soft, thigh, sleeve, shoe, drum, flare, rod, ring, orb)
+    var blade = shapes.blade()
+    var spike = shapes.spike()
+    var wedge = shapes.wedge()
+    var gear = shapes.gear(8)
+    var taper = shapes.drum(0.55)
+    facet_rig = Rig(shapes.cube(), orb, shapes.cone(), torso, skull, soft, thigh, sleeve, shoe, drum, flare, rod, ring, orb,
+        blade, spike, wedge, gear, taper)
     return Rig(ap.cube(1, 1, 1), ap.sphere(0.5, 8, 12), ap.cone(0.5, 1, 10), torso, skull, soft, thigh, sleeve, shoe,
-        drum, flare, rod, ring, orb)
+        drum, flare, rod, ring, orb, blade, spike, wedge, gear, taper)
 end
 
 # How a figure stands. Limbs bend once: an elbow under 0 brings the forearm forward and up,
@@ -825,6 +836,42 @@ private function action_pose(roster.Look look, int action, int anim, double phas
             p.crouch = key(w, s, r, 0.03, 0.26, 0.0)
             p.lift = key(w, s, r, 0, 0, 0.3)
             p.arm_l = key(w, s, r, g_arm_l, -30, 30)
+        else if anim == roster.ANIM_KICK do
+            # The right leg drawn back, then swept forward and low, the hips turning into it.
+            p.leg_r = key(w, s, r, 0, 28, -48)
+            p.knee_r = key(w, s, r, 0, 50, 6)
+            p.spread = key(w, s, r, 0, 0, 6)
+            p.twist = key(w, s, r, 0, -14, 26)
+            p.lean = key(w, s, r, 4, 10, -6)
+            p.crouch = key(w, s, r, 0.03, 0.12, 0.08)
+            p.arm_r = key(w, s, r, g_arm, -40, -55)
+            p.elbow_r = key(w, s, r, g_elbow, -110, -100)
+            p.arm_l = key(w, s, r, g_arm_l, -50, -20)
+            p.arm_l_out = key(w, s, r, 8, 10, 30)
+        else if anim == roster.ANIM_HIGH_KICK do
+            # The knee chambered high, then the leg snapped straight up and out.
+            p.leg_r = key(w, s, r, 0, -55, -118)
+            p.knee_r = key(w, s, r, 0, 105, 0)
+            p.lean = key(w, s, r, 4, -4, -20)
+            p.twist = key(w, s, r, 0, -10, 18)
+            p.arm_r = key(w, s, r, g_arm, -30, 20)
+            p.arm_r_out = key(w, s, r, 8, 20, 50)
+            p.elbow_r = key(w, s, r, g_elbow, -90, -30)
+            p.arm_l = key(w, s, r, g_arm_l, -40, -10)
+            p.arm_l_out = key(w, s, r, 8, 20, 55)
+            p.head = key(w, s, r, 0, -4, -10)
+        else if anim == roster.ANIM_KNEE do
+            # A hop up into the knee, both hands pulling down on the target.
+            p.leg_r = key(w, s, r, 0, -30, -100)
+            p.knee_r = key(w, s, r, 0, 60, 125)
+            p.lift = key(w, s, r, 0, 0.05, 0.22)
+            p.crouch = key(w, s, r, 0.03, 0.18, 0.0)
+            p.lean = key(w, s, r, 4, 12, 18)
+            p.arm_r = key(w, s, r, g_arm, -120, -60)
+            p.arm_l = key(w, s, r, g_arm_l, -120, -60)
+            p.elbow_r = key(w, s, r, g_elbow, -60, -90)
+            p.elbow_l = key(w, s, r, g_elbow, -60, -90)
+            p.head = key(w, s, r, 0, 4, 10)
         else if anim == roster.ANIM_SPIN do
             p.yaw = mix(mix(0, -45, w), 360, s)
             p.arm_r = key(w, s, r, g_arm, -60, -86)
@@ -1202,7 +1249,7 @@ function faceless(int head) returns bool
     return head == roster.HEAD_MASK or head == roster.HEAD_PLAGUE or head == roster.HEAD_EXECUTIONER or
         head == roster.HEAD_RESPIRATOR or head == roster.HEAD_SACK or head == roster.HEAD_CLOCK or
         head == roster.HEAD_MOTH or head == roster.HEAD_HOLLOW or head == roster.HEAD_WISP or
-        head == roster.HEAD_PADLOCK or head == roster.HEAD_SHARK
+        head == roster.HEAD_PADLOCK or head == roster.HEAD_SHARK or head == roster.HEAD_SKULL
 end
 
 function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading, double alpha = 1)
@@ -1249,11 +1296,13 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
         ap.rotate_3d(side * p.spread, AXIS_Z)
         if sculpted(look) do
             shape(rig.thigh, 0, -0.2, 0, 0.205, 0.5, 0.225, legs)
+            faceted_thigh(rig, look, side, alpha)
             ap.translate_3d(ap.Vec3(0, -0.4, 0))
             ap.rotate_3d(p.knee_r if side < 0 else p.knee_l, AXIS_X)
             shape(rig.orb, 0, 0, 0.005, 0.165, 0.15, 0.18, legs)
             shape(rig.thigh, 0, -0.17, 0, 0.175, 0.42, 0.19, legs)
             shape(rig.shoe, 0, -0.365, 0.035, 0.205, 0.16, 0.31, dark)
+            faceted_shin(rig, look, side, alpha)
         else do
             part(rig, 0, -0.2, 0, 0.19, 0.44, 0.21, legs)
             ap.translate_3d(ap.Vec3(0, -0.4, 0))
@@ -1270,15 +1319,18 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
     ap.rotate_3d(p.lean, AXIS_X)
     ap.rotate_3d(p.twist, AXIS_Y)
     ap.rotate_3d(p.roll, AXIS_Z)
+    var dressed = false                  # the faceted costume drew what the boxes below would
     if sculpted(look) do
         shape(rig.torso, 0, 0, 0, 1, 1, 1, body)
         shape(rig.soft, 0, 0.035, 0, 0.45, 0.075, 0.29, trim, null, ap.Vec3(0, 0, 0))
-        faceted_torso(rig, look, alpha)
+        dressed = faceted_torso(rig, look, p, alpha)
     else do
         part(rig, 0, 0.3, 0, 0.46, 0.6, 0.27, body)
         part(rig, 0, 0.03, 0, 0.48, 0.09, 0.29, trim)
     end
-    if look.weapon == roster.WEAPON_CANNON do
+    if dressed do
+        # Drawn sculpted.
+    else if look.weapon == roster.WEAPON_CANNON do
         # Shoulder plates and the rocket pod.
         part(rig, -0.3, 0.6, 0, 0.2, 0.14, 0.32, metal)
         part(rig, 0.3, 0.6, 0, 0.2, 0.14, 0.32, metal)
@@ -1308,7 +1360,9 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
         part(rig, 0, 0.3, 0.138, 0.24, 0.42, 0.02, look.legs.brightness(1.6).fade(alpha))
         part(rig, 0.06, 0.24, 0.15, 0.1, 0.015, 0.01, trim)
     end
-    if look.wings do
+    if look.wings and sculpted(look) do
+        faceted_wings(rig, look, p, alpha)
+    else if look.wings do
         # Two wings from between the shoulder blades, in layers like feathers.
         var feathers = look.wing_color.fade(alpha)
         for side in [-1.0, 1.0] do
@@ -1771,6 +1825,20 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
         part(rig, 0, 0.2, 0.17, 0.07, 0.07, 0.01, ap.Color(6, 6, 8).fade(alpha))
         part(rig, 0, 0.12, 0.17, 0.03, 0.1, 0.01, ap.Color(6, 6, 8).fade(alpha))
         glow(rig, 0, 0.2, 0.174, 0.03, 0.03, 0.01, look.eyes.fade(alpha))
+    else if look.head == roster.HEAD_SCARF do
+        var hair = ap.Color(34, 28, 30).fade(alpha)
+        part(rig, 0, 0.31, -0.02, 0.3, 0.07, 0.3, hair)
+        part(rig, 0, 0.2, -0.13, 0.3, 0.24, 0.05, hair)
+        part(rig, -0.06, 0.27, 0.13, 0.16, 0.06, 0.05, hair)
+        part(rig, 0, 0.08, 0.01, 0.32, 0.16, 0.32, trim)
+        part(rig, 0.06, 0.02, -0.26, 0.08, 0.05, 0.26, trim)
+        part(rig, -0.04, -0.04, -0.3, 0.07, 0.05, 0.3, trim)
+    else if look.head == roster.HEAD_SKULL do
+        part(rig, -0.06, 0.19, 0.142, 0.07, 0.07, 0.01, ap.Color(10, 8, 8).fade(alpha))
+        part(rig, 0.06, 0.19, 0.142, 0.07, 0.07, 0.01, ap.Color(10, 8, 8).fade(alpha))
+        glow(rig, -0.06, 0.19, 0.146, 0.025, 0.025, 0.01, look.eyes.fade(alpha))
+        glow(rig, 0.06, 0.19, 0.146, 0.025, 0.025, 0.01, look.eyes.fade(alpha))
+        part(rig, 0, 0.07, 0.142, 0.14, 0.03, 0.01, ap.Color(10, 8, 8).fade(alpha))
     else if look.head == roster.HEAD_RAVEN do
         var feathers = look.body.fade(alpha)
         part(rig, 0, 0.33, -0.02, 0.36, 0.08, 0.36, feathers)
@@ -1785,7 +1853,9 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
     ap.pop_3d()
 
     # The cape hangs from the shoulders and trails when moving.
-    if look.cape do
+    if look.cape and sculpted(look) do
+        faceted_cape(rig, look, p, alpha)
+    else if look.cape do
         ap.push_3d()
         ap.translate_3d(ap.Vec3(0, 0.58, -0.15))
         ap.rotate_3d(p.cape - p.lean, AXIS_X)
@@ -1805,6 +1875,7 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
             var bare = look.head == roster.HEAD_BAND
             shape(rig.orb, 0, 0.0, 0, 0.18, 0.17, 0.18, body)
             shape(rig.sleeve, 0, -0.14, 0, 0.155, 0.36, 0.165, body)
+            faceted_upper_arm(rig, look, side, alpha)
             ap.translate_3d(ap.Vec3(0, -0.29, 0))
             ap.rotate_3d(p.elbow_r if right else p.elbow_l, AXIS_X)
             shape(rig.orb, 0, 0, 0, 0.135, 0.13, 0.145, skin if bare else body, null)
@@ -1813,6 +1884,7 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
                 shape(rig.drum, 0, 0.03, 0, 0.165, 0.07, 0.175, body)
             end
             shape(rig.soft, 0, -0.28, 0.005, 0.11, 0.13, 0.125, skin)
+            faceted_forearm(rig, look, side, alpha)
         else do
             part(rig, 0, -0.14, 0, 0.15, 0.32, 0.16, body)
             ap.translate_3d(ap.Vec3(0, -0.29, 0))
@@ -1827,6 +1899,12 @@ function draw(Rig base_rig, roster.Look look, Pose p, ap.Vec3 at, double heading
     end
     ap.pop_3d()
     ap.pop_3d()
+end
+
+# A weapon on its own (lying on the ground, say), from the current transform along -y.
+function draw_held(Rig base_rig, roster.Look look)
+    var rig = faceted(base_rig) if sculpted(look) else base_rig
+    draw_weapon(rig, look, true, 1)
 end
 
 # The weapon, from the hand outward along -y.
@@ -2177,14 +2255,72 @@ end
 
 # --- The faceted body ----------------------------------------------------------------------------
 # In the faceted style every fighter's body is shapes.fw's blocky low-poly shapes (above, in draw).
-# Here are the face, and the few heads, weapons and costumes given shapes of their own; anything
-# else is the classic boxes drawn faceted (the faceted rig's box), which keeps every fighter's look.
+# Here are the faceted style's costumes: every fighter's headgear, clothes, armor and weapon given
+# shapes of their own. The classic boxes (above) stay as they were, for the classic setting.
+
+# Mesh `m` at (x, y, z), w x h x d, tipped `rx` about x first, then `ry` about y, then `rz` about z.
+private function s3(ap.Mesh m, double x, double y, double z, double w, double h, double d, ap.Color c,
+        double rx = 0, double ry = 0, double rz = 0)
+    ap.draw(m, ap.Vec3(x, y, z), c, ap.Vec3(rx, ry, rz), ap.Vec3(w, h, d))
+end
+# The same, giving off its own light.
+private function g3(ap.Mesh m, double x, double y, double z, double w, double h, double d, ap.Color c,
+        double rx = 0, double ry = 0, double rz = 0)
+    if ap.casting_shadows() do
+        return
+    end
+    ap.lighting(false)
+    ap.draw(m, ap.Vec3(x, y, z), c, ap.Vec3(rx, ry, rz), ap.Vec3(w, h, d))
+    ap.lighting(true)
+end
+# A bar of mesh `m` from (x, y0, z0) to (x, y1, z1): `w` across, `d` deep.
+private function beam_yz(ap.Mesh m, double x, double y0, double z0, double y1, double z1, double w, double d, ap.Color c,
+        bool lit = false)
+    var dy = y1 - y0
+    var dz = z1 - z0
+    var len = math.sqrt(dy * dy + dz * dz)
+    var th = math.atan2(dz, dy) * 180 / math.PI
+    if lit do
+        g3(m, x, (y0 + y1) / 2, (z0 + z1) / 2, w, len, d, c, th)
+    else do
+        s3(m, x, (y0 + y1) / 2, (z0 + z1) / 2, w, len, d, c, th)
+    end
+end
+# A bar of mesh `m` from (x0, y0, z) to (x1, y1, z): `w` across, `d` deep.
+private function beam_xy(ap.Mesh m, double x0, double y0, double x1, double y1, double z, double w, double d, ap.Color c,
+        bool lit = false)
+    var dx = x1 - x0
+    var dy = y1 - y0
+    var len = math.sqrt(dx * dx + dy * dy)
+    var th = math.atan2(-dx, dy) * 180 / math.PI
+    if lit do
+        g3(m, (x0 + x1) / 2, (y0 + y1) / 2, z, w, len, d, c, 0, 0, th)
+    else do
+        s3(m, (x0 + x1) / 2, (y0 + y1) / 2, z, w, len, d, c, 0, 0, th)
+    end
+end
+# A chain of `n` links from (x, y0, z0) toward (x, y1, z1), each turned a quarter from the last.
+private function chain_yz(Rig rig, double x, double y0, double z0, double y1, double z1, int n, double size, ap.Color c)
+    var th = math.atan2(z1 - z0, y1 - y0) * 180 / math.PI
+    for k in 0..<n do
+        var t = (double(k) + 0.5) / double(n)
+        s3(rig.ring, x, y0 + (y1 - y0) * t, z0 + (z1 - z0) * t, size, size * 1.4, size,
+            c.brightness(0.9 if k % 2 == 0 else 1.1), th + 90, double(k % 2) * 90, 0)
+    end
+end
 
 # Heads with a human face under them: they get ears, a brow, a nose and a mouth.
 private function human_face(int head) returns bool
     return not faceless(head) and head != roster.HEAD_CAT and head != roster.HEAD_ROBOT and
         head != roster.HEAD_VISOR and head != roster.HEAD_TV and head != roster.HEAD_MIRROR and
         head != roster.HEAD_EAGLE and head != roster.HEAD_RAVEN
+end
+
+# Heads that cover the skull entirely (helmets, sets, masks drawn whole).
+private function covered(int head) returns bool
+    return head == roster.HEAD_ROBOT or head == roster.HEAD_TV or head == roster.HEAD_MIRROR or
+        head == roster.HEAD_HOLLOW or head == roster.HEAD_PADLOCK or head == roster.HEAD_HAZMAT or
+        head == roster.HEAD_VISOR
 end
 
 # The head (from the chin up, the face toward +z): the eyes where the classic ones are, so masks
@@ -2194,6 +2330,9 @@ private function faceted_face(Rig rig, roster.Look look, ap.Color skin, double a
         return
     end
     shape(rig.rod, 0, -0.03, 0, 0.12, 0.1, 0.12, skin)
+    if covered(look.head) do
+        return
+    end
     shape(rig.skull, 0, 0, 0, 1, 1, 1, skin)
     if faceless(look.head) do
         return
@@ -2201,36 +2340,744 @@ private function faceted_face(Rig rig, roster.Look look, ap.Color skin, double a
     var human = human_face(look.head)
     for side in [-1.0, 1.0] do
         if look.glowing_eyes do
-            glow_shape(rig.orb, side * 0.07, 0.19, 0.14, 0.06, 0.04, 0.016, look.eyes.fade(alpha))
+            # A dark socket round each glowing eye, so it reads from across the arena.
+            s3(rig.orb, side * 0.07, 0.19, 0.136, 0.085, 0.06, 0.016, skin.brightness(0.45))
+            glow_shape(rig.orb, side * 0.07, 0.19, 0.142, 0.06, 0.04, 0.016, look.eyes.fade(alpha))
         else do
             shape(rig.orb, side * 0.07, 0.19, 0.14, 0.05, 0.05, 0.016, look.eyes.fade(alpha))
         end
         if human do
             shape(rig.soft, side * 0.145, 0.16, -0.01, 0.03, 0.07, 0.06, skin.brightness(0.9))
-            if not look.glowing_eyes do
-                shape(rig.soft, side * 0.07, 0.228, 0.142, 0.07, 0.016, 0.014, skin.brightness(0.68), null, ap.Vec3(0, 0, side * -8))
-            end
+            # Brows, angled down toward the nose: everyone here means it.
+            s3(rig.soft, side * 0.07, 0.232, 0.142, 0.075, 0.018, 0.016, skin.brightness(0.55), 0, 0, side * 14)
+            # Cheekbones.
+            s3(rig.soft, side * 0.085, 0.125, 0.13, 0.06, 0.02, 0.02, skin.brightness(0.85), 0, 0, side * -10)
         end
     end
     if human do
         shape(rig.soft, 0, 0.135, 0.148, 0.04, 0.06, 0.03, skin.brightness(0.94), null, ap.Vec3(-10, 0, 0))
         shape(rig.soft, 0, 0.08, 0.14, 0.065, 0.012, 0.012, skin.brightness(0.55))
+        # A squared chin.
+        s3(rig.soft, 0, 0.035, 0.11, 0.08, 0.04, 0.04, skin.brightness(0.92))
     end
 end
 
-# Whatever a fighter wears on the body beyond the coat itself.
-private function faceted_torso(Rig rig, roster.Look look, double alpha)
+# The cape in the faceted style: a mantle on the shoulders, then two hinged panels that trail and
+# sway, ending in a cut hem of points.
+private function faceted_cape(Rig rig, roster.Look look, Pose p, double alpha)
+    var cloth = look.cape_color.fade(alpha)
+    var lining = look.cape_color.brightness(0.6).fade(alpha)
+    var sway = math.sin(ap.time() * 1.7) * 4
+    ap.push_3d()
+    ap.translate_3d(ap.Vec3(0, 0.58, -0.14))
+    s3(rig.soft, 0, 0.0, 0.06, 0.52, 0.07, 0.3, cloth)
+    ap.rotate_3d(p.cape - p.lean, AXIS_X)
+    s3(rig.soft, 0, -0.22, -0.02, 0.5, 0.46, 0.04, cloth, 0, 0, 0)
+    s3(rig.soft, 0, -0.22, 0.0, 0.46, 0.42, 0.01, lining)
+    # Folds down the back.
+    for k in 0..<3 do
+        s3(rig.wedge, -0.15 + double(k) * 0.15, -0.24, -0.05, 0.06, 0.44, 0.04, cloth)
+    end
+    ap.translate_3d(ap.Vec3(0, -0.44, -0.02))
+    ap.rotate_3d(p.cape * 0.35 + sway, AXIS_X)
+    s3(rig.soft, 0, -0.17, 0, 0.52, 0.36, 0.04, cloth)
+    s3(rig.soft, 0, -0.17, 0.02, 0.48, 0.32, 0.01, lining)
+    for k in 0..<4 do
+        var x = -0.195 + double(k) * 0.13
+        s3(rig.spike, x, -0.39, 0, 0.13, 0.1 + double((k + 1) % 2) * 0.06, 0.04, cloth, 180, 0, 0)
+    end
+    ap.pop_3d()
+end
+
+# Wings in the faceted style: a bone along the top, then feathers (or a moth's broad, spotted
+# wing) hung from it.
+private function faceted_wings(Rig rig, roster.Look look, Pose p, double alpha)
+    var feathers = look.wing_color.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var moth = look.head == roster.HEAD_MOTH
+    var beat = math.sin(ap.time() * (9.0 if moth else 3.0)) * (6.0 if moth else 3.0)
+    for side in [-1.0, 1.0] do
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(side * 0.1, 0.5, -0.16))
+        ap.rotate_3d(side * (35 + p.wing + beat), AXIS_Y)
+        ap.rotate_3d(side * 14, AXIS_Z)
+        if moth do
+            # Fore and hind wings, each with an eye spot.
+            s3(rig.orb, side * 0.42, 0.06, -0.01, 0.8, 0.42, 0.025, feathers, 0, 0, side * -16)
+            s3(rig.orb, side * 0.3, -0.24, -0.02, 0.5, 0.36, 0.025, feathers.brightness(0.85), 0, 0, side * 24)
+            s3(rig.orb, side * 0.5, 0.1, 0.008, 0.2, 0.18, 0.02, feathers.brightness(0.55))
+            g3(rig.orb, side * 0.5, 0.1, 0.02, 0.1, 0.09, 0.02, accent)
+            s3(rig.orb, side * 0.33, -0.27, 0.0, 0.13, 0.12, 0.02, feathers.brightness(0.55))
+            g3(rig.orb, side * 0.33, -0.27, 0.012, 0.06, 0.06, 0.02, accent.fade(0.8 * alpha))
+            beam_xy(rig.rod, 0, 0.04, side * 0.8, 0.2, 0.012, 0.02, 0.02, feathers.brightness(0.6))
+            for k in 0..<3 do
+                s3(rig.soft, side * (0.62 + double(k) * 0.06), 0.18 - double(k) * 0.08, 0.008, 0.06, 0.02, 0.01, feathers.brightness(0.5), 0, 0, side * -30)
+            end
+        else do
+            # The bone, and long torn feathers hanging from it, the longest outermost.
+            beam_xy(rig.rod, 0, 0.12, side * 0.55, 0.28, 0, 0.05, 0.05, feathers.brightness(1.3))
+            beam_xy(rig.rod, side * 0.55, 0.28, side * 1.0, 0.1, 0, 0.04, 0.04, feathers.brightness(1.3))
+            for k in 0..<9 do
+                var t = double(k) / 8
+                var x = side * (0.1 + t * 0.88)
+                var top = 0.16 + math.sin(t * math.PI) * 0.12
+                var long = 0.3 + t * 0.56 - double(k % 2) * 0.08
+                s3(rig.blade, x, top - long / 2, -0.012 * double(k % 2), 0.2, long, 0.02, feathers.brightness(1.0 + 0.12 * double(k % 2)),
+                    180, 0, side * (-6 - t * 30))
+            end
+            # Coverts over the bases of the long feathers.
+            for k in 0..<5 do
+                var t = double(k) / 4
+                s3(rig.blade, side * (0.12 + t * 0.7), 0.12 + math.sin(t * math.PI) * 0.1, 0.012, 0.16, 0.2, 0.02, feathers.brightness(1.25), 180, 0, side * (-10 - t * 20))
+            end
+            g3(rig.spike, side * 1.02, 0.08, 0, 0.05, 0.12, 0.05, accent, 0, 0, side * -70)
+        end
+        ap.pop_3d()
+    end
+end
+
+# Whatever a fighter wears on the body beyond the coat itself (in torso space: hips at y 0, the
+# base of the neck at 0.6, the chest's front at z 0.135). True: the boxes' extras are not needed.
+private function faceted_torso(Rig rig, roster.Look look, Pose p, double alpha) returns bool
+    var body = look.body.fade(alpha)
     var trim = look.trim.fade(alpha)
-    if look.head == roster.HEAD_CONDUCTOR do
-        # A double-breasted uniform coat: two rows of brass buttons, and the collar.
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var legs = look.legs.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+    var leather = ap.Color(84, 56, 38).fade(alpha)
+    var white = ap.Color(236, 234, 228).fade(alpha)
+    var gold = ap.Color(222, 178, 70).fade(alpha)
+    var h = look.head
+    var now = ap.time()
+    if look.weapon == roster.WEAPON_CANNON do
+        # A riveted chest plate, a hatch, and the rocket pod on the right shoulder.
+        s3(rig.soft, 0, 0.36, 0.13, 0.36, 0.32, 0.05, trim)
+        s3(rig.soft, 0, 0.36, 0.15, 0.28, 0.24, 0.02, trim.brightness(0.8))
+        for k in 0..<4 do
+            var x = -0.15 + double(k % 2) * 0.3
+            var y = 0.23 + double(k // 2) * 0.26
+            s3(rig.orb, x, y, 0.16, 0.035, 0.035, 0.03, metal)
+        end
+        s3(rig.soft, 0, 0.36, -0.16, 0.32, 0.36, 0.06, metal.brightness(0.8))
+        for k in 0..<3 do
+            s3(rig.drum, -0.08 + double(k) * 0.08, 0.36, -0.2, 0.05, 0.3, 0.05, metal.brightness(0.65))
+        end
+        # The pod: a box of four tubes, one lit and ready.
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(-0.3, 0.8, -0.02))
+        s3(rig.soft, 0, 0, 0, 0.32, 0.28, 0.5, metal)
+        s3(rig.soft, 0, 0.15, 0, 0.26, 0.04, 0.44, metal.brightness(0.8))
+        for k in 0..<4 do
+            var x = -0.07 + double(k % 2) * 0.14
+            var y = -0.06 + double(k // 2) * 0.12
+            s3(rig.drum, x, y, 0.25, 0.1, 0.06, 0.1, dark, 90)
+            if k == 1 do
+                g3(rig.spike, x, y, 0.28, 0.06, 0.08, 0.06, accent, 90)
+            else do
+                s3(rig.orb, x, y, 0.27, 0.06, 0.06, 0.04, dark.brightness(0.5))
+            end
+        end
+        s3(rig.rod, 0.18, -0.12, 0, 0.04, 0.2, 0.04, metal.brightness(0.7))
+        ap.pop_3d()
+        # A strap holding it on, and an aerial behind the other shoulder.
+        s3(rig.soft, 0, 0.42, 0.0, 0.05, 0.64, 0.3, dark, 0, 0, 36)
+        s3(rig.rod, 0.16, 0.86, -0.12, 0.015, 0.5, 0.015, dark)
+        g3(rig.orb, 0.16, 1.11, -0.12, 0.035, 0.035, 0.035, accent)
+    else if h == roster.HEAD_SLICK do
+        # A waistcoat with a frilled jabot, a ruby at the throat, and sharp lapels.
+        s3(rig.soft, 0, 0.32, 0.128, 0.26, 0.44, 0.02, legs.brightness(1.6))
+        for k in 0..<3 do
+            s3(rig.wedge, 0, 0.52 - double(k) * 0.065, 0.15, 0.1 - double(k) * 0.015, 0.07, 0.035, white, 0, 180, 0)
+        end
+        g3(rig.orb, 0, 0.565, 0.16, 0.045, 0.045, 0.02, accent)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.1, 0.41, 0.14, 0.05, 0.36, 0.02, trim.brightness(0.7), 0, 0, side * -16)
+            s3(rig.orb, side * 0.04, 0.26, 0.142, 0.022, 0.022, 0.012, gold)
+            s3(rig.orb, side * 0.04, 0.18, 0.142, 0.022, 0.022, 0.012, gold)
+        end
+    else if h == roster.HEAD_BAND do
+        # A champion's belt, broad, with a gold plate; tape round the ribs.
+        s3(rig.soft, 0, 0.05, 0, 0.455, 0.12, 0.295, metal)
+        s3(rig.soft, 0, 0.05, 0.145, 0.17, 0.14, 0.025, gold)
+        s3(rig.orb, 0, 0.05, 0.16, 0.1, 0.09, 0.02, gold.brightness(1.15))
+        g3(rig.orb, 0, 0.05, 0.172, 0.04, 0.04, 0.01, accent)
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.13, 0.05, 0.152, 0.05, 0.05, 0.015, gold.brightness(0.85))
+        end
+    else if h == roster.HEAD_COBRA do
+        # Scales down the front, a sash of green, and a buckle shaped like a snake's head.
+        for k in 0..<5 do
+            s3(rig.spike, 0, 0.5 - double(k) * 0.08, 0.135, 0.12 - double(k) * 0.012, 0.08, 0.02, trim, -88, 0, 0)
+        end
+        s3(rig.soft, 0, 0.32, 0.0, 0.06, 0.7, 0.29, accent.brightness(0.6), 0, 0, -38)
+        s3(rig.orb, 0, 0.04, 0.16, 0.1, 0.08, 0.05, gold)
+        s3(rig.spike, 0, 0.0, 0.17, 0.06, 0.06, 0.03, gold, 180)
+        for side in [-1.0, 1.0] do
+            g3(rig.orb, side * 0.025, 0.055, 0.186, 0.015, 0.015, 0.01, accent)
+        end
+    else if h == roster.HEAD_PLUME do
+        # The musketeer's tabard, a cross on its breast, and a sash over the shoulder.
+        var tabard = body.brightness(1.25)
+        s3(rig.soft, 0, 0.26, 0.135, 0.3, 0.46, 0.03, tabard)
+        s3(rig.soft, 0, 0.26, -0.135, 0.3, 0.46, 0.03, tabard)
+        s3(rig.soft, 0, 0.34, 0.152, 0.05, 0.22, 0.01, trim)
+        s3(rig.soft, 0, 0.38, 0.152, 0.17, 0.05, 0.01, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.085, 0.38, 0.152, 0.04, 0.05, 0.01, trim, 0, 0, side * -90)
+        end
+        s3(rig.spike, 0, 0.47, 0.152, 0.04, 0.05, 0.01, trim)
+        s3(rig.spike, 0, 0.21, 0.152, 0.04, 0.05, 0.01, trim, 180)
+        s3(rig.soft, 0, 0.32, 0.0, 0.055, 0.72, 0.3, accent, 0, 0, 40)
+        s3(rig.orb, 0.18, 0.06, 0.14, 0.08, 0.1, 0.04, accent)
+        # A white lace collar.
+        s3(rig.flare, 0, 0.58, 0.01, 0.3, 0.05, 0.22, white, 180)
+    else if h == roster.HEAD_COWBOY do
+        # A gun belt slung low, a row of rounds, the holster on the hip, a star.
+        s3(rig.soft, 0, 0.0, 0, 0.47, 0.07, 0.3, leather, 0, 0, 6)
+        for k in 0..<7 do
+            s3(rig.rod, -0.15 + double(k) * 0.05, 0.005 + double(k) * 0.003, 0.155, 0.018, 0.05, 0.018, gold)
+        end
+        s3(rig.soft, -0.24, -0.08, 0.04, 0.06, 0.18, 0.12, leather.brightness(0.8))
+        s3(rig.soft, -0.25, -0.0, 0.04, 0.05, 0.08, 0.06, dark)
+        g3(rig.spike, 0.09, 0.42, 0.145, 0.06, 0.06, 0.01, gold.brightness(1.1))
+        g3(rig.spike, 0.09, 0.42, 0.145, 0.06, 0.06, 0.01, gold.brightness(1.1), 0, 0, 180)
+        s3(rig.orb, 0.09, 0.42, 0.15, 0.03, 0.03, 0.01, gold)
+        # The vest.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.12, 0.33, 0.132, 0.12, 0.5, 0.02, leather.brightness(1.15), 0, 0, side * -4)
+        end
+    else if h == roster.HEAD_MASK do
+        # Wrappings crossed over the chest, a sash with tails, a guard on the left shoulder.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, 0, 0.33, 0.0, 0.04, 0.66, 0.29, dark, 0, 0, side * 36)
+        end
+        s3(rig.drum, 0, 0.04, 0, 0.47, 0.1, 0.3, accent.brightness(0.5))
+        s3(rig.orb, 0.12, 0.04, 0.15, 0.08, 0.07, 0.04, accent.brightness(0.5))
+        var flap = math.sin(now * 2.6) * 6
+        s3(rig.blade, 0.14, -0.14, 0.17, 0.05, 0.3, 0.015, accent.brightness(0.5), 180 + 12 + flap, 0, -10)
+        s3(rig.blade, 0.1, -0.12, 0.17, 0.05, 0.26, 0.015, accent.brightness(0.45), 180 + 8 + flap, 0, 6)
+        g3(rig.orb, 0, 0.4, 0.15, 0.04, 0.04, 0.01, accent)
+    else if h == roster.HEAD_HELMET do
+        # (The cannon has the tank's armor; this is a helmet without it.)
+        s3(rig.soft, 0, 0.36, 0.13, 0.34, 0.3, 0.04, trim)
+    else if h == roster.HEAD_HOOD do
+        # A cowl over the shoulders, a rope belt with a tassel, a bell at the hip.
+        s3(rig.flare, 0, 0.53, -0.01, 0.56, 0.14, 0.34, look.cape_color.fade(alpha), 180)
+        s3(rig.drum, 0, 0.04, 0, 0.47, 0.05, 0.3, ap.Color(170, 150, 110).fade(alpha))
+        s3(rig.orb, 0.1, 0.04, 0.15, 0.05, 0.05, 0.04, ap.Color(170, 150, 110).fade(alpha))
+        s3(rig.rod, 0.1, -0.06, 0.15, 0.02, 0.18, 0.02, ap.Color(170, 150, 110).fade(alpha))
+        s3(rig.cone, -0.18, -0.06, 0.1, 0.07, 0.08, 0.07, gold)
+        s3(rig.orb, -0.18, -0.1, 0.1, 0.025, 0.025, 0.025, dark)
+    else if h == roster.HEAD_WIZARD do
+        # Robes: a deep collar, a belt of runes, stars sewn on, and a hanging book.
+        s3(rig.flare, 0, 0.56, -0.02, 0.4, 0.12, 0.28, body.brightness(1.25))
+        s3(rig.soft, 0, 0.3, 0.135, 0.12, 0.56, 0.02, trim)
+        for k in 0..<3 do
+            g3(rig.spike, -0.13 + double(k) * 0.13, 0.04, 0.155, 0.04, 0.05, 0.01, accent)
+        end
+        for k in 0..<4 do
+            var x = [-0.14, 0.13, -0.09, 0.15][k]
+            var y = [0.44, 0.48, 0.2, 0.26][k]
+            g3(rig.spike, x, y, 0.138, 0.03, 0.03, 0.01, accent.lerp(ap.WHITE, 0.4), 0, 0, 45)
+        end
+        s3(rig.soft, -0.2, -0.04, 0.1, 0.05, 0.14, 0.11, ap.Color(90, 40, 30).fade(alpha))
+        s3(rig.soft, -0.205, -0.04, 0.1, 0.045, 0.12, 0.1, ap.Color(230, 220, 190).fade(alpha))
+    else if h == roster.HEAD_HEADSET do
+        # A cropped jacket with a popped collar and a cord clipped to the belt.
+        s3(rig.flare, 0, 0.58, -0.04, 0.34, 0.1, 0.22, accent.brightness(0.85))
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.11, 0.34, 0.135, 0.15, 0.46, 0.02, body.brightness(0.8), 0, 0, side * -5)
+        end
+        s3(rig.soft, 0, 0.34, 0.13, 0.08, 0.46, 0.02, trim)
+        s3(rig.soft, 0.2, 0.06, 0.1, 0.06, 0.12, 0.08, dark)
+        g3(rig.orb, 0.2, 0.1, 0.145, 0.02, 0.02, 0.01, accent)
+    else if h == roster.HEAD_CAP do
+        # A plate carrier: the plates, pouches, a radio, and webbing.
+        var vest = legs.brightness(1.3)
+        s3(rig.soft, 0, 0.33, 0.135, 0.38, 0.42, 0.05, vest)
+        s3(rig.soft, 0, 0.33, -0.135, 0.38, 0.42, 0.05, vest)
+        for k in 0..<3 do
+            s3(rig.soft, -0.12 + double(k) * 0.12, 0.2, 0.17, 0.1, 0.13, 0.05, vest.brightness(0.85))
+            s3(rig.soft, -0.12 + double(k) * 0.12, 0.26, 0.19, 0.1, 0.03, 0.02, vest.brightness(0.7))
+        end
+        for k in 0..<4 do
+            s3(rig.soft, 0, 0.36 + double(k) * 0.04, 0.162, 0.3, 0.012, 0.01, vest.brightness(0.7))
+        end
+        s3(rig.soft, 0.13, 0.48, 0.17, 0.06, 0.1, 0.04, dark)
+        s3(rig.rod, 0.15, 0.56, 0.17, 0.012, 0.08, 0.012, dark)
+        g3(rig.orb, 0.11, 0.51, 0.19, 0.015, 0.015, 0.01, accent)
+        for k in 0..<4 do
+            s3(rig.drum, -0.16 + double(k) * 0.035, 0.05, 0.16, 0.026, 0.07, 0.026, accent.brightness(0.8))
+        end
+    else if h == roster.HEAD_BEANIE do
+        # A hood down on the back, a strap of throwing knives, a fat stolen purse.
+        s3(rig.orb, 0, 0.55, -0.15, 0.32, 0.16, 0.14, body.brightness(0.85))
+        s3(rig.soft, 0, 0.32, 0.0, 0.05, 0.7, 0.29, leather, 0, 0, 36)
+        for k in 0..<4 do
+            var t = double(k) - 1.5
+            s3(rig.blade, -0.05 + t * 0.07, 0.33 - t * 0.095, 0.16, 0.035, 0.1, 0.012, metal, 0, 0, 36)
+        end
+        s3(rig.orb, 0.17, -0.06, 0.12, 0.12, 0.13, 0.1, ap.Color(120, 90, 60).fade(alpha))
+        s3(rig.drum, 0.17, 0.01, 0.12, 0.06, 0.03, 0.06, trim)
+        g3(rig.orb, 0.17, -0.02, 0.17, 0.02, 0.02, 0.01, gold)
+    else if h == roster.HEAD_HAZMAT do
+        # An air tank on the back, hosed to the mask, warning stripes, and a hazard sign.
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.07, 0.34, -0.2, 0.12, 0.42, 0.12, metal, 0, 0, 0)
+            s3(rig.orb, side * 0.07, 0.56, -0.2, 0.11, 0.06, 0.11, metal.brightness(0.85))
+        end
+        s3(rig.soft, 0, 0.34, -0.17, 0.3, 0.05, 0.06, dark)
+        s3(rig.soft, 0, 0.2, -0.17, 0.3, 0.05, 0.06, dark)
+        s3(rig.rod, 0.07, 0.62, -0.2, 0.025, 0.06, 0.025, dark)
+        beam_yz(rig.rod, 0.12, 0.64, -0.2, 0.72, -0.05, 0.035, 0.035, dark)
+        s3(rig.orb, 0, 0.36, 0.145, 0.17, 0.17, 0.02, dark)
+        for k in 0..<3 do
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(0, 0.36, 0.155))
+            ap.rotate_3d(double(k) * 120 + 60, AXIS_Z)
+            s3(rig.spike, 0, 0.045, 0, 0.065, 0.06, 0.01, accent, 180)
+            ap.pop_3d()
+        end
+        g3(rig.orb, 0, 0.36, 0.16, 0.025, 0.025, 0.01, accent)
+        for k in 0..<2 do
+            s3(rig.drum, 0, 0.12 + double(k) * 0.05, 0, 0.465, 0.02, 0.29, dark)
+        end
+    else if h == roster.HEAD_CAT do
+        # A long tail curling up, a pale belly, and a collar with a bell.
+        s3(rig.orb, 0, 0.26, 0.128, 0.26, 0.4, 0.03, trim)
+        var swish = math.sin(now * 2.2) * 14
+        var x = 0.0
+        var y = 0.08
+        var z = -0.14
+        for k in 0..<7 do
+            var a = (20.0 + double(k) * 22 + swish * double(k) / 6) * math.PI / 180
+            var nx = x + math.sin(swish * math.PI / 180 * 0.5) * 0.02
+            var ny = y + math.sin(a) * 0.09
+            var nz = z - math.cos(a) * 0.09
+            beam_yz(rig.drum, nx, y, z, ny, nz, 0.07 - double(k) * 0.004, 0.07 - double(k) * 0.004, trim if k == 6 else body)
+            x = nx
+            y = ny
+            z = nz
+        end
+        s3(rig.drum, 0, 0.6, 0.0, 0.3, 0.04, 0.2, accent.brightness(0.7))
+        s3(rig.orb, 0, 0.56, 0.11, 0.05, 0.05, 0.05, gold)
+    else if h == roster.HEAD_ROBOT do
+        # A chest hatch with a turning core, shoulder plates, rivets, vents.
+        s3(rig.soft, 0, 0.36, 0.13, 0.3, 0.26, 0.04, dark)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.37, 0.155))
+        ap.rotate_3d((now * 60) % 360, AXIS_Z)
+        s3(rig.gear, 0, 0, 0, 0.16, 0.02, 0.16, metal, 90)
+        ap.pop_3d()
+        g3(rig.orb, 0, 0.37, 0.17, 0.07, 0.07, 0.02, accent)
+        for k in 0..<4 do
+            var x = -0.13 + double(k % 2) * 0.26
+            var y = 0.25 + double(k // 2) * 0.23
+            s3(rig.orb, x, y, 0.16, 0.025, 0.025, 0.02, trim)
+        end
+        for k in 0..<3 do
+            s3(rig.soft, 0, 0.12 + double(k) * 0.035, 0.132, 0.24, 0.014, 0.01, dark)
+        end
+        s3(rig.soft, 0, 0.36, -0.14, 0.3, 0.3, 0.03, metal.brightness(0.9))
+        for side in [-1.0, 1.0] do
+            g3(rig.soft, side * 0.08, 0.4, -0.16, 0.05, 0.18, 0.01, accent.fade(0.7 * alpha))
+        end
+    else if h == roster.HEAD_VISOR do
+        # Armored plates, a lit seam down the chest, and a lit belt.
+        s3(rig.soft, 0, 0.4, 0.13, 0.36, 0.26, 0.04, trim.brightness(1.1))
+        g3(rig.soft, 0, 0.3, 0.152, 0.03, 0.4, 0.01, metal)
+        for side in [-1.0, 1.0] do
+            g3(rig.soft, side * 0.1, 0.44, 0.152, 0.1, 0.015, 0.01, metal)
+        end
+        s3(rig.soft, 0, 0.18, 0.13, 0.28, 0.12, 0.03, trim)
+        g3(rig.soft, 0, 0.035, 0.15, 0.4, 0.015, 0.01, metal)
+        s3(rig.soft, 0, 0.36, -0.15, 0.3, 0.3, 0.05, trim)
+        s3(rig.drum, 0, 0.38, -0.19, 0.1, 0.12, 0.1, metal.brightness(0.6), 90)
+        g3(rig.orb, 0, 0.38, -0.25, 0.06, 0.06, 0.02, metal)
+    else if h == roster.HEAD_EAGLE do
+        # A bandolier of rounds, a feather-trimmed collar, a holster.
+        s3(rig.soft, 0, 0.32, 0.0, 0.05, 0.72, 0.29, leather, 0, 0, -36)
+        for k in 0..<6 do
+            var t = double(k) - 2.5
+            s3(rig.drum, 0.0 + t * 0.06, 0.32 + t * 0.082, 0.162, 0.024, 0.06, 0.024, gold, 0, 0, -36)
+        end
+        for k in 0..<7 do
+            var a = (double(k) / 6 - 0.5) * 2.6
+            s3(rig.blade, math.sin(a) * 0.2, 0.56, math.cos(a) * 0.12 - 0.02, 0.07, 0.14, 0.02, trim, 180 + 20, a * 180 / math.PI, 0)
+        end
+        s3(rig.soft, 0.22, -0.07, 0.05, 0.06, 0.18, 0.12, leather.brightness(0.8))
+    else if h == roster.HEAD_CREST do
+        # A lorica: bands of plate round the chest, a gorget, and a fringe of leather strips.
+        for k in 0..<4 do
+            s3(rig.drum, 0, 0.24 + double(k) * 0.085, 0, 0.5 - double(k) * 0.005, 0.07, 0.31, metal.brightness(0.9 + 0.05 * double(k % 2)), 0, 0, 0)
+        end
+        s3(rig.flare, 0, 0.58, 0, 0.36, 0.06, 0.26, metal)
+        s3(rig.orb, 0, 0.42, 0.162, 0.07, 0.07, 0.02, gold)
+        for k in 0..<6 do
+            var x = -0.19 + double(k) * 0.076
+            s3(rig.soft, x, -0.08, 0.13, 0.06, 0.16, 0.02, leather.brightness(0.9 + 0.1 * double(k % 2)))
+            s3(rig.orb, x, -0.15, 0.135, 0.03, 0.03, 0.02, gold)
+            s3(rig.soft, x, -0.08, -0.13, 0.06, 0.16, 0.02, leather.brightness(0.9 + 0.1 * double(k % 2)))
+        end
+    else if h == roster.HEAD_VEIL do
+        # A torn black gown: ribbons hanging from the waist, a pale light where the heart was.
+        for k in 0..<7 do
+            var a = double(k) / 7 * 2 * math.PI
+            var flutter = math.sin(now * 3 + double(k)) * 8
+            s3(rig.blade, math.sin(a) * 0.2, -0.16 - double(k % 3) * 0.03, math.cos(a) * 0.13, 0.08, 0.36 + double(k % 3) * 0.08, 0.02,
+                look.cape_color.fade(alpha), 180 + flutter, a * 180 / math.PI, 0)
+        end
+        s3(rig.orb, 0, 0.44, 0.13, 0.1, 0.12, 0.02, dark.brightness(0.5))
+        g3(rig.orb, 0, 0.44, 0.138, 0.045, 0.06, 0.015, accent.fade((0.6 + 0.3 * math.sin(now * 3)) * alpha))
+    else if h == roster.HEAD_PONYTAIL do
+        # A belt of stone slabs, crystal growing out of the shoulders and spine.
+        for k in 0..<5 do
+            var a = (double(k) / 4 - 0.5) * 2.2
+            s3(rig.soft, math.sin(a) * 0.2, 0.04, math.cos(a) * 0.13, 0.11, 0.1, 0.05, metal.brightness(0.8 + 0.12 * double(k % 2)), 0, a * 180 / math.PI, 0)
+        end
+        for k in 0..<3 do
+            g3(rig.blade, 0.0, 0.32 + double(k) * 0.1, -0.15, 0.06, 0.14 - double(k) * 0.02, 0.06, accent.fade(0.85 * alpha), -60)
+        end
+        for k in 0..<4 do
+            var x = [-0.12, 0.1, -0.05, 0.14][k]
+            var y = [0.42, 0.3, 0.2, 0.48][k]
+            s3(rig.soft, x, y, 0.137, 0.05, 0.012, 0.01, accent.brightness(0.6), 0, 0, double(k * 37 % 90) - 45)
+        end
+    else if h == roster.HEAD_TOPHAT do
+        # A waistcoat with gold buttons, a cravat with a pin, a watch on a chain.
+        var vest = look.legs.brightness(1.6).fade(alpha)
+        s3(rig.soft, 0, 0.3, 0.128, 0.26, 0.46, 0.03, vest)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.12, 0.42, 0.142, 0.06, 0.34, 0.02, body.brightness(1.3), 0, 0, side * -18)
+        end
+        for k in 0..<4 do
+            s3(rig.orb, 0, 0.14 + double(k) * 0.07, 0.148, 0.03, 0.03, 0.02, gold)
+        end
+        s3(rig.wedge, 0, 0.53, 0.15, 0.09, 0.12, 0.04, white, 0, 180, 0)
+        g3(rig.orb, 0, 0.5, 0.17, 0.025, 0.025, 0.015, accent)
+        for k in 0..<5 do
+            var t = double(k) / 4
+            s3(rig.orb, 0.02 + t * 0.12, 0.25 - math.sin(t * math.PI) * 0.05, 0.15, 0.018, 0.018, 0.018, gold)
+        end
+        s3(rig.drum, 0.15, 0.22, 0.15, 0.06, 0.02, 0.06, gold, 90)
+        # A fat cigar-case bulge and the coat tails behind.
+        for side in [-1.0, 1.0] do
+            s3(rig.wedge, side * 0.1, -0.2, -0.13, 0.15, 0.4, 0.05, body, -8, 0, side * -4)
+        end
+    else if h == roster.HEAD_MIRROR do
+        # Shards of mirror growing from the shoulders and a cracked plate on the chest.
+        s3(rig.soft, 0, 0.38, 0.13, 0.3, 0.3, 0.03, trim.brightness(0.8))
+        g3(rig.soft, 0, 0.38, 0.148, 0.24, 0.24, 0.01, accent.brightness(0.8).fade(0.7 * alpha))
+        g3(rig.soft, -0.04, 0.4, 0.152, 0.012, 0.22, 0.01, ap.WHITE.fade(0.8 * alpha), 0, 0, 30)
+        g3(rig.soft, 0.04, 0.36, 0.152, 0.012, 0.16, 0.01, ap.WHITE.fade(0.8 * alpha), 0, 0, -50)
+        for k in 0..<3 do
+            g3(rig.blade, -0.1 + double(k) * 0.1, 0.62, -0.12, 0.06, 0.18 - double(k % 2) * 0.06, 0.02, metal.fade(0.75 * alpha), -30, 0, double(k - 1) * -25)
+        end
+    else if h == roster.HEAD_GOGGLES do
+        # The lab coat's lapels, a pocket stuffed with pens, a burn, and a leaking vial.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.1, 0.42, 0.14, 0.09, 0.36, 0.02, trim, 0, 0, side * -14)
+            s3(rig.wedge, side * 0.17, 0.52, 0.12, 0.08, 0.14, 0.03, look.cape_color.fade(alpha), 0, 180, side * -30)
+        end
+        s3(rig.soft, 0.13, 0.4, 0.15, 0.09, 0.08, 0.02, look.cape_color.brightness(0.9).fade(alpha))
+        for k in 0..<3 do
+            var c = [ap.Color(220, 40, 40), ap.Color(40, 90, 220), ap.Color(30, 30, 30)][k]
+            s3(rig.rod, 0.105 + double(k) * 0.025, 0.46, 0.155, 0.015, 0.08, 0.015, c.fade(alpha))
+        end
+        s3(rig.orb, -0.12, 0.2, 0.15, 0.08, 0.06, 0.01, ap.Color(60, 50, 40).fade(alpha))
+        s3(rig.drum, -0.2, 0.02, 0.1, 0.05, 0.1, 0.05, white.fade(0.6))
+        g3(rig.drum, -0.2, 0.01, 0.1, 0.035, 0.07, 0.035, accent)
+    else if h == roster.HEAD_TV do
+        # A sharp suit: lapels, a tie the color of the screen, and a pocket square.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.1, 0.4, 0.14, 0.08, 0.4, 0.02, body.brightness(0.7), 0, 0, side * -16)
+        end
+        s3(rig.soft, 0, 0.42, 0.133, 0.12, 0.34, 0.02, white)
+        s3(rig.spike, 0, 0.53, 0.15, 0.05, 0.05, 0.02, accent.brightness(0.7), 180)
+        s3(rig.soft, 0, 0.38, 0.15, 0.045, 0.24, 0.015, accent.brightness(0.7))
+        s3(rig.spike, 0, 0.25, 0.15, 0.045, 0.05, 0.015, accent.brightness(0.7), 180)
+        s3(rig.spike, 0.14, 0.45, 0.145, 0.05, 0.05, 0.02, white)
+        for k in 0..<2 do
+            s3(rig.orb, 0.035, 0.18 + double(k) * 0.07, 0.143, 0.02, 0.02, 0.015, dark)
+        end
+    else if h == roster.HEAD_STITCHED do
+        # Sewn up the middle, patched, bolts in the chest, and the chain wound round.
+        s3(rig.soft, 0, 0.32, 0.136, 0.015, 0.5, 0.01, ap.Color(30, 20, 20).fade(alpha))
+        for k in 0..<6 do
+            s3(rig.soft, 0, 0.12 + double(k) * 0.08, 0.138, 0.06, 0.012, 0.01, ap.Color(30, 20, 20).fade(alpha))
+        end
+        s3(rig.soft, -0.12, 0.42, 0.135, 0.1, 0.12, 0.02, look.skin.brightness(0.8).fade(alpha), 0, 0, 10)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.16, 0.5, 0.12, 0.05, 0.06, 0.05, metal, 90)
+            s3(rig.drum, side * 0.16, 0.5, 0.16, 0.07, 0.015, 0.07, metal.brightness(0.7), 90)
+        end
+        for k in 0..<9 do
+            var a = double(k) / 9 * 2 * math.PI
+            s3(rig.ring, math.sin(a) * 0.23, 0.1 + double(k) * 0.035, math.cos(a) * 0.15, 0.06, 0.08, 0.06,
+                metal.brightness(0.7 + 0.1 * double(k % 2)), 90, a * 180 / math.PI + double(k % 2) * 90, 0)
+        end
+    else if h == roster.HEAD_TOPKNOT do
+        # A crossed robe and a wide sash knotted at the side, its ends hanging.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.05, 0.4, 0.135, 0.06, 0.4, 0.02, body.brightness(1.3), 0, 0, side * -26)
+        end
+        s3(rig.drum, 0, 0.06, 0, 0.47, 0.13, 0.3, trim)
+        s3(rig.orb, 0.17, 0.06, 0.12, 0.08, 0.08, 0.06, trim)
+        var sway = math.sin(now * 2) * 5
+        s3(rig.wedge, 0.19, -0.08, 0.13, 0.05, 0.24, 0.025, trim, 180 + sway, 0, 8)
+        s3(rig.wedge, 0.15, -0.06, 0.14, 0.05, 0.2, 0.025, trim, 180 + sway, 0, -6)
+    else if h == roster.HEAD_PLAGUE do
+        # Oiled leather: buckled straps, a row of vials, a pomander.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.09, 0.33, 0.137, 0.04, 0.6, 0.02, leather, 0, 0, side * 8)
+            s3(rig.soft, side * 0.09, 0.38, 0.152, 0.05, 0.04, 0.01, metal)
+        end
+        for k in 0..<4 do
+            var x = -0.17 + double(k) * 0.05
+            s3(rig.drum, x, -0.02, 0.15, 0.03, 0.08, 0.03, white.fade(0.6))
+            g3(rig.drum, x, -0.03, 0.15, 0.022, 0.05, 0.022, [accent, ap.Color(120, 200, 80).fade(alpha), accent, ap.Color(200, 60, 60).fade(alpha)][k])
+        end
+        s3(rig.orb, 0.18, -0.06, 0.12, 0.07, 0.07, 0.07, metal)
+        s3(rig.flare, 0, 0.58, -0.02, 0.36, 0.08, 0.26, leather)
+    else if h == roster.HEAD_JESTER do
+        # Motley: a ruff of points round the neck, diamonds, bells at the hem.
+        for k in 0..<12 do
+            var a = double(k) / 12 * 2 * math.PI
+            var c = accent if k % 2 == 0 else trim
+            s3(rig.spike, math.sin(a) * 0.17, 0.6, math.cos(a) * 0.12, 0.09, 0.12, 0.04, c, 90, a * 180 / math.PI, 0)
+        end
+        for k in 0..<5 do
+            var x = [-0.11, 0.11, 0.0, -0.11, 0.11][k]
+            var y = [0.42, 0.42, 0.3, 0.18, 0.18][k]
+            s3(rig.soft, x, y, 0.134, 0.07, 0.07, 0.01, accent if k % 2 == 0 else trim, 0, 0, 45)
+        end
+        for k in 0..<5 do
+            var x = -0.18 + double(k) * 0.09
+            s3(rig.spike, x, -0.02, 0.14, 0.08, 0.09, 0.03, trim if k % 2 == 0 else accent, 180)
+            s3(rig.orb, x, -0.08, 0.15, 0.03, 0.03, 0.03, gold)
+        end
+    else if h == roster.HEAD_EXECUTIONER do
+        # A bare, scarred chest under crossed straps hung with chain, and a ring of keys.
+        var skin = look.skin.fade(alpha)
+        s3(rig.soft, 0, 0.36, 0.13, 0.36, 0.32, 0.02, skin)
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.08, 0.42, 0.14, 0.15, 0.1, 0.03, skin.brightness(0.92))
+            s3(rig.soft, 0, 0.34, 0.15, 0.055, 0.6, 0.02, leather, 0, 0, side * 36)
+        end
+        s3(rig.orb, 0, 0.34, 0.165, 0.07, 0.07, 0.03, metal)
+        s3(rig.soft, 0.1, 0.27, 0.15, 0.08, 0.01, 0.01, skin.brightness(0.7), 0, 0, 30)
+        for k in 0..<7 do
+            var t = double(k) / 6
+            s3(rig.ring, -0.18 + t * 0.36, 0.18 - math.sin(t * math.PI) * 0.06, 0.16, 0.04, 0.05, 0.04, metal.brightness(0.7 + 0.1 * double(k % 2)),
+                90, double(k % 2) * 90, 0)
+        end
+        s3(rig.ring, -0.18, -0.06, 0.12, 0.1, 0.1, 0.1, metal, 90)
+        for k in 0..<3 do
+            s3(rig.rod, -0.2 + double(k) * 0.02, -0.14, 0.12, 0.015, 0.1, 0.015, metal, 0, 0, double(k - 1) * 18)
+        end
+        # The leather apron.
+        s3(rig.soft, 0, -0.1, 0.14, 0.28, 0.24, 0.02, leather.brightness(0.8))
+    else if h == roster.HEAD_GEARS do
+        # A leather apron, a tool belt: wrench, screwdriver, a spinning gear on the chest.
+        s3(rig.soft, 0, 0.22, 0.14, 0.34, 0.46, 0.02, leather)
+        s3(rig.soft, 0, 0.42, 0.15, 0.12, 0.1, 0.01, leather.brightness(0.85))
+        s3(rig.drum, 0, 0.02, 0, 0.48, 0.07, 0.31, leather.brightness(0.7))
+        s3(rig.rod, -0.16, -0.06, 0.15, 0.025, 0.18, 0.015, metal)
+        s3(rig.ring, -0.16, 0.04, 0.15, 0.06, 0.06, 0.06, metal, 90)
+        s3(rig.rod, 0.17, -0.05, 0.15, 0.018, 0.16, 0.018, ap.Color(200, 50, 40).fade(alpha))
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0.09, 0.48, 0.16))
+        ap.rotate_3d((now * 90) % 360, AXIS_Z)
+        s3(rig.gear, 0, 0, 0, 0.12, 0.02, 0.12, metal, 90)
+        ap.pop_3d()
+        g3(rig.orb, 0.09, 0.48, 0.175, 0.03, 0.03, 0.01, accent)
+    else if h == roster.HEAD_SEER do
+        # Strings of beads and coins, a sash, a crystal hung at the breast.
+        for k in 0..<9 do
+            var t = double(k) / 8
+            s3(rig.orb, -0.14 + t * 0.28, 0.55 - math.sin(t * math.PI) * 0.12, 0.14, 0.03, 0.03, 0.02, trim if k % 2 == 0 else accent)
+        end
+        for k in 0..<11 do
+            var t = double(k) / 10
+            s3(rig.drum, -0.18 + t * 0.36, 0.48 - math.sin(t * math.PI) * 0.2, 0.15, 0.035, 0.01, 0.035, gold, 90)
+        end
+        var bob = math.sin(now * 2) * 0.01
+        g3(rig.blade, 0, 0.26 + bob, 0.17, 0.05, 0.1, 0.05, accent, 180)
+        g3(rig.blade, 0, 0.32 + bob, 0.17, 0.05, 0.04, 0.05, accent)
+        s3(rig.drum, 0, 0.04, 0, 0.47, 0.12, 0.3, trim)
+        for k in 0..<4 do
+            s3(rig.drum, -0.12 + double(k) * 0.08, -0.04, 0.15, 0.035, 0.01, 0.035, gold, 90)
+        end
+    else if h == roster.HEAD_MOURNER do
+        # A frock coat: long lapels, a black cravat, a mourning brooch, and tails behind.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.1, 0.4, 0.14, 0.08, 0.42, 0.02, body.brightness(1.4), 0, 0, side * -14)
+            s3(rig.wedge, side * 0.1, -0.24, -0.13, 0.16, 0.5, 0.05, body, -6, 0, side * -4)
+        end
+        s3(rig.soft, 0, 0.42, 0.13, 0.1, 0.3, 0.01, white)
+        s3(rig.wedge, 0, 0.52, 0.15, 0.08, 0.1, 0.04, dark, 0, 180, 0)
+        s3(rig.orb, 0, 0.47, 0.16, 0.045, 0.055, 0.02, trim)
+        s3(rig.orb, 0, 0.47, 0.168, 0.025, 0.035, 0.015, ap.Color(16, 14, 18).fade(alpha))
+        for k in 0..<3 do
+            s3(rig.orb, 0, 0.18 + double(k) * 0.08, 0.142, 0.025, 0.025, 0.015, dark)
+        end
+    else if h == roster.HEAD_HUNTRESS do
+        # A quiver of bolts on the back, a leather jerkin, pouches, and a trophy tooth.
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0.08, 0.36, -0.18))
+        ap.rotate_3d(-22, AXIS_Z)
+        s3(rig.drum, 0, 0, 0, 0.14, 0.5, 0.12, leather)
+        s3(rig.drum, 0, 0.2, 0, 0.15, 0.04, 0.13, leather.brightness(0.7))
+        for k in 0..<4 do
+            var x = -0.04 + double(k % 2) * 0.06
+            var z = -0.02 + double(k // 2) * 0.04
+            s3(rig.rod, x, 0.3, z, 0.012, 0.16, 0.012, ap.Color(110, 80, 50).fade(alpha))
+            s3(rig.wedge, x, 0.36, z, 0.03, 0.08, 0.02, accent)
+        end
+        ap.pop_3d()
+        s3(rig.soft, 0, 0.32, 0.0, 0.04, 0.72, 0.29, leather.brightness(0.8), 0, 0, 30)
+        for k in 0..<2 do
+            s3(rig.soft, -0.16 + double(k) * 0.08, 0.0, 0.15, 0.07, 0.09, 0.05, leather.brightness(1.1))
+        end
+        s3(rig.spike, -0.07, 0.48, 0.152, 0.025, 0.06, 0.015, white, 180)
+        s3(rig.soft, 0, 0.3, 0.133, 0.3, 0.44, 0.02, leather.brightness(1.15))
+    else if h == roster.HEAD_SHARK do
+        # An open pirate's coat with gold lapels, a sash, and a necklace of teeth.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.14, 0.32, 0.135, 0.1, 0.56, 0.025, body.brightness(1.25))
+            s3(rig.soft, side * 0.1, 0.32, 0.148, 0.012, 0.5, 0.01, gold)
+        end
+        s3(rig.soft, 0, 0.32, 0.128, 0.18, 0.56, 0.02, look.skin.brightness(0.9).fade(alpha))
+        s3(rig.drum, 0, 0.05, 0, 0.47, 0.11, 0.3, accent.brightness(0.6))
+        s3(rig.wedge, 0.18, -0.07, 0.12, 0.06, 0.2, 0.03, accent.brightness(0.6), 180, 0, 8)
+        for k in 0..<7 do
+            var t = double(k) / 6
+            s3(rig.spike, -0.1 + t * 0.2, 0.55 - math.sin(t * math.PI) * 0.08, 0.14, 0.025, 0.05, 0.015, white, 180)
+        end
+    else if h == roster.HEAD_RESPIRATOR do
+        # A bandolier of flasks, each a different brew, and a hose to the mask.
+        s3(rig.soft, 0, 0.32, 0.0, 0.055, 0.72, 0.3, leather, 0, 0, -36)
+        var brews = [ap.Color(130, 230, 60), ap.Color(255, 120, 40), ap.Color(140, 210, 255), ap.Color(255, 230, 80), ap.Color(220, 80, 220)]
+        for k in 0..<5 do
+            var t = double(k) - 2
+            var x = t * 0.065
+            var y = 0.32 + t * 0.09
+            g3(rig.orb, x, y, 0.17, 0.065, 0.075, 0.055, brews[k].fade(alpha))
+            s3(rig.drum, x, y + 0.045, 0.17, 0.03, 0.03, 0.03, white)
+            s3(rig.rod, x, y + 0.07, 0.17, 0.022, 0.03, 0.022, leather.brightness(1.3))
+        end
+        s3(rig.soft, 0, 0.04, 0, 0.47, 0.08, 0.3, leather.brightness(0.8))
+        beam_yz(rig.drum, -0.12, 0.62, 0.12, 0.44, 0.17, 0.035, 0.035, dark)
+    else if h == roster.HEAD_SACK do
+        # Patches, a rope belt, straw spilling out, and a crow on the shoulder.
+        s3(rig.soft, -0.1, 0.4, 0.134, 0.12, 0.12, 0.01, ap.Color(170, 60, 50).fade(alpha), 0, 0, 8)
+        s3(rig.soft, 0.11, 0.2, 0.13, 0.1, 0.11, 0.01, ap.Color(90, 120, 60).fade(alpha), 0, 0, -6)
+        for k in 0..<4 do
+            s3(rig.soft, -0.1 + double(k % 2) * 0.12 - 0.06, 0.4 + double(k // 2) * 0.12 - 0.06, 0.14, 0.02, 0.008, 0.008, dark)
+        end
+        s3(rig.drum, 0, 0.04, 0, 0.46, 0.04, 0.3, ap.Color(190, 160, 100).fade(alpha))
+        var straw = ap.Color(226, 196, 100).fade(alpha)
+        for k in 0..<6 do
+            var a = double(k) / 6 * 2 * math.PI + 0.3
+            s3(rig.blade, math.sin(a) * 0.2, -0.02, math.cos(a) * 0.13, 0.04, 0.12, 0.01, straw, 180 + 20, a * 180 / math.PI, 0)
+            s3(rig.blade, math.sin(a) * 0.12, 0.62, math.cos(a) * 0.08, 0.035, 0.1, 0.01, straw, 30, a * 180 / math.PI, 0)
+        end
+        # The crow, watching.
+        var peck = math.max(0.0, math.sin(now * 1.3)) * 20
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0.3, 0.66, -0.02))
+        var crow = ap.Color(24, 22, 30).fade(alpha)
+        s3(rig.orb, 0, 0.06, 0, 0.1, 0.1, 0.16, crow)
+        s3(rig.wedge, 0, 0.04, -0.12, 0.06, 0.14, 0.02, crow, -70)
+        ap.translate_3d(ap.Vec3(0, 0.12, 0.06))
+        ap.rotate_3d(peck, AXIS_X)
+        s3(rig.orb, 0, 0.0, 0, 0.08, 0.08, 0.08, crow)
+        s3(rig.spike, 0, -0.005, 0.06, 0.03, 0.06, 0.03, ap.Color(60, 56, 50).fade(alpha), 90)
+        for side in [-1.0, 1.0] do
+            g3(rig.orb, side * 0.03, 0.012, 0.028, 0.015, 0.015, 0.01, look.eyes.fade(alpha))
+        end
+        ap.pop_3d()
+    else if h == roster.HEAD_CONDUCTOR do
+        # A double-breasted uniform coat: two rows of brass buttons, epaulettes, a whistle.
         for row in [-1.0, 1.0] do
             for k in 0..<3 do
                 shape(rig.orb, row * 0.07, 0.2 + double(k) * 0.11, 0.152, 0.03, 0.03, 0.018, trim)
             end
         end
         shape(rig.flare, 0, 0.6, 0, 0.26, 0.07, 0.17, look.body.brightness(0.8).fade(alpha))
-    else if look.head == roster.HEAD_PADLOCK do
-        # A locksmith's leather apron, a strap across the chest, and keys on the belt.
+        for k in 0..<5 do
+            var t = double(k) / 4
+            s3(rig.orb, -0.16 + t * 0.12, 0.52 - math.sin(t * math.PI) * 0.06, 0.142, 0.015, 0.015, 0.015, trim)
+        end
+        s3(rig.drum, -0.04, 0.47, 0.15, 0.025, 0.07, 0.025, trim, 0, 0, 60)
+    else if h == roster.HEAD_STRONGMAN do
+        # A striped singlet on one strap, a great belt, and medals.
+        var stripe = ap.Color(236, 230, 220).fade(alpha)
+        for k in 0..<3 do
+            s3(rig.drum, 0, 0.18 + double(k) * 0.12, 0, 0.465, 0.04, 0.275, stripe)
+        end
+        s3(rig.soft, 0.1, 0.5, 0.0, 0.07, 0.24, 0.28, body, 0, 0, -14)
+        s3(rig.drum, 0, 0.05, 0, 0.48, 0.14, 0.31, leather.brightness(0.6))
+        s3(rig.soft, 0, 0.05, 0.16, 0.14, 0.12, 0.03, gold)
+        for k in 0..<3 do
+            s3(rig.drum, -0.14 + double(k) * 0.05, 0.44, 0.14, 0.04, 0.01, 0.04, gold, 90)
+            s3(rig.soft, -0.14 + double(k) * 0.05, 0.5, 0.135, 0.025, 0.05, 0.01, [accent, ap.Color(60, 100, 200).fade(alpha), accent][k])
+        end
+    else if h == roster.HEAD_CLOCK do
+        # A pendulum swinging in a glass case on the chest, and gears turning at the shoulders.
+        s3(rig.soft, 0, 0.33, 0.13, 0.2, 0.36, 0.03, metal)
+        s3(rig.soft, 0, 0.33, 0.142, 0.16, 0.32, 0.01, ap.Color(30, 26, 24).fade(alpha))
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.47, 0.152))
+        ap.rotate_3d(math.sin(now * 3.1) * 22, AXIS_Z)
+        s3(rig.rod, 0, -0.1, 0, 0.012, 0.2, 0.008, metal)
+        s3(rig.drum, 0, -0.2, 0, 0.07, 0.015, 0.07, metal.brightness(1.2), 90)
+        g3(rig.orb, 0, -0.2, 0.01, 0.03, 0.03, 0.01, accent)
+        ap.pop_3d()
+        for side in [-1.0, 1.0] do
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(side * 0.2, 0.5, 0.1))
+            ap.rotate_3d((now * 45 * side) % 360, AXIS_Z)
+            s3(rig.gear, 0, 0, 0, 0.14, 0.025, 0.14, metal, 90)
+            ap.pop_3d()
+        end
+    else if h == roster.HEAD_MOTH do
+        # A thick ruff of fur at the throat, and a dusty, pale body.
+        for k in 0..<12 do
+            var a = double(k) / 12 * 2 * math.PI
+            s3(rig.blade, math.sin(a) * 0.15, 0.56, math.cos(a) * 0.1, 0.1, 0.16, 0.04, trim, 110, a * 180 / math.PI, 0)
+        end
+        for k in 0..<3 do
+            s3(rig.drum, 0, 0.12 + double(k) * 0.1, 0, 0.465, 0.03, 0.28, body.brightness(0.8))
+        end
+    else if h == roster.HEAD_HOLLOW or h == roster.HEAD_WISP do
+        # Full plate: a ridged breastplate, a gorget, faulds over the hips, a tabard in tatters.
+        s3(rig.soft, 0, 0.36, 0.12, 0.42, 0.42, 0.06, metal)
+        s3(rig.wedge, 0, 0.36, 0.15, 0.06, 0.4, 0.03, metal.brightness(1.15), 0, 180, 0)
+        s3(rig.flare, 0, 0.58, 0, 0.36, 0.08, 0.28, metal.brightness(0.85))
+        for k in 0..<3 do
+            s3(rig.flare, 0, -0.03 - double(k) * 0.06, 0, 0.48 + double(k) * 0.02, 0.07, 0.32 + double(k) * 0.01, metal.brightness(0.85 + 0.07 * double(k % 2)), 180)
+        end
+        s3(rig.soft, 0, -0.12, 0.17, 0.2, 0.34, 0.015, look.cape_color.fade(alpha))
+        s3(rig.spike, -0.04, -0.3, 0.17, 0.09, 0.08, 0.015, look.cape_color.fade(alpha), 180)
+        s3(rig.spike, 0.05, -0.32, 0.17, 0.09, 0.12, 0.015, look.cape_color.fade(alpha), 180)
+        s3(rig.soft, 0, 0.36, 0.165, 0.05, 0.06, 0.01, metal.brightness(0.6), 0, 0, 20)
+    else if h == roster.HEAD_MAESTRO do
+        # White tie: a starched front, a bow tie, lapels, and long tails.
+        s3(rig.soft, 0, 0.38, 0.13, 0.14, 0.36, 0.02, white)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.11, 0.4, 0.14, 0.07, 0.4, 0.02, body.brightness(1.6), 0, 0, side * -12)
+            s3(rig.spike, side * 0.04, 0.55, 0.155, 0.06, 0.07, 0.03, white, 0, 0, side * 90)
+            s3(rig.wedge, side * 0.09, -0.3, -0.13, 0.15, 0.6, 0.05, body, -8 - math.sin(now * 2 + side) * 3, 0, side * -4)
+        end
+        s3(rig.orb, 0, 0.55, 0.16, 0.03, 0.03, 0.02, white)
+        for k in 0..<3 do
+            s3(rig.orb, 0, 0.26 + double(k) * 0.07, 0.143, 0.02, 0.02, 0.01, gold)
+        end
+        s3(rig.wedge, 0.15, 0.45, 0.145, 0.05, 0.05, 0.02, accent, 0, 180, 0)
+    else if h == roster.HEAD_PADLOCK do
+        # A locksmith's leather apron, a strap across the chest, keys and a chain on the belt.
         var hide = ap.Color(96, 66, 44).fade(alpha)
         shape(rig.soft, 0, 0.2, 0.145, 0.36, 0.42, 0.03, hide)
         shape(rig.soft, 0, 0.36, 0.0, 0.07, 0.62, 0.31, hide, null, ap.Vec3(0, 0, -38))
@@ -2238,31 +3085,1161 @@ private function faceted_torso(Rig rig, roster.Look look, double alpha)
         for k in 0..<3 do
             shape(rig.rod, -0.19 + double(k) * 0.025, -0.1, 0.125, 0.018, 0.12, 0.018, look.metal.fade(alpha), null, ap.Vec3(0, 0, double(k - 1) * 14))
         end
-    else if look.head == roster.HEAD_BAND do
-        # A champion's belt, broad, with a gold plate.
-        shape(rig.soft, 0, 0.05, 0, 0.455, 0.12, 0.295, look.metal.fade(alpha))
-        shape(rig.soft, 0, 0.05, 0.145, 0.15, 0.13, 0.025, trim)
-        glow_shape(rig.orb, 0, 0.05, 0.16, 0.04, 0.04, 0.01, look.accent.fade(alpha))
+        for k in 0..<3 do
+            s3(rig.orb, -0.12 + double(k) * 0.12, 0.33, 0.162, 0.03, 0.03, 0.015, metal)
+        end
+        for k in 0..<6 do
+            var t = double(k) / 5
+            s3(rig.ring, 0.0 + t * 0.2, 0.0 - math.sin(t * math.PI) * 0.08, 0.17, 0.04, 0.05, 0.04, metal.brightness(0.7 + 0.1 * double(k % 2)),
+                90, double(k % 2) * 90, 0)
+        end
+    else if h == roster.HEAD_SKULL do
+        # Ribs and a spine where the chest should be.
+        s3(rig.soft, 0, 0.32, 0.12, 0.3, 0.46, 0.03, ap.Color(12, 10, 10).fade(alpha))
+        for k in 0..<5 do
+            s3(rig.drum, 0, 0.2 + double(k) * 0.075, 0.0, 0.42 - double(k % 2) * 0.03, 0.03, 0.27, look.skin.fade(alpha))
+        end
+        s3(rig.soft, 0, 0.3, 0.135, 0.04, 0.5, 0.02, look.skin.fade(alpha))
+        s3(rig.soft, 0, 0.3, -0.135, 0.05, 0.56, 0.03, look.skin.fade(alpha))
+    else if h == roster.HEAD_SCARF do
+        # A long coat, open, a belt of pouches, a soul vial at the hip.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.11, 0.38, 0.14, 0.08, 0.42, 0.02, body.brightness(1.3), 0, 0, side * -10)
+            s3(rig.wedge, side * 0.1, -0.24, -0.12, 0.16, 0.5, 0.05, body, -8, 0, side * -4)
+            s3(rig.wedge, side * 0.17, -0.22, 0.06, 0.08, 0.44, 0.05, body, 6, 90 * side, 0)
+        end
+        s3(rig.soft, 0, 0.3, 0.13, 0.12, 0.44, 0.02, legs.brightness(1.4))
+        for k in 0..<2 do
+            s3(rig.soft, -0.17 + double(k) * 0.07, 0.03, 0.15, 0.06, 0.08, 0.05, leather)
+        end
+        s3(rig.drum, 0.17, -0.02, 0.12, 0.05, 0.1, 0.05, white.fade(0.6))
+        g3(rig.drum, 0.17, -0.03, 0.12, 0.035, 0.06, 0.035, accent)
+    else if h == roster.HEAD_RAVEN do
+        # A mantle of black feathers over the shoulders, layered, and a bone talisman.
+        for row in 0..<2 do
+            for k in 0..<9 do
+                var a = (double(k) / 8 - 0.5) * 3.6
+                var r = 0.22 - double(row) * 0.02
+                s3(rig.blade, math.sin(a) * r, 0.54 - double(row) * 0.12, math.cos(a) * r * 0.62, 0.08, 0.2, 0.02,
+                    body.brightness(1.0 + 0.15 * double((k + row) % 2)), 180 - 25, a * 180 / math.PI, 0)
+            end
+        end
+        s3(rig.orb, 0, 0.3, 0.14, 0.05, 0.07, 0.02, white)
+        g3(rig.orb, 0, 0.3, 0.15, 0.02, 0.02, 0.01, accent)
     end
+    return true
 end
 
-# Headgear drawn sculpted; false when this head has none yet (the boxes draw it instead).
-private function faceted_headgear(Rig rig, roster.Look look, double alpha) returns bool
+# Shoulders and upper arms (the shoulder at the origin, the arm hanging down -y; `side` is -1 for
+# the right arm, +1 for the left, so side * x is outward).
+private function faceted_upper_arm(Rig rig, roster.Look look, double side, double alpha)
     var body = look.body.fade(alpha)
     var trim = look.trim.fade(alpha)
     var accent = look.accent.fade(alpha)
     var metal = look.metal.fade(alpha)
     var dark = look.legs.brightness(0.55).fade(alpha)
-    if look.head == roster.HEAD_BAND do
-        # Cropped hair, a headband knotted behind, its two tails flying.
+    var h = look.head
+    var out = side
+    if look.weapon == roster.WEAPON_CANNON do
+        # Heavy pauldrons, stepped, bolted.
+        for k in 0..<3 do
+            s3(rig.soft, out * 0.03, 0.06 - double(k) * 0.07, 0, 0.26 - double(k) * 0.02, 0.09, 0.3 - double(k) * 0.02,
+                metal.brightness(1.0 - 0.08 * double(k)), 0, 0, out * -18)
+        end
+        s3(rig.orb, out * 0.12, 0.08, 0.1, 0.03, 0.03, 0.03, trim)
+        s3(rig.orb, out * 0.12, 0.08, -0.1, 0.03, 0.03, 0.03, trim)
+    else if h == roster.HEAD_SLICK do
+        # Pointed shoulders, as on an old opera coat.
+        s3(rig.soft, out * 0.03, 0.06, 0, 0.22, 0.06, 0.22, body, 0, 0, out * -14)
+        s3(rig.spike, out * 0.12, 0.08, 0, 0.06, 0.1, 0.12, body, 0, 0, out * -50)
+    else if h == roster.HEAD_BAND do
+        # Tape round the biceps.
+        s3(rig.drum, 0, -0.2, 0, 0.165, 0.04, 0.175, trim)
+    else if h == roster.HEAD_COBRA do
+        # Scales over the shoulder.
+        for k in 0..<3 do
+            s3(rig.spike, out * 0.03, 0.06 - double(k) * 0.06, 0.0, 0.2 - double(k) * 0.03, 0.08, 0.2 - double(k) * 0.03, trim.brightness(0.9 + 0.1 * double(k % 2)), 0, 45, 0)
+        end
+    else if h == roster.HEAD_PLUME do
+        # Puffed, slashed sleeves showing color beneath.
+        s3(rig.orb, 0, -0.06, 0, 0.21, 0.18, 0.21, body.brightness(1.1))
+        for k in 0..<4 do
+            var a = double(k) / 4 * 2 * math.PI
+            s3(rig.soft, math.sin(a) * 0.1, -0.06, math.cos(a) * 0.1, 0.02, 0.14, 0.03, accent, 0, a * 180 / math.PI, 0)
+        end
+    else if h == roster.HEAD_MASK do
+        if side > 0 do
+            # A lacquered guard on the left shoulder.
+            for k in 0..<3 do
+                s3(rig.soft, out * 0.04, 0.04 - double(k) * 0.07, 0, 0.22, 0.07, 0.24, dark.brightness(1.6 - 0.15 * double(k)), 0, 0, out * -24)
+            end
+            s3(rig.soft, out * 0.12, -0.08, 0, 0.012, 0.2, 0.02, accent, 0, 0, out * -24)
+        end
+    else if h == roster.HEAD_HOOD or h == roster.HEAD_MOURNER do
+        return
+    else if h == roster.HEAD_HEADSET do
+        # Big shoulder pads.
+        s3(rig.soft, out * 0.04, 0.05, 0, 0.26, 0.08, 0.24, body, 0, 0, out * -8)
+    else if h == roster.HEAD_CAP do
+        # A flag patch.
+        s3(rig.soft, out * 0.08, -0.1, 0, 0.012, 0.07, 0.1, accent.brightness(0.8))
+    else if h == roster.HEAD_HAZMAT do
+        s3(rig.drum, 0, -0.25, 0, 0.17, 0.035, 0.18, dark)
+    else if h == roster.HEAD_ROBOT do
+        # Plate shoulders and a piston down the arm.
+        s3(rig.soft, out * 0.03, 0.05, 0, 0.24, 0.1, 0.26, trim, 0, 0, out * -14)
+        for k in 0..<2 do
+            s3(rig.orb, out * 0.1, 0.06, -0.08 + double(k) * 0.16, 0.03, 0.03, 0.03, metal)
+        end
+        s3(rig.rod, out * 0.085, -0.16, 0, 0.035, 0.24, 0.035, metal.brightness(1.2))
+    else if h == roster.HEAD_VISOR do
+        s3(rig.orb, out * 0.02, 0.03, 0, 0.24, 0.16, 0.24, trim)
+        g3(rig.soft, out * 0.1, -0.12, 0, 0.012, 0.18, 0.03, metal)
+    else if h == roster.HEAD_EAGLE do
+        for k in 0..<4 do
+            s3(rig.blade, out * 0.06, 0.04 - double(k) * 0.02, -0.06 + double(k) * 0.04, 0.08, 0.18, 0.02, trim, 180, 0, out * -30)
+        end
+    else if h == roster.HEAD_CREST do
+        # Segmented shoulder plates.
+        for k in 0..<3 do
+            s3(rig.soft, out * (0.04 + double(k) * 0.015), 0.05 - double(k) * 0.065, 0, 0.22, 0.07, 0.27, metal.brightness(1.0 - 0.06 * double(k)), 0, 0, out * -22)
+        end
+    else if h == roster.HEAD_PONYTAIL do
+        # Crystal breaking out of the shoulder.
+        g3(rig.blade, out * 0.08, 0.1, 0, 0.07, 0.2, 0.06, accent.fade(0.9 * alpha), 0, 0, out * -40)
+        g3(rig.blade, out * 0.05, 0.08, -0.06, 0.05, 0.14, 0.05, accent.fade(0.9 * alpha), -20, 0, out * -15)
+        s3(rig.soft, out * 0.03, 0.04, 0, 0.2, 0.08, 0.22, look.metal.brightness(0.8).fade(alpha), 0, 0, out * -12)
+    else if h == roster.HEAD_MIRROR do
+        g3(rig.blade, out * 0.08, 0.1, 0.02, 0.06, 0.18, 0.02, metal.fade(0.75 * alpha), 0, 0, out * -35)
+    else if h == roster.HEAD_STITCHED do
+        s3(rig.soft, 0, -0.06, 0.08, 0.015, 0.14, 0.01, ap.Color(30, 20, 20).fade(alpha))
+    else if h == roster.HEAD_JESTER do
+        s3(rig.orb, 0, -0.04, 0, 0.2, 0.18, 0.2, accent if side < 0 else trim)
+    else if h == roster.HEAD_EXECUTIONER do
+        # A spiked leather pauldron on the right only.
+        if side < 0 do
+            s3(rig.soft, out * 0.04, 0.05, 0, 0.24, 0.08, 0.26, ap.Color(60, 40, 30).fade(alpha), 0, 0, out * -20)
+            for k in 0..<3 do
+                s3(rig.spike, out * 0.1, 0.1, -0.08 + double(k) * 0.08, 0.04, 0.08, 0.04, metal, 0, 0, out * -20)
+            end
+        end
+    else if h == roster.HEAD_GEARS do
+        if side < 0 do
+            s3(rig.soft, out * 0.03, 0.05, 0, 0.24, 0.09, 0.26, metal, 0, 0, out * -14)
+            s3(rig.gear, out * 0.1, 0.0, 0.0, 0.12, 0.03, 0.12, metal.brightness(0.8), 0, 0, out * -76)
+        end
+    else if h == roster.HEAD_HUNTRESS do
+        s3(rig.soft, out * 0.03, 0.04, 0, 0.2, 0.07, 0.22, ap.Color(84, 56, 38).fade(alpha), 0, 0, out * -14)
+    else if h == roster.HEAD_SHARK do
+        # Gold-fringed epaulettes.
+        s3(rig.soft, out * 0.03, 0.05, 0, 0.22, 0.05, 0.22, ap.Color(222, 178, 70).fade(alpha), 0, 0, out * -12)
+        for k in 0..<4 do
+            s3(rig.rod, out * 0.12, -0.0, -0.075 + double(k) * 0.05, 0.015, 0.07, 0.015, ap.Color(222, 178, 70).fade(alpha), 0, 0, out * -12)
+        end
+    else if h == roster.HEAD_CONDUCTOR do
+        s3(rig.soft, out * 0.03, 0.05, 0, 0.2, 0.04, 0.2, trim, 0, 0, out * -12)
+        for k in 0..<4 do
+            s3(rig.rod, out * 0.11, 0.0, -0.06 + double(k) * 0.04, 0.012, 0.06, 0.012, trim, 0, 0, out * -12)
+        end
+    else if h == roster.HEAD_STRONGMAN do
+        if side < 0 do
+            # A heart tattoo.
+            s3(rig.orb, out * 0.078, -0.13, 0.02, 0.012, 0.05, 0.05, accent)
+        end
+    else if h == roster.HEAD_CLOCK do
+        s3(rig.flare, 0, 0.03, 0, 0.22, 0.08, 0.22, metal, 180)
+    else if h == roster.HEAD_HOLLOW or h == roster.HEAD_WISP do
+        # Great layered pauldrons and a rondel.
+        for k in 0..<3 do
+            s3(rig.soft, out * (0.04 + double(k) * 0.02), 0.07 - double(k) * 0.075, 0, 0.27, 0.09, 0.3, metal.brightness(1.0 - 0.07 * double(k)), 0, 0, out * -26)
+        end
+        s3(rig.wedge, out * 0.02, 0.13, 0, 0.03, 0.08, 0.28, metal.brightness(1.1), 90, 0, out * -26)
+    else if h == roster.HEAD_RAVEN do
+        for k in 0..<3 do
+            s3(rig.blade, out * 0.06, 0.02, -0.05 + double(k) * 0.05, 0.08, 0.22, 0.02, body.brightness(1.1), 180, 0, out * -24)
+        end
+    else if h == roster.HEAD_PADLOCK do
+        s3(rig.soft, out * 0.03, 0.05, 0, 0.22, 0.08, 0.24, metal, 0, 0, out * -14)
+    end
+end
+
+# Forearms and hands (the elbow at the origin, the hand at y -0.28).
+private function faceted_forearm(Rig rig, roster.Look look, double side, double alpha)
+    var body = look.body.fade(alpha)
+    var trim = look.trim.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+    var leather = ap.Color(84, 56, 38).fade(alpha)
+    var h = look.head
+    if look.weapon == roster.WEAPON_CANNON do
+        s3(rig.flare, 0, -0.14, 0, 0.19, 0.18, 0.2, metal, 180)
+    else if h == roster.HEAD_SLICK or h == roster.HEAD_MAESTRO or h == roster.HEAD_TOPHAT do
+        # Lace (or a starched cuff) at the wrist.
+        s3(rig.flare, 0, -0.21, 0, 0.16, 0.05, 0.17, ap.Color(236, 234, 228).fade(alpha), 180)
+    else if h == roster.HEAD_BAND do
+        return
+    else if h == roster.HEAD_PLUME do
+        # Gauntlet cuffs.
+        s3(rig.flare, 0, -0.18, 0, 0.2, 0.12, 0.21, ap.Color(150, 110, 70).fade(alpha), 180)
+    else if h == roster.HEAD_MASK or h == roster.HEAD_TOPKNOT do
+        # Wrapped forearms.
+        for k in 0..<4 do
+            s3(rig.drum, 0, -0.06 - double(k) * 0.05, 0, 0.145, 0.03, 0.155, (accent.brightness(0.4) if h == roster.HEAD_MASK else trim), 0, 0, 8)
+        end
+    else if h == roster.HEAD_COWBOY or h == roster.HEAD_HUNTRESS do
+        s3(rig.drum, 0, -0.17, 0, 0.16, 0.14, 0.17, leather)
+    else if h == roster.HEAD_CAP do
+        s3(rig.soft, 0, -0.01, 0.05, 0.12, 0.08, 0.06, dark.brightness(1.4))
+        s3(rig.drum, 0, -0.2, 0, 0.15, 0.06, 0.16, dark)
+    else if h == roster.HEAD_HAZMAT or h == roster.HEAD_RESPIRATOR do
+        # Thick rubber gloves.
+        s3(rig.flare, 0, -0.21, 0, 0.17, 0.1, 0.18, (dark.brightness(1.6) if h == roster.HEAD_HAZMAT else ap.Color(60, 60, 56).fade(alpha)), 180)
+        s3(rig.soft, 0, -0.28, 0.005, 0.125, 0.14, 0.135, (dark.brightness(1.6) if h == roster.HEAD_HAZMAT else ap.Color(60, 60, 56).fade(alpha)))
+    else if h == roster.HEAD_ROBOT do
+        s3(rig.flare, 0, -0.16, 0, 0.17, 0.16, 0.18, metal.brightness(0.9), 180)
+        g3(rig.soft, side * 0.085, -0.15, 0, 0.01, 0.1, 0.03, accent)
+    else if h == roster.HEAD_VISOR do
+        s3(rig.flare, 0, -0.17, 0, 0.165, 0.14, 0.175, trim, 180)
+        g3(rig.drum, 0, -0.22, 0, 0.17, 0.012, 0.18, metal)
+    else if h == roster.HEAD_CREST or h == roster.HEAD_HOLLOW or h == roster.HEAD_WISP do
+        # Vambraces.
+        s3(rig.flare, 0, -0.15, 0, 0.17, 0.2, 0.18, metal, 180)
+        s3(rig.soft, 0, -0.28, 0.01, 0.12, 0.13, 0.135, metal.brightness(0.85))
+    else if h == roster.HEAD_PONYTAIL do
+        # Stone gauntlets, cracked and lit from within.
+        s3(rig.flare, 0, -0.17, 0, 0.18, 0.16, 0.19, look.metal.brightness(0.75).fade(alpha), 180)
+        g3(rig.soft, side * 0.088, -0.17, 0.02, 0.01, 0.1, 0.015, accent, 0, 0, 20)
+    else if h == roster.HEAD_EXECUTIONER do
+        # Spiked bracers.
+        s3(rig.drum, 0, -0.15, 0, 0.17, 0.16, 0.18, leather.brightness(0.8))
+        for k in 0..<3 do
+            s3(rig.spike, side * 0.09, -0.1 - double(k) * 0.05, 0, 0.04, 0.06, 0.04, metal, 0, 0, side * -90)
+        end
+    else if h == roster.HEAD_GEARS do
+        s3(rig.drum, 0, -0.2, 0, 0.15, 0.08, 0.16, leather)
+    else if h == roster.HEAD_PLAGUE do
+        # Long leather gauntlets.
+        s3(rig.flare, 0, -0.1, 0, 0.18, 0.2, 0.19, leather.brightness(0.7))
+        s3(rig.soft, 0, -0.28, 0.005, 0.12, 0.14, 0.13, leather.brightness(0.7))
+    else if h == roster.HEAD_SACK do
+        # Straw poking out of the cuffs.
+        for k in 0..<4 do
+            var a = double(k) / 4 * 2 * math.PI
+            s3(rig.blade, math.sin(a) * 0.06, -0.24, math.cos(a) * 0.06, 0.03, 0.1, 0.01, ap.Color(226, 196, 100).fade(alpha), 180 - 20, a * 180 / math.PI, 0)
+        end
+    else if h == roster.HEAD_STRONGMAN do
+        s3(rig.drum, 0, -0.2, 0, 0.15, 0.07, 0.16, ap.Color(84, 56, 38).brightness(0.6).fade(alpha))
+    else if h == roster.HEAD_PADLOCK do
+        # Shackles still on the wrists, the chains snapped.
+        s3(rig.drum, 0, -0.2, 0, 0.16, 0.06, 0.17, metal)
+        s3(rig.ring, side * 0.08, -0.22, 0, 0.05, 0.06, 0.05, metal, 0, 0, 90)
+    else if h == roster.HEAD_CAT do
+        s3(rig.soft, 0, -0.33, 0.04, 0.09, 0.03, 0.04, trim)
+    else if h == roster.HEAD_RAVEN or h == roster.HEAD_VEIL do
+        # Long black nails.
+        for k in 0..<3 do
+            s3(rig.blade, (double(k) - 1) * 0.035, -0.37, 0.04, 0.025, 0.08, 0.012, ap.Color(20, 18, 24).fade(alpha), 180)
+        end
+    end
+end
+
+# Thighs (the hip at the origin, the knee at y -0.4; `side` -1 is the right leg).
+private function faceted_thigh(Rig rig, roster.Look look, double side, double alpha)
+    var trim = look.trim.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var legs = look.legs.fade(alpha)
+    var h = look.head
+    if h == roster.HEAD_BAND do
+        # A stripe down the side of the trunks.
+        s3(rig.soft, side * 0.1, -0.16, 0, 0.012, 0.32, 0.06, accent)
+    else if h == roster.HEAD_CAP do
+        # A pouch on the thigh.
+        if side > 0 do
+            s3(rig.soft, side * 0.1, -0.18, 0.02, 0.05, 0.12, 0.12, legs.brightness(0.8))
+        end
+    else if look.weapon == roster.WEAPON_CANNON or h == roster.HEAD_HOLLOW or h == roster.HEAD_WISP do
+        # Tassets.
+        s3(rig.soft, side * 0.02, -0.08, 0.02, 0.22, 0.16, 0.24, metal.brightness(0.9), -6, 0, side * -6)
+    else if h == roster.HEAD_COWBOY do
+        # Chaps.
+        s3(rig.soft, side * 0.05, -0.2, 0.0, 0.15, 0.46, 0.24, ap.Color(120, 84, 54).fade(alpha))
+        for k in 0..<4 do
+            s3(rig.soft, side * 0.13, -0.08 - double(k) * 0.09, 0, 0.03, 0.04, 0.02, ap.Color(120, 84, 54).fade(alpha))
+        end
+    else if h == roster.HEAD_VISOR do
+        g3(rig.soft, side * 0.1, -0.2, 0, 0.01, 0.3, 0.025, metal)
+    else if h == roster.HEAD_HAZMAT do
+        s3(rig.soft, side * 0.1, -0.18, 0.02, 0.04, 0.1, 0.1, look.legs.brightness(0.5).fade(alpha))
+    end
+end
+
+# Shins and feet (the knee at the origin, the foot at y -0.365, the toe toward +z).
+private function faceted_shin(Rig rig, roster.Look look, double side, double alpha)
+    var trim = look.trim.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+    var leather = ap.Color(84, 56, 38).fade(alpha)
+    var h = look.head
+    if h == roster.HEAD_PLUME or h == roster.HEAD_HUNTRESS or h == roster.HEAD_SLICK or h == roster.HEAD_PLAGUE do
+        # Tall boots with turned-down cuffs.
+        s3(rig.flare, 0, -0.04, 0.0, 0.22, 0.1, 0.23, (leather if h != roster.HEAD_SLICK else dark.brightness(1.3)))
+        s3(rig.drum, 0, -0.2, 0, 0.185, 0.28, 0.2, dark)
+    else if h == roster.HEAD_COWBOY do
+        # Spurs that turn.
+        s3(rig.drum, 0, -0.36, -0.13, 0.03, 0.04, 0.03, metal, 90)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, -0.36, -0.17))
+        ap.rotate_3d((ap.time() * 120) % 360, AXIS_X)
+        s3(rig.gear, 0, 0, 0, 0.012, 0.08, 0.08, metal, 0, 0, 90)
+        ap.pop_3d()
+    else if h == roster.HEAD_CAP do
+        # Knee pads and laced boots.
+        s3(rig.soft, 0, 0.0, 0.09, 0.14, 0.13, 0.04, dark.brightness(1.3), -6)
+        s3(rig.drum, 0, -0.29, 0, 0.19, 0.07, 0.21, dark)
+    else if look.weapon == roster.WEAPON_CANNON or h == roster.HEAD_CREST or h == roster.HEAD_HOLLOW or h == roster.HEAD_WISP or
+            h == roster.HEAD_ROBOT do
+        # Greaves with a knee cop.
+        s3(rig.soft, 0, -0.16, 0.08, 0.16, 0.3, 0.05, metal)
+        s3(rig.orb, 0, 0.0, 0.09, 0.15, 0.13, 0.06, metal.brightness(1.1))
+        s3(rig.spike, 0, 0.04, 0.11, 0.04, 0.06, 0.03, metal.brightness(1.1), -20)
+    else if h == roster.HEAD_VISOR do
+        s3(rig.soft, 0, -0.16, 0.08, 0.14, 0.28, 0.04, trim)
+        g3(rig.soft, 0, -0.16, 0.103, 0.015, 0.22, 0.01, metal)
+    else if h == roster.HEAD_MASK or h == roster.HEAD_TOPKNOT do
+        # Wrapped shins.
+        for k in 0..<4 do
+            s3(rig.drum, 0, -0.1 - double(k) * 0.055, 0, 0.18, 0.03, 0.195, (accent.brightness(0.4) if h == roster.HEAD_MASK else trim), 0, 0, 8)
+        end
+    else if h == roster.HEAD_HAZMAT do
+        s3(rig.drum, 0, -0.27, 0, 0.19, 0.04, 0.2, dark)
+    else if h == roster.HEAD_VEIL do
+        # Tatters trailing below, where feet would be.
+        for k in 0..<3 do
+            s3(rig.blade, (double(k) - 1) * 0.05, -0.42, -0.02, 0.06, 0.2 + double(k % 2) * 0.08, 0.015, look.cape_color.fade(alpha), 180 - 15)
+        end
+    else if h == roster.HEAD_SACK do
+        for k in 0..<3 do
+            s3(rig.blade, (double(k) - 1) * 0.05, -0.27, 0.08, 0.03, 0.1, 0.01, ap.Color(226, 196, 100).fade(alpha), 180 - 25)
+        end
+    else if h == roster.HEAD_EXECUTIONER or h == roster.HEAD_STITCHED do
+        s3(rig.drum, 0, -0.27, 0, 0.19, 0.06, 0.2, leather.brightness(0.7))
+        s3(rig.orb, side * 0.09, -0.27, 0.04, 0.025, 0.04, 0.03, metal)
+    end
+end
+
+# Headgear drawn sculpted (head space: the chin at y 0.01, the crown at 0.31, the face toward +z,
+# the eyes at y 0.19); false when this head has none (the boxes draw it instead).
+private function faceted_headgear(Rig rig, roster.Look look, double alpha) returns bool
+    var body = look.body.fade(alpha)
+    var trim = look.trim.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var skin = look.skin.fade(alpha)
+    var eyes = look.eyes.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+    var cape = look.cape_color.fade(alpha)
+    var white = ap.Color(236, 234, 228).fade(alpha)
+    var gold = ap.Color(222, 178, 70).fade(alpha)
+    var ink = ap.Color(8, 6, 10).fade(alpha)
+    var now = ap.time()
+    var h = look.head
+    if h == roster.HEAD_SLICK do
+        # Hair slicked back to a widow's peak, fangs, and a towering collar lined in red.
+        var hair = ap.Color(18, 14, 22).fade(alpha)
+        s3(rig.orb, 0, 0.255, -0.02, 0.3, 0.16, 0.3, hair)
+        s3(rig.soft, 0, 0.18, -0.13, 0.29, 0.22, 0.06, hair)
+        s3(rig.spike, 0, 0.27, 0.13, 0.1, 0.09, 0.03, hair, 180)
+        for k in 0..<3 do
+            s3(rig.blade, -0.07 + double(k) * 0.07, 0.29, -0.09, 0.07, 0.18, 0.03, hair, -75)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.03, 0.065, 0.142, 0.022, 0.045, 0.012, white, 180)
+            s3(rig.soft, side * 0.165, 0.12, -0.06, 0.035, 0.36, 0.22, cape, 0, 0, side * -16)
+            s3(rig.soft, side * 0.148, 0.12, -0.05, 0.01, 0.3, 0.18, trim, 0, 0, side * -16)
+            s3(rig.spike, side * 0.215, 0.33, -0.06, 0.035, 0.12, 0.14, cape, 0, 0, side * -16)
+        end
+        s3(rig.soft, 0, 0.12, -0.185, 0.36, 0.36, 0.035, cape, -14)
+        s3(rig.soft, 0, 0.12, -0.165, 0.3, 0.3, 0.01, trim, -14)
+        return true
+    else if h == roster.HEAD_BAND do
+        # Cropped hair, a headband knotted behind, its two tails flying; a short beard.
         var hair = ap.Color(40, 26, 20).fade(alpha)
         shape(rig.orb, 0, 0.245, -0.012, 0.3, 0.19, 0.31, hair)
         shape(rig.soft, 0, 0.235, 0.0, 0.3, 0.055, 0.312, accent)
         shape(rig.orb, 0, 0.235, -0.16, 0.07, 0.06, 0.05, accent)
-        shape(rig.sleeve, 0.05, 0.16, -0.2, 0.05, 0.18, 0.025, accent, null, ap.Vec3(40, 0, -25))
-        shape(rig.sleeve, -0.03, 0.15, -0.22, 0.05, 0.2, 0.025, accent, null, ap.Vec3(55, 0, 15))
+        var flap = math.sin(now * 3.4) * 0.03
+        beam_yz(rig.soft, 0.03, 0.235, -0.17, 0.1 + flap, -0.33, 0.05, 0.02, accent)
+        beam_yz(rig.soft, -0.02, 0.225, -0.17, 0.06 - flap, -0.3, 0.05, 0.02, accent)
+        s3(rig.orb, 0, 0.05, 0.1, 0.22, 0.09, 0.08, hair.brightness(1.1))
+        s3(rig.soft, 0, 0.1, 0.142, 0.08, 0.02, 0.01, hair.brightness(1.1))
+        # A sticking plaster over one brow.
+        s3(rig.soft, -0.08, 0.25, 0.145, 0.05, 0.02, 0.01, white, 0, 0, 25)
         return true
-    else if look.head == roster.HEAD_CONDUCTOR do
+    else if h == roster.HEAD_COBRA do
+        # A great hood flared behind the head, spined at its rim and marked behind; fangs.
+        s3(rig.orb, 0, 0.255, -0.005, 0.29, 0.11, 0.29, body)
+        s3(rig.orb, 0, 0.2, -0.13, 0.64, 0.52, 0.06, body)
+        s3(rig.orb, 0, 0.2, -0.1, 0.5, 0.4, 0.02, trim)
+        for k in 0..<5 do
+            s3(rig.spike, 0, 0.38 - double(k) * 0.065, -0.09, 0.07 - double(k) * 0.006, 0.05, 0.02, body.brightness(0.8), -90)
+        end
+        for k in 0..<9 do
+            var a = (double(k) / 8 - 0.5) * 200 * math.PI / 180
+            s3(rig.spike, math.sin(a) * 0.31, 0.2 + math.cos(a) * 0.25, -0.13, 0.05, 0.08, 0.03, body.brightness(1.15), 0, 0, -a * 180 / math.PI)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.13, 0.24, -0.165, 0.11, 0.11, 0.02, trim)
+            s3(rig.orb, side * 0.13, 0.24, -0.172, 0.05, 0.05, 0.02, ink)
+            s3(rig.spike, side * 0.03, 0.06, 0.142, 0.02, 0.05, 0.012, white, 180)
+            # Scale ridges over the brows.
+            s3(rig.wedge, side * 0.07, 0.245, 0.135, 0.08, 0.025, 0.03, body, 0, 180, side * 12)
+        end
+        var flick = math.max(0.0, math.sin(now * 4)) * 0.04
+        s3(rig.soft, 0, 0.055, 0.15 + flick, 0.015, 0.008, 0.06, accent.brightness(0.8))
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.012, 0.055, 0.19 + flick, 0.012, 0.03, 0.008, accent.brightness(0.8), 90, side * 20, 0)
+        end
+        return true
+    else if h == roster.HEAD_PLUME do
+        # A cavalier's hat, brim cocked up on one side, a great plume; long locks; a moustache.
+        var hair = trim
+        s3(rig.soft, 0, 0.14, -0.14, 0.3, 0.26, 0.05, hair)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.15, 0.13, -0.04, 0.04, 0.26, 0.16, hair)
+            s3(rig.orb, side * 0.04, 0.09, 0.145, 0.07, 0.02, 0.02, hair, 0, 0, side * 18)
+            s3(rig.spike, side * 0.085, 0.105, 0.145, 0.02, 0.04, 0.015, hair, 0, 0, side * -60)
+        end
+        s3(rig.spike, 0, 0.025, 0.13, 0.03, 0.06, 0.02, hair, 180)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.32, 0))
+        ap.rotate_3d(-10, AXIS_Z)
+        s3(rig.drum, 0, 0, 0, 0.6, 0.025, 0.56, body, 0, 22.5, 0)
+        s3(rig.soft, 0.24, 0.07, 0, 0.12, 0.025, 0.4, body, 0, 0, 60)
+        s3(rig.flare, 0, 0.07, 0, 0.3, 0.13, 0.3, body)
+        s3(rig.drum, 0, 0.025, 0, 0.31, 0.035, 0.31, accent)
+        s3(rig.orb, 0.15, 0.05, 0.05, 0.05, 0.05, 0.02, gold, 0, 90, 0)
+        var sway = math.sin(now * 2.3) * 4
+        for k in 0..<4 do
+            s3(rig.blade, 0.13 - double(k) * 0.02, 0.17 + double(k) * 0.015, -0.05 - double(k) * 0.06, 0.1, 0.36 - double(k) * 0.05, 0.02,
+                (white if k % 2 == 1 else accent), -60 - double(k) * 8 + sway, 0, -10 + double(k) * 6)
+        end
+        ap.pop_3d()
+        return true
+    else if h == roster.HEAD_COWBOY do
+        # A hat with a pinched crown and a curled brim, a band of conchos, a bandana up.
+        var felt = body.brightness(0.7)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.31, 0.01))
+        ap.rotate_3d(6, AXIS_X)
+        s3(rig.drum, 0, 0, 0, 0.62, 0.025, 0.54, felt, 0, 22.5, 0)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.27, 0.04, 0, 0.1, 0.022, 0.44, felt, 0, 0, side * 40)
+        end
+        s3(rig.flare, 0, 0.08, 0, 0.3, 0.14, 0.3, felt, 0, 0, 0)
+        s3(rig.wedge, 0, 0.15, 0, 0.06, 0.26, 0.03, felt.brightness(0.75), 90, 0, 0)
+        s3(rig.drum, 0, 0.035, 0, 0.31, 0.035, 0.31, trim.brightness(0.7))
+        for k in 0..<5 do
+            var a = (double(k) / 4 - 0.5) * 2.2
+            s3(rig.orb, math.sin(a) * 0.155, 0.035, math.cos(a) * 0.155, 0.025, 0.025, 0.012, ap.Color(200, 200, 210).fade(alpha), 0, a * 180 / math.PI, 0)
+        end
+        ap.pop_3d()
+        s3(rig.soft, 0, 0.19, -0.13, 0.29, 0.22, 0.05, ap.Color(70, 46, 30).fade(alpha))
+        s3(rig.orb, 0, 0.07, 0.03, 0.31, 0.13, 0.3, trim)
+        s3(rig.spike, 0, 0.0, 0.14, 0.18, 0.12, 0.04, trim, 180 - 10)
+        s3(rig.orb, 0, 0.1, -0.15, 0.06, 0.05, 0.04, trim)
+        return true
+    else if h == roster.HEAD_MASK do
+        # A wrapped head, a mask with one burning slit, and a long scarf streaming behind.
+        s3(rig.orb, 0, 0.17, 0, 0.3, 0.34, 0.3, body)
+        s3(rig.soft, 0, 0.11, 0.08, 0.29, 0.14, 0.14, body.brightness(0.8))
+        s3(rig.soft, 0, 0.2, 0.145, 0.22, 0.05, 0.01, ink)
+        g3(rig.soft, 0, 0.2, 0.15, 0.2, 0.028, 0.01, eyes)
+        for k in 0..<3 do
+            s3(rig.soft, 0, 0.28 - double(k) * 0.025, -0.0, 0.305, 0.012, 0.305, body.brightness(0.75))
+        end
+        s3(rig.drum, 0, 0.02, 0, 0.34, 0.1, 0.34, trim)
+        for side in [-1.0, 1.0] do
+            var flap = math.sin(now * 3.1 + side) * 0.05
+            var x = side * 0.06
+            beam_yz(rig.soft, x, 0.03, -0.16, -0.04 + flap, -0.42, 0.08, 0.02, trim)
+            beam_yz(rig.soft, x, -0.04 + flap, -0.42, -0.2 + flap * 2, -0.62, 0.07, 0.02, trim)
+            beam_yz(rig.spike, x, -0.2 + flap * 2, -0.62, -0.26 + flap * 2, -0.7, 0.07, 0.02, trim)
+        end
+        return true
+    else if h == roster.HEAD_HELMET do
+        # A domed steel helmet, goggles on the brim, a chin strap; a stubble jaw.
+        s3(rig.orb, 0, 0.27, 0, 0.36, 0.22, 0.36, metal)
+        s3(rig.flare, 0, 0.2, -0.01, 0.4, 0.05, 0.38, metal.brightness(0.85), 180)
+        s3(rig.drum, 0, 0.36, 0, 0.12, 0.03, 0.12, metal.brightness(0.8))
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.065, 0.27, 0.16, 0.1, 0.05, 0.1, dark, 90)
+            g3(rig.drum, side * 0.065, 0.27, 0.19, 0.07, 0.01, 0.07, accent.fade(0.8 * alpha), 90)
+            s3(rig.soft, side * 0.155, 0.12, 0.02, 0.015, 0.18, 0.025, dark)
+        end
+        s3(rig.soft, 0, 0.27, 0.0, 0.34, 0.025, 0.34, dark)
+        s3(rig.soft, 0, 0.05, 0.1, 0.2, 0.06, 0.07, skin.brightness(0.62))
+        s3(rig.soft, -0.07, 0.13, 0.145, 0.015, 0.07, 0.01, skin.brightness(0.65), 0, 0, -20)
+        return true
+    else if h == roster.HEAD_HOOD do
+        # A deep hood, its point fallen back, the face lost in shadow but for the eyes.
+        s3(rig.orb, 0, 0.27, -0.02, 0.37, 0.2, 0.37, cape)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.17, 0.15, -0.01, 0.05, 0.34, 0.36, cape, 0, 0, side * 4)
+        end
+        s3(rig.soft, 0, 0.15, -0.18, 0.36, 0.34, 0.05, cape)
+        s3(rig.cone, 0, 0.32, -0.2, 0.2, 0.28, 0.16, cape, -110)
+        s3(rig.soft, 0, 0.3, 0.14, 0.3, 0.06, 0.03, cape.brightness(0.8))
+        s3(rig.soft, 0, 0.27, 0.142, 0.27, 0.05, 0.01, ink.fade(0.7 * alpha))
+        s3(rig.drum, 0, -0.0, 0.0, 0.38, 0.08, 0.36, cape)
+        return true
+    else if h == roster.HEAD_WIZARD do
+        # A tall hat bent at the tip, sewn with stars; brows like hedges; a beard to the belt.
+        var beard = white
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.31, -0.02))
+        s3(rig.drum, 0, 0.0, 0, 0.64, 0.025, 0.64, body)
+        s3(rig.drum, 0, 0.03, 0, 0.31, 0.04, 0.31, trim)
+        ap.rotate_3d(-6, AXIS_X)
+        s3(rig.taper, 0, 0.15, 0, 0.32, 0.3, 0.32, body)
+        g3(rig.orb, -0.07, 0.1, 0.13, 0.045, 0.055, 0.01, gold)
+        s3(rig.orb, -0.06, 0.105, 0.136, 0.035, 0.05, 0.01, body)
+        g3(rig.spike, 0.07, 0.17, 0.11, 0.045, 0.045, 0.01, accent.lerp(ap.WHITE, 0.3), 0, 0, 45)
+        g3(rig.spike, -0.02, 0.24, 0.095, 0.03, 0.03, 0.01, accent.lerp(ap.WHITE, 0.3), 0, 0, 45)
+        ap.translate_3d(ap.Vec3(0, 0.29, 0))
+        ap.rotate_3d(-24, AXIS_X)
+        s3(rig.taper, 0, 0.08, 0, 0.18, 0.17, 0.18, body)
+        ap.translate_3d(ap.Vec3(0, 0.16, 0))
+        ap.rotate_3d(-42 + math.sin(now * 1.5) * 6, AXIS_X)
+        s3(rig.cone, 0, 0.07, 0, 0.1, 0.16, 0.1, body)
+        g3(rig.spike, 0, 0.16, 0, 0.04, 0.05, 0.04, accent)
+        ap.pop_3d()
+        s3(rig.soft, 0, 0.2, -0.14, 0.3, 0.26, 0.04, beard)
+        for side in [-1.0, 1.0] do
+            s3(rig.wedge, side * 0.075, 0.245, 0.15, 0.09, 0.035, 0.03, beard, 0, 180, side * 18)
+            s3(rig.orb, side * 0.05, 0.085, 0.15, 0.09, 0.04, 0.04, beard, 0, 0, side * -12)
+            s3(rig.soft, side * 0.14, 0.12, 0.02, 0.04, 0.2, 0.18, beard)
+        end
+        s3(rig.cone, 0, -0.14, 0.12, 0.26, 0.44, 0.16, beard, 180 - 8)
+        s3(rig.cone, 0, -0.3, 0.14, 0.08, 0.16, 0.06, beard.brightness(0.9), 180 - 14)
+        return true
+    else if h == roster.HEAD_HEADSET do
+        # Big teased hair, bangs, a headset with a boom mic, and hoop earrings.
+        var hair = accent
+        s3(rig.orb, 0, 0.29, -0.04, 0.4, 0.24, 0.4, hair)
+        s3(rig.orb, 0, 0.16, -0.14, 0.4, 0.4, 0.16, hair)
+        s3(rig.orb, 0, 0.0, -0.15, 0.3, 0.18, 0.12, hair.brightness(0.9))
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.17, 0.16, -0.04, 0.12, 0.3, 0.24, hair)
+            s3(rig.orb, side * 0.19, 0.04, -0.08, 0.12, 0.16, 0.18, hair.brightness(0.95))
+        end
+        for k in 0..<4 do
+            s3(rig.blade, -0.1 + double(k) * 0.065, 0.265, 0.15, 0.08, 0.12, 0.03, hair.brightness(1.05 - 0.05 * double(k % 2)), 180 - 30, 0, double(k) * 8 - 12)
+        end
+        s3(rig.ring, 0, 0.18, 0, 0.36, 0.36, 0.36, dark, 0, 0, 90)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.175, 0.17, 0, 0.12, 0.05, 0.12, dark, 0, 0, 90)
+            s3(rig.drum, side * 0.2, 0.17, 0, 0.08, 0.02, 0.08, trim, 0, 0, 90)
+            s3(rig.ring, side * 0.15, 0.06, 0.02, 0.06, 0.06, 0.06, gold, 90, 0, 0)
+        end
+        beam_yz(rig.rod, -0.17, 0.12, 0.03, 0.06, 0.13, 0.015, 0.015, dark)
+        beam_xy(rig.rod, -0.17, 0.06, -0.05, 0.06, 0.13, 0.015, 0.015, dark)
+        g3(rig.orb, -0.04, 0.06, 0.135, 0.035, 0.035, 0.035, look.trim.lerp(ap.WHITE, 0.3).fade(alpha))
+        return true
+    else if h == roster.HEAD_CAP do
+        # A tactical cap with a patch, an earpiece, and a full, square beard.
+        var beard = ap.Color(40, 28, 20).fade(alpha)
+        s3(rig.orb, 0, 0.29, -0.01, 0.31, 0.14, 0.31, trim)
+        s3(rig.drum, 0, 0.255, 0, 0.3, 0.03, 0.3, trim.brightness(0.85))
+        s3(rig.soft, 0, 0.255, 0.19, 0.28, 0.025, 0.14, trim, -8)
+        s3(rig.soft, 0, 0.32, 0.135, 0.09, 0.05, 0.02, accent)
+        s3(rig.orb, 0, 0.36, 0, 0.04, 0.02, 0.04, trim.brightness(0.8))
+        s3(rig.soft, 0, 0.07, 0.1, 0.25, 0.12, 0.1, beard)
+        s3(rig.soft, 0, 0.03, 0.08, 0.17, 0.08, 0.1, beard)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.13, 0.13, 0.03, 0.03, 0.14, 0.14, beard)
+        end
+        s3(rig.soft, 0, 0.1, 0.15, 0.1, 0.025, 0.02, beard)
+        s3(rig.orb, -0.155, 0.16, 0.0, 0.03, 0.05, 0.04, dark)
+        beam_yz(rig.rod, -0.155, 0.13, 0.0, 0.0, -0.03, 0.01, 0.01, dark)
+        return true
+    else if h == roster.HEAD_BEANIE do
+        # A rolled beanie, a cloth up over the nose, a scar through one eye.
+        s3(rig.orb, 0, 0.29, -0.01, 0.31, 0.18, 0.31, trim)
+        s3(rig.drum, 0, 0.255, 0, 0.32, 0.06, 0.32, trim.brightness(0.75), 0, 22.5, 0)
+        for k in 0..<5 do
+            var a = double(k) / 5 * 2 * math.PI
+            s3(rig.soft, math.sin(a) * 0.12, 0.3, math.cos(a) * 0.12, 0.012, 0.08, 0.012, trim.brightness(0.85), 0, a * 180 / math.PI, 0)
+        end
+        s3(rig.orb, 0, 0.09, 0.03, 0.3, 0.15, 0.29, dark)
+        s3(rig.soft, 0, 0.08, 0.14, 0.2, 0.1, 0.02, dark.brightness(1.2))
+        s3(rig.spike, 0, 0.0, 0.11, 0.14, 0.1, 0.04, dark, 180)
+        s3(rig.soft, 0.07, 0.19, 0.152, 0.015, 0.12, 0.008, skin.brightness(0.6), 0, 0, -18)
+        return true
+    else if h == roster.HEAD_HAZMAT do
+        # A sealed hood, a wide lit faceplate in a rubber frame, twin filters, a light.
+        s3(rig.soft, 0, 0.17, -0.02, 0.34, 0.38, 0.33, body)
+        s3(rig.orb, 0, 0.33, -0.02, 0.32, 0.08, 0.31, body)
+        s3(rig.soft, 0, 0.2, 0.145, 0.27, 0.17, 0.02, dark)
+        g3(rig.soft, 0, 0.2, 0.152, 0.23, 0.13, 0.01, eyes)
+        g3(rig.soft, -0.06, 0.24, 0.158, 0.06, 0.02, 0.005, ap.WHITE.fade(0.6 * alpha), 0, 0, 20)
+        s3(rig.drum, 0, 0.05, 0.17, 0.1, 0.06, 0.1, metal, 90)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.09, 0.04, 0.15, 0.08, 0.06, 0.08, metal.brightness(0.8), 90, 0, side * -40)
+            s3(rig.drum, side * 0.11, 0.03, 0.19, 0.085, 0.015, 0.085, dark, 90, 0, side * -40)
+        end
+        s3(rig.drum, 0.15, 0.3, 0.06, 0.06, 0.06, 0.06, dark, 90)
+        g3(rig.orb, 0.15, 0.3, 0.095, 0.04, 0.04, 0.01, ap.Color(255, 250, 220).fade(alpha))
+        return true
+    else if h == roster.HEAD_CAT do
+        # Tall ears with pink insides, a muzzle and nose, whiskers, a fang showing.
+        var pink = ap.Color(230, 150, 160).fade(alpha)
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.09, 0.39, -0.01, 0.11, 0.17, 0.05, body, 0, 0, side * -14)
+            s3(rig.spike, side * 0.09, 0.38, 0.01, 0.06, 0.11, 0.02, pink, 0, 0, side * -14)
+            s3(rig.blade, side * 0.13, 0.36, -0.01, 0.03, 0.08, 0.015, trim, 0, 0, side * -40)
+            for k in 0..<3 do
+                beam_xy(rig.rod, side * 0.07, 0.095, side * 0.22, 0.12 - double(k) * 0.03, 0.165, 0.006, 0.006, white)
+            end
+        end
+        s3(rig.orb, 0, 0.1, 0.15, 0.15, 0.09, 0.05, trim)
+        s3(rig.spike, 0, 0.13, 0.18, 0.045, 0.03, 0.02, pink, 180)
+        s3(rig.spike, 0.03, 0.05, 0.165, 0.015, 0.035, 0.01, white, 180)
+        return true
+    else if h == roster.HEAD_ROBOT do
+        # A riveted head with a visor slot, ear bolts, a grille mouth, an aerial with a beacon.
+        s3(rig.soft, 0, 0.17, 0, 0.33, 0.33, 0.33, metal)
+        s3(rig.soft, 0, 0.345, 0, 0.27, 0.03, 0.27, metal.brightness(0.85))
+        s3(rig.soft, 0, 0.19, 0.16, 0.29, 0.11, 0.02, ink)
+        var scan = math.sin(now * 2.5) * 0.04
+        for side in [-1.0, 1.0] do
+            g3(rig.soft, side * 0.07 + scan, 0.19, 0.172, 0.07, 0.04, 0.01, eyes)
+            s3(rig.drum, side * 0.18, 0.17, 0, 0.1, 0.04, 0.1, trim, 0, 0, 90)
+            s3(rig.spike, side * 0.21, 0.17, 0, 0.05, 0.05, 0.05, trim.brightness(0.8), 0, 0, side * -90)
+            for k in 0..<2 do
+                s3(rig.orb, side * 0.13, 0.04 + double(k) * 0.26, 0.165, 0.02, 0.02, 0.01, trim)
+            end
+        end
+        for k in 0..<4 do
+            s3(rig.soft, -0.06 + double(k) * 0.04, 0.07, 0.165, 0.02, 0.05, 0.01, ink)
+        end
+        s3(rig.drum, 0.08, 0.37, 0, 0.05, 0.03, 0.05, trim)
+        s3(rig.rod, 0.08, 0.47, 0, 0.015, 0.18, 0.015, metal)
+        g3(rig.orb, 0.08, 0.57, 0, 0.05, 0.05, 0.05, accent.fade((0.6 + 0.4 * math.max(0.0, math.sin(now * 5))) * alpha))
+        return true
+    else if h == roster.HEAD_VISOR do
+        # A smooth helmet, a lit band for a face, a fin crest, lights at the ears.
+        s3(rig.orb, 0, 0.17, 0, 0.32, 0.36, 0.32, body)
+        s3(rig.soft, 0, 0.08, 0.08, 0.28, 0.14, 0.16, body.brightness(0.9))
+        s3(rig.soft, 0, 0.2, 0.15, 0.27, 0.07, 0.02, ink)
+        g3(rig.soft, 0, 0.2, 0.158, 0.25, 0.04, 0.01, eyes)
+        s3(rig.blade, 0, 0.34, -0.04, 0.025, 0.14, 0.3, trim, 0, 0, 0)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.16, 0.19, 0, 0.08, 0.03, 0.08, trim, 0, 0, 90)
+            g3(rig.drum, side * 0.175, 0.19, 0, 0.05, 0.01, 0.05, metal, 0, 0, 90)
+            s3(rig.wedge, side * 0.1, 0.12, 0.13, 0.03, 0.12, 0.03, body.brightness(0.8), 0, 0, side * 30)
+        end
+        return true
+    else if h == roster.HEAD_EAGLE do
+        # A cowl of white feathers swept back to points, a brow, a hooked golden beak.
+        s3(rig.orb, 0, 0.27, -0.01, 0.34, 0.16, 0.34, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.165, 0.18, -0.03, 0.04, 0.28, 0.3, trim)
+        end
+        s3(rig.soft, 0, 0.17, -0.17, 0.33, 0.34, 0.05, trim)
+        for k in 0..<5 do
+            var x = (double(k) - 2) * 0.06
+            s3(rig.blade, x, 0.06 - math.abs(double(k) - 2) * 0.03, -0.2, 0.08, 0.26, 0.025, trim.brightness(0.95 + 0.06 * double(k % 2)), 180 - 18, 0, x * 60)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.blade, side * 0.17, 0.04, -0.06, 0.06, 0.18, 0.02, trim, 180 - 10, side * 90, side * -10)
+        end
+        s3(rig.soft, 0, 0.245, 0.15, 0.28, 0.035, 0.03, dark)
+        for side in [-1.0, 1.0] do
+            s3(rig.wedge, side * 0.07, 0.23, 0.15, 0.1, 0.03, 0.03, dark, 0, 180, side * 14)
+        end
+        s3(rig.wedge, 0, 0.14, 0.2, 0.1, 0.1, 0.12, accent, 0, 180, 0)
+        beam_yz(rig.spike, 0, 0.16, 0.24, 0.07, 0.29, 0.06, 0.06, accent)
+        s3(rig.soft, 0, 0.1, 0.2, 0.08, 0.015, 0.1, accent.brightness(0.6))
+        return true
+    else if h == roster.HEAD_TV do
+        # An old set: a bevelled cabinet, a curved screen showing a face, dials, a speaker
+        # grille, rabbit ears with bright tips.
+        var casing = look.legs.brightness(0.8).fade(alpha)
+        s3(rig.soft, 0, 0.18, -0.01, 0.48, 0.38, 0.38, casing)
+        s3(rig.soft, 0, 0.18, 0.17, 0.42, 0.32, 0.03, casing.brightness(1.25))
+        s3(rig.soft, -0.04, 0.18, 0.185, 0.3, 0.26, 0.01, look.trim.brightness(0.3).fade(alpha))
+        g3(rig.orb, -0.04, 0.18, 0.19, 0.27, 0.22, 0.015, accent.brightness(0.55))
+        var blink = 0.2 if (now % 4.0) < 0.12 else 1.0
+        for side in [-1.0, 1.0] do
+            g3(rig.soft, -0.04 + side * 0.06, 0.21, 0.2, 0.05, 0.05 * blink, 0.01, eyes)
+        end
+        g3(rig.soft, -0.04, 0.12, 0.2, 0.1, 0.015, 0.01, eyes)
+        for k in 0..<5 do
+            g3(rig.soft, -0.04, 0.08 + double(k) * 0.05, 0.198, 0.26, 0.004, 0.005, ap.WHITE.fade(0.15 * alpha))
+        end
+        for k in 0..<2 do
+            s3(rig.drum, 0.17, 0.25 - double(k) * 0.08, 0.19, 0.05, 0.03, 0.05, trim, 90)
+        end
+        for k in 0..<3 do
+            s3(rig.soft, 0.17, 0.07 - double(k) * 0.02 + 0.02, 0.188, 0.06, 0.008, 0.005, ink)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.18, 0.0, 0.0, 0.05, 0.03, 0.05, casing.brightness(0.7))
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(side * 0.06, 0.37, -0.02))
+            ap.rotate_3d(side * -24 + math.sin(now * 1.7 + side) * 3, AXIS_Z)
+            s3(rig.orb, 0, 0, 0, 0.06, 0.04, 0.06, metal)
+            s3(rig.rod, 0, 0.17, 0, 0.015, 0.34, 0.015, metal)
+            g3(rig.orb, 0, 0.35, 0, 0.035, 0.035, 0.035, accent)
+            ap.pop_3d()
+        end
+        return true
+    else if h == roster.HEAD_TOPHAT do
+        # A silk top hat with a band, a gold monocle on its chain, a waxed moustache, chops.
+        var hair = ap.Color(150, 140, 130).fade(alpha)
+        s3(rig.drum, 0, 0.32, 0, 0.46, 0.025, 0.42, dark, 0, 22.5, 0)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.21, 0.335, 0, 0.06, 0.02, 0.3, dark, 0, 0, side * 30)
+        end
+        s3(rig.drum, 0, 0.5, 0, 0.27, 0.34, 0.27, dark)
+        s3(rig.drum, 0, 0.665, 0, 0.29, 0.02, 0.29, dark.brightness(1.3))
+        s3(rig.drum, 0, 0.375, 0, 0.28, 0.06, 0.28, trim)
+        s3(rig.ring, -0.07, 0.19, 0.15, 0.085, 0.085, 0.085, gold, 90, 0, 0)
+        g3(rig.orb, -0.07, 0.19, 0.152, 0.06, 0.06, 0.005, ap.WHITE.fade(0.3 * alpha))
+        for k in 0..<5 do
+            var t = double(k) / 4
+            s3(rig.orb, -0.11 - t * 0.04, 0.15 - t * 0.14, 0.14 - t * 0.02, 0.015, 0.015, 0.015, gold)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.05, 0.095, 0.15, 0.09, 0.035, 0.035, hair, 0, 0, side * -10)
+            s3(rig.spike, side * 0.105, 0.11, 0.145, 0.025, 0.06, 0.02, hair, 0, 0, side * -70)
+            s3(rig.soft, side * 0.14, 0.1, 0.06, 0.03, 0.14, 0.12, hair)
+        end
+        return true
+    else if h == roster.HEAD_GOGGLES do
+        # Hair blasted out in white spikes, brass goggles pushed up, soot on one cheek.
+        var hair = white
+        s3(rig.orb, 0, 0.28, -0.03, 0.31, 0.12, 0.3, hair)
+        for k in 0..<11 do
+            var a = (double(k) / 10 - 0.5) * 200
+            var r = a * math.PI / 180
+            s3(rig.blade, math.sin(r) * 0.16, 0.24 + math.cos(r) * 0.08, -0.06 - double(k % 3) * 0.03, 0.07, 0.18 + double(k % 3) * 0.04, 0.04,
+                hair.brightness(0.92 + 0.08 * double(k % 2)), -30, 0, -a * 0.9)
+        end
+        s3(rig.soft, 0, 0.16, -0.17, 0.3, 0.26, 0.06, hair)
+        s3(rig.soft, 0, 0.27, 0, 0.3, 0.035, 0.3, dark)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.07, 0.29, 0.15, 0.1, 0.05, 0.1, metal, 70)
+            g3(rig.drum, side * 0.07, 0.3, 0.175, 0.07, 0.01, 0.07, accent, 70)
+            s3(rig.wedge, side * 0.07, 0.23, 0.145, 0.08, 0.025, 0.03, hair, 0, 180, side * 16)
+        end
+        s3(rig.orb, 0.08, 0.12, 0.13, 0.06, 0.04, 0.02, ap.Color(50, 46, 44).fade(alpha))
+        return true
+    else if h == roster.HEAD_MIRROR do
+        # A frame of silver round a face of mirror, cracked across, a crown of shards.
+        s3(rig.soft, 0, 0.17, 0, 0.31, 0.34, 0.31, trim)
+        s3(rig.soft, 0, 0.17, 0.15, 0.29, 0.32, 0.02, trim.brightness(1.2))
+        g3(rig.soft, 0, 0.18, 0.162, 0.24, 0.27, 0.01, accent.brightness(0.8).fade(0.8 * alpha))
+        g3(rig.soft, -0.06, 0.24, 0.166, 0.05, 0.1, 0.005, ap.WHITE.fade(0.8 * alpha))
+        g3(rig.soft, 0.03, 0.15, 0.168, 0.008, 0.2, 0.004, ap.WHITE.fade(0.9 * alpha), 0, 0, 35)
+        g3(rig.soft, 0.06, 0.1, 0.168, 0.008, 0.1, 0.004, ap.WHITE.fade(0.9 * alpha), 0, 0, -30)
+        for k in 0..<5 do
+            var x = (double(k) - 2) * 0.06
+            g3(rig.blade, x, 0.38 + (0.04 if k % 2 == 0 else 0.0), -0.01, 0.05, 0.14 + (0.06 if k == 2 else 0.0), 0.02,
+                accent.brightness(0.8).fade(0.7 * alpha), 0, 0, -x * 120)
+        end
+        return true
+    else if h == roster.HEAD_PONYTAIL do
+        # A high ponytail swinging, a stone circlet with a lit gem, tight braids at the sides.
+        var hair = ap.Color(46, 30, 22).fade(alpha)
+        s3(rig.orb, 0, 0.26, -0.02, 0.3, 0.14, 0.3, hair)
+        s3(rig.soft, 0, 0.19, -0.13, 0.3, 0.26, 0.05, hair)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.145, 0.2, 0, 0.03, 0.2, 0.28, hair)
+        end
+        s3(rig.drum, 0, 0.27, 0, 0.31, 0.035, 0.31, metal)
+        s3(rig.spike, 0, 0.31, 0.155, 0.06, 0.07, 0.02, metal)
+        g3(rig.blade, 0, 0.29, 0.165, 0.035, 0.05, 0.015, accent)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.34, -0.16))
+        s3(rig.drum, 0, 0, 0, 0.08, 0.05, 0.08, metal, 60)
+        ap.rotate_3d(35 + math.sin(now * 2.6) * 10, AXIS_X)
+        s3(rig.orb, 0, -0.06, -0.03, 0.12, 0.14, 0.1, hair)
+        ap.translate_3d(ap.Vec3(0, -0.12, -0.04))
+        ap.rotate_3d(-25 + math.sin(now * 2.6 - 0.6) * 12, AXIS_X)
+        s3(rig.thigh, 0, -0.17, 0, 0.11, 0.36, 0.09, hair)
+        s3(rig.spike, 0, -0.41, 0, 0.08, 0.14, 0.07, hair, 180)
+        s3(rig.drum, 0, -0.02, 0, 0.09, 0.03, 0.09, metal)
+        ap.pop_3d()
+        return true
+    end
+    return faceted_headgear_2(rig, look, alpha)
+end
+
+# The rest of the heads (split only to keep each function a readable length).
+private function faceted_headgear_2(Rig rig, roster.Look look, double alpha) returns bool
+    var body = look.body.fade(alpha)
+    var trim = look.trim.fade(alpha)
+    var accent = look.accent.fade(alpha)
+    var metal = look.metal.fade(alpha)
+    var skin = look.skin.fade(alpha)
+    var eyes = look.eyes.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+    var cape = look.cape_color.fade(alpha)
+    var white = ap.Color(236, 234, 228).fade(alpha)
+    var gold = ap.Color(222, 178, 70).fade(alpha)
+    var ink = ap.Color(8, 6, 10).fade(alpha)
+    var leather = ap.Color(84, 56, 38).fade(alpha)
+    var now = ap.time()
+    var h = look.head
+    if h == roster.HEAD_VEIL do
+        # Long black hair falling past the shoulders, a thorned circlet, a torn veil behind.
+        var hair = cape
+        s3(rig.orb, 0, 0.26, -0.02, 0.31, 0.15, 0.31, hair)
+        s3(rig.soft, 0, 0.02, -0.15, 0.32, 0.6, 0.05, hair)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.15, 0.08, 0.0, 0.04, 0.44, 0.26, hair)
+            s3(rig.spike, side * 0.15, -0.2, 0.0, 0.04, 0.12, 0.24, hair, 180)
+        end
+        for k in 0..<4 do
+            s3(rig.spike, -0.13 + double(k) * 0.087, -0.32, -0.15, 0.07, 0.1 + double(k % 2) * 0.06, 0.04, hair, 180)
+        end
+        s3(rig.drum, 0, 0.3, 0, 0.32, 0.025, 0.32, metal.brightness(0.6))
+        for k in 0..<7 do
+            var a = double(k) / 7 * 2 * math.PI
+            s3(rig.spike, math.sin(a) * 0.16, 0.33, math.cos(a) * 0.16, 0.03, 0.06, 0.03, metal.brightness(0.6))
+        end
+        var veil = look.wing_color.fade(0.7 * alpha)
+        var drift = math.sin(now * 1.6) * 6
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.36, -0.06))
+        ap.rotate_3d(-12 + drift, AXIS_X)
+        s3(rig.soft, 0, -0.26, -0.15, 0.42, 0.52, 0.015, veil)
+        for k in 0..<5 do
+            s3(rig.spike, -0.17 + double(k) * 0.085, -0.56, -0.15, 0.08, 0.08 + double(k % 2) * 0.08, 0.015, veil, 180)
+        end
+        ap.pop_3d()
+        # Dark tear-tracks under the eyes.
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.07, 0.13, 0.141, 0.012, 0.08, 0.008, ink.fade(0.7 * alpha))
+        end
+        return true
+    else if h == roster.HEAD_CREST do
+        # A legionary's helm: a bowl, a brow ridge, hinged cheek guards, a neck guard, and a
+        # tall crest of bristles front to back.
+        s3(rig.orb, 0, 0.28, 0, 0.34, 0.2, 0.34, metal)
+        s3(rig.drum, 0, 0.23, 0, 0.35, 0.04, 0.35, metal.brightness(0.85))
+        s3(rig.wedge, 0, 0.255, 0.165, 0.28, 0.03, 0.03, gold, 0, 180, 0)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.16, 0.13, 0.05, 0.035, 0.2, 0.16, metal, 0, side * 8, 0)
+            s3(rig.orb, side * 0.177, 0.15, 0.06, 0.02, 0.025, 0.025, gold)
+        end
+        s3(rig.soft, 0, 0.14, -0.17, 0.33, 0.2, 0.04, metal, 15)
+        s3(rig.soft, 0, 0.06, -0.21, 0.34, 0.05, 0.08, metal.brightness(0.9), 15)
+        s3(rig.soft, 0, 0.37, -0.02, 0.05, 0.05, 0.24, metal.brightness(0.7))
+        for k in 0..<9 do
+            var a = (double(k) / 8 - 0.5) * 150 * math.PI / 180
+            s3(rig.blade, 0, 0.37 + math.cos(a) * 0.12, -0.02 + math.sin(a) * 0.19, 0.05, 0.16, 0.06,
+                accent.brightness(0.9 + 0.12 * double(k % 2)), a * 180 / math.PI)
+        end
+        return true
+    else if h == roster.HEAD_STITCHED do
+        # Grey and bald, sewn across the crown, bolts in the neck, the jaw hanging loose.
+        var thread = ap.Color(30, 20, 20).fade(alpha)
+        s3(rig.soft, 0, 0.32, -0.02, 0.012, 0.012, 0.3, thread)
+        for k in 0..<5 do
+            s3(rig.soft, 0, 0.315, -0.14 + double(k) * 0.065, 0.06, 0.012, 0.012, thread)
+        end
+        s3(rig.soft, -0.142, 0.2, 0.04, 0.012, 0.16, 0.012, thread)
+        for k in 0..<3 do
+            s3(rig.soft, -0.142, 0.14 + double(k) * 0.05, 0.04, 0.012, 0.012, 0.05, thread)
+        end
+        s3(rig.soft, 0.06, 0.26, 0.142, 0.1, 0.012, 0.012, thread, 0, 0, -25)
+        for k in 0..<3 do
+            s3(rig.soft, 0.03 + double(k) * 0.03, 0.258 + double(k) * -0.014, 0.142, 0.012, 0.04, 0.012, thread, 0, 0, -25)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.07, -0.02, 0, 0.05, 0.1, 0.05, metal, 0, 0, 90)
+            s3(rig.drum, side * 0.12, -0.02, 0, 0.08, 0.02, 0.08, metal.brightness(0.8), 0, 0, 90)
+            s3(rig.wedge, side * 0.07, 0.24, 0.142, 0.09, 0.03, 0.03, skin.brightness(0.7), 0, 180, side * 10)
+        end
+        s3(rig.soft, 0, 0.0, 0.07, 0.22, 0.08, 0.16, skin.brightness(0.8), 12)
+        s3(rig.soft, 0, 0.055, 0.148, 0.16, 0.05, 0.01, ap.Color(30, 20, 20).fade(alpha))
+        for k in 0..<4 do
+            s3(rig.soft, -0.05 + double(k) * 0.035, 0.035, 0.15, 0.022, 0.03, 0.01, ap.Color(220, 210, 180).fade(alpha))
+        end
+        return true
+    else if h == roster.HEAD_TOPKNOT do
+        # Hair in a topknot through a pin, a headband with streaming tails, a short beard.
+        var hair = ap.Color(30, 24, 22).fade(alpha)
+        s3(rig.orb, 0, 0.26, -0.02, 0.3, 0.14, 0.3, hair)
+        s3(rig.soft, 0, 0.19, -0.13, 0.3, 0.24, 0.05, hair)
+        s3(rig.orb, 0, 0.39, -0.04, 0.13, 0.13, 0.13, hair)
+        s3(rig.drum, 0, 0.33, -0.03, 0.07, 0.04, 0.07, trim)
+        s3(rig.rod, 0, 0.4, -0.04, 0.015, 0.24, 0.015, gold, 0, 0, 80)
+        s3(rig.drum, 0, 0.26, 0, 0.31, 0.05, 0.31, trim)
+        var flap = math.sin(now * 3) * 10
+        s3(rig.wedge, 0.05, 0.19, -0.2, 0.05, 0.2, 0.02, trim, 50 + flap, 0, -20)
+        s3(rig.wedge, -0.02, 0.17, -0.22, 0.05, 0.24, 0.02, trim, 65 - flap, 0, 12)
+        s3(rig.spike, 0, 0.02, 0.12, 0.08, 0.08, 0.04, hair, 180)
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.045, 0.09, 0.148, 0.06, 0.018, 0.02, hair, 0, 0, side * 20)
+        end
+        return true
+    else if h == roster.HEAD_PLAGUE do
+        # A long curved beak of pale leather, riveted, round lenses in brass rims, a wide hat.
+        var leather_dark = ap.Color(40, 36, 34).fade(alpha)
+        s3(rig.soft, 0, 0.16, 0.02, 0.3, 0.32, 0.29, leather_dark)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.13, 0.15))
+        ap.rotate_3d(100, AXIS_X)
+        s3(rig.flare, 0, 0.04, 0, 0.14, 0.1, 0.14, skin, 180)
+        ap.translate_3d(ap.Vec3(0, 0.08, 0))
+        ap.rotate_3d(8, AXIS_X)
+        s3(rig.cone, 0, 0.13, 0, 0.12, 0.28, 0.12, skin)
+        s3(rig.drum, 0, 0.0, 0, 0.13, 0.02, 0.13, leather)
+        ap.pop_3d()
+        for side in [-1.0, 1.0] do
+            s3(rig.ring, side * 0.075, 0.2, 0.15, 0.095, 0.095, 0.095, gold, 90, 0, 0)
+            g3(rig.orb, side * 0.075, 0.2, 0.152, 0.07, 0.07, 0.01, eyes.fade(0.8 * alpha))
+            s3(rig.soft, side * 0.15, 0.2, 0.06, 0.012, 0.035, 0.2, leather)
+        end
+        s3(rig.drum, 0, 0.32, 0, 0.7, 0.025, 0.66, dark, 0, 22.5, 0)
+        s3(rig.flare, 0, 0.41, 0, 0.32, 0.16, 0.32, dark, 180)
+        s3(rig.drum, 0, 0.35, 0, 0.33, 0.035, 0.33, leather)
+        s3(rig.soft, 0.165, 0.35, 0, 0.02, 0.04, 0.05, gold)
+        s3(rig.soft, 0, 0.08, -0.17, 0.34, 0.24, 0.04, leather_dark)
+        return true
+    else if h == roster.HEAD_JESTER do
+        # A two-horned cap curling to bells, a painted grin and diamond eyes, a collar of points.
+        s3(rig.orb, 0, 0.28, 0, 0.32, 0.14, 0.32, body)
+        s3(rig.drum, 0, 0.24, 0, 0.33, 0.035, 0.33, gold)
+        var jingle = math.sin(now * 5) * 5
+        for side in [-1.0, 1.0] do
+            var c = accent if side < 0 else trim
+            var other = trim if side < 0 else accent
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(side * 0.1, 0.32, 0))
+            ap.rotate_3d(side * -45, AXIS_Z)
+            s3(rig.thigh, 0, 0.12, 0, 0.11, 0.26, 0.11, c, 180)
+            ap.translate_3d(ap.Vec3(0, 0.24, 0))
+            ap.rotate_3d(side * -50 + jingle, AXIS_Z)
+            s3(rig.thigh, 0, 0.08, 0, 0.08, 0.18, 0.08, c, 180)
+            ap.translate_3d(ap.Vec3(0, 0.16, 0))
+            ap.rotate_3d(side * -60 + jingle, AXIS_Z)
+            s3(rig.cone, 0, 0.06, 0, 0.06, 0.12, 0.06, c)
+            s3(rig.orb, 0, 0.14, 0, 0.07, 0.07, 0.07, gold)
+            s3(rig.drum, 0, 0.115, 0, 0.04, 0.01, 0.04, dark)
+            ap.pop_3d()
+            s3(rig.soft, side * 0.07, 0.19, 0.142, 0.08, 0.08, 0.01, other.brightness(0.8), 0, 0, 45)
+            s3(rig.soft, side * 0.07, 0.12, 0.142, 0.015, 0.05, 0.01, other.brightness(0.8))
+        end
+        s3(rig.soft, 0, 0.07, 0.145, 0.16, 0.03, 0.01, accent.brightness(0.8))
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.08, 0.09, 0.145, 0.04, 0.03, 0.01, accent.brightness(0.8), 0, 0, side * 40)
+        end
+        s3(rig.orb, 0, 0.135, 0.17, 0.05, 0.05, 0.05, accent)
+        s3(rig.drum, 0, 0.0, 0, 0.36, 0.06, 0.34, trim)
+        return true
+    else if h == roster.HEAD_EXECUTIONER do
+        # A peaked black hood, two ragged eye holes with a glint, and a heavy leather mantle.
+        var hood = look.body.brightness(0.8).fade(alpha)
+        s3(rig.soft, 0, 0.17, 0, 0.32, 0.36, 0.32, hood)
+        s3(rig.cone, 0, 0.44, -0.03, 0.31, 0.26, 0.31, hood, -10)
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.07, 0.2, 0.162, 0.08, 0.06, 0.01, ink, 0, 0, side * 70)
+            g3(rig.orb, side * 0.07, 0.2, 0.166, 0.03, 0.02, 0.01, eyes.fade(0.7 * alpha))
+        end
+        for k in 0..<4 do
+            s3(rig.soft, -0.09 + double(k) * 0.06, 0.07, 0.162, 0.012, 0.08, 0.01, hood.brightness(0.7))
+        end
+        s3(rig.flare, 0, -0.04, 0, 0.44, 0.1, 0.4, hood, 180)
+        for k in 0..<8 do
+            var a = double(k) / 8 * 2 * math.PI
+            s3(rig.spike, math.sin(a) * 0.21, -0.11, math.cos(a) * 0.19, 0.08, 0.08, 0.03, hood, 180, a * 180 / math.PI, 0)
+        end
+        return true
+    else if h == roster.HEAD_GEARS do
+        # Brass from nose to crown on one side, riveted, a gear turning at the temple, a lens
+        # on a hinged arm over the other eye, a tuft of hair.
+        s3(rig.soft, 0.07, 0.17, 0.005, 0.15, 0.31, 0.29, metal)
+        s3(rig.soft, 0.07, 0.31, 0, 0.15, 0.03, 0.3, trim)
+        for k in 0..<4 do
+            s3(rig.orb, 0.146, 0.06 + double(k) * 0.07, 0.1, 0.02, 0.02, 0.02, trim)
+            s3(rig.orb, 0.02, 0.06 + double(k) * 0.07, 0.14, 0.02, 0.02, 0.012, trim)
+        end
+        g3(rig.orb, 0.07, 0.19, 0.145, 0.05, 0.05, 0.016, eyes)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0.155, 0.22, -0.03))
+        ap.rotate_3d((now * 80) % 360, AXIS_X)
+        s3(rig.gear, 0, 0, 0, 0.02, 0.16, 0.16, trim, 0, 0, 90)
+        ap.pop_3d()
+        s3(rig.rod, -0.1, 0.28, 0.08, 0.015, 0.16, 0.015, metal, 50)
+        s3(rig.drum, -0.07, 0.19, 0.17, 0.12, 0.04, 0.12, trim, 90)
+        g3(rig.orb, -0.07, 0.19, 0.19, 0.09, 0.09, 0.01, accent.fade(0.7 * alpha))
+        var hair = ap.Color(160, 150, 140).fade(alpha)
+        s3(rig.orb, -0.07, 0.28, -0.02, 0.15, 0.1, 0.28, hair)
+        for k in 0..<3 do
+            s3(rig.blade, -0.12 + double(k) * 0.04, 0.33, -0.04, 0.05, 0.12, 0.03, hair, -20, 0, 20 - double(k) * 15)
+        end
+        return true
+    else if h == roster.HEAD_SEER do
+        # A headscarf hung with coins, a painted third eye that opens, a veil over the mouth.
+        var cloth = body
+        s3(rig.orb, 0, 0.28, -0.01, 0.33, 0.16, 0.33, cloth)
+        s3(rig.soft, 0, 0.14, -0.15, 0.32, 0.36, 0.05, cloth)
+        s3(rig.drum, 0, 0.255, 0, 0.32, 0.04, 0.32, trim)
+        for k in 0..<9 do
+            var a = (double(k) / 8 - 0.5) * 3.4
+            s3(rig.drum, math.sin(a) * 0.165, 0.215, math.cos(a) * 0.165, 0.035, 0.008, 0.035, gold, 90, a * 180 / math.PI, 0)
+        end
+        var open = 0.5 + 0.5 * math.sin(now * 1.3)
+        s3(rig.orb, 0, 0.295, 0.15, 0.05, 0.07, 0.01, ink)
+        g3(rig.orb, 0, 0.295, 0.155, 0.03, 0.05 * open + 0.005, 0.01, accent)
+        s3(rig.soft, 0, 0.07, 0.15, 0.22, 0.12, 0.01, trim.fade(0.6 * alpha))
+        s3(rig.spike, 0, -0.01, 0.15, 0.22, 0.06, 0.01, trim.fade(0.6 * alpha), 180)
+        s3(rig.soft, 0, -0.04, -0.18, 0.06, 0.3, 0.06, cloth)
+        s3(rig.orb, 0, -0.2, -0.18, 0.05, 0.05, 0.05, gold)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.15, 0.1, 0.02, 0.04, 0.008, 0.04, gold, 0, 0, 90)
+        end
+        return true
+    else if h == roster.HEAD_MOURNER do
+        # A stovepipe hat as tall as a forearm, a crape band streaming behind; sunken eyes.
+        var hat = body
+        s3(rig.drum, 0, 0.32, 0, 0.46, 0.025, 0.42, hat, 0, 22.5, 0)
+        s3(rig.flare, 0, 0.57, 0, 0.26, 0.48, 0.26, hat)
+        s3(rig.drum, 0, 0.81, 0, 0.29, 0.02, 0.29, hat.brightness(1.3))
+        s3(rig.drum, 0, 0.4, 0, 0.27, 0.08, 0.27, trim)
+        var drift = math.sin(now * 1.8) * 8
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0.04, 0.4, -0.14))
+        ap.rotate_3d(20 + drift, AXIS_X)
+        s3(rig.soft, 0, -0.2, 0, 0.07, 0.4, 0.012, trim)
+        s3(rig.spike, 0, -0.43, 0, 0.07, 0.06, 0.012, trim, 180)
+        ap.pop_3d()
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.07, 0.19, 0.134, 0.08, 0.07, 0.016, skin.brightness(0.55))
+            s3(rig.soft, side * 0.06, 0.12, 0.138, 0.04, 0.012, 0.01, skin.brightness(0.75), 0, 0, side * 20)
+        end
+        s3(rig.drum, 0, 0.0, 0, 0.32, 0.05, 0.3, white)
+        return true
+    else if h == roster.HEAD_HUNTRESS do
+        # A wide hunting hat with a feather, a long braid tied off with a bead, a scar.
+        var hair = ap.Color(120, 70, 40).fade(alpha)
+        var felt = body.brightness(0.7)
+        s3(rig.soft, 0, 0.2, -0.13, 0.3, 0.28, 0.05, hair)
+        var swing = math.sin(now * 2.1) * 6
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.12, -0.17))
+        ap.rotate_3d(swing, AXIS_X)
+        for k in 0..<6 do
+            s3(rig.orb, (0.012 if k % 2 == 0 else -0.012), -double(k) * 0.07, -0.01, 0.07 - double(k) * 0.004, 0.09, 0.07 - double(k) * 0.004, hair, 0, 0, (20.0 if k % 2 == 0 else -20.0))
+        end
+        s3(rig.drum, 0, -0.43, -0.01, 0.05, 0.03, 0.05, leather)
+        s3(rig.orb, 0, -0.48, -0.01, 0.05, 0.05, 0.05, accent)
+        ap.pop_3d()
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.31, 0))
+        ap.rotate_3d(8, AXIS_Z)
+        s3(rig.drum, 0, 0, 0, 0.64, 0.025, 0.58, felt, 0, 22.5, 0)
+        s3(rig.flare, 0, 0.07, 0, 0.3, 0.12, 0.3, felt)
+        s3(rig.drum, 0, 0.03, 0, 0.31, 0.03, 0.31, trim)
+        s3(rig.blade, 0.14, 0.15, -0.08, 0.05, 0.24, 0.015, accent, -30, 0, -25)
+        s3(rig.rod, 0.14, 0.08, -0.06, 0.01, 0.1, 0.01, white, -30, 0, -25)
+        ap.pop_3d()
+        s3(rig.soft, 0.08, 0.15, 0.142, 0.012, 0.1, 0.008, skin.brightness(0.65), 0, 0, 25)
+        return true
+    else if h == roster.HEAD_SHARK do
+        # The hammer: a wide flat head tapering to an eye at each end, a dorsal fin, gills,
+        # rows of teeth, and a pirate's knotted scarf.
+        var grey = skin
+        s3(rig.soft, 0, 0.17, 0.02, 0.3, 0.3, 0.28, grey)
+        s3(rig.soft, 0, 0.25, 0.04, 0.42, 0.11, 0.24, grey)
+        for side in [-1.0, 1.0] do
+            s3(rig.wedge, side * 0.28, 0.25, 0.04, 0.12, 0.2, 0.09, grey, 0, 90, side * 90)
+            s3(rig.orb, side * 0.35, 0.25, 0.07, 0.06, 0.08, 0.08, grey.brightness(0.9))
+            g3(rig.orb, side * 0.375, 0.25, 0.08, 0.025, 0.05, 0.05, eyes.lerp(ap.WHITE, 0.2))
+            for k in 0..<3 do
+                s3(rig.soft, side * 0.15, 0.06 + double(k) * 0.035, -0.02 - double(k) * 0.01, 0.01, 0.012, 0.1, grey.brightness(0.6))
+            end
+        end
+        s3(rig.soft, 0, 0.2, 0.16, 0.26, 0.04, 0.02, grey.brightness(1.2))
+        s3(rig.soft, 0, 0.06, 0.14, 0.2, 0.05, 0.03, ink)
+        for k in 0..<6 do
+            s3(rig.spike, -0.075 + double(k) * 0.03, 0.075, 0.155, 0.022, 0.03, 0.01, white, 180)
+            s3(rig.spike, -0.075 + double(k) * 0.03, 0.045, 0.155, 0.022, 0.03, 0.01, white)
+        end
+        s3(rig.soft, 0, 0.0, 0.1, 0.24, 0.05, 0.14, grey.brightness(1.15))
+        s3(rig.blade, 0, 0.42, -0.08, 0.04, 0.26, 0.22, grey.brightness(0.85), -30)
+        s3(rig.drum, 0, 0.31, -0.01, 0.3, 0.05, 0.3, accent.brightness(0.6))
+        var flap = math.sin(now * 3) * 10
+        s3(rig.orb, 0.05, 0.27, -0.16, 0.06, 0.05, 0.05, accent.brightness(0.6))
+        s3(rig.wedge, 0.07, 0.2, -0.2, 0.05, 0.14, 0.02, accent.brightness(0.6), 35 + flap, 0, -15)
+        s3(rig.wedge, 0.03, 0.18, -0.21, 0.05, 0.17, 0.02, accent.brightness(0.6), 50 - flap, 0, 10)
+        return true
+    else if h == roster.HEAD_RESPIRATOR do
+        # A leather flying cap, round goggles with lit lenses, a snouted respirator with two
+        # filters and a valve.
+        s3(rig.orb, 0, 0.27, -0.01, 0.32, 0.16, 0.32, look.body.brightness(0.7).fade(alpha))
+        s3(rig.soft, 0, 0.16, -0.14, 0.31, 0.26, 0.05, look.body.brightness(0.7).fade(alpha))
+        for k in 0..<3 do
+            s3(rig.soft, 0, 0.1 + double(k) * 0.09, -0.168, 0.012, 0.05, 0.01, look.body.brightness(0.45).fade(alpha))
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.15, 0.13, 0.0, 0.035, 0.2, 0.16, look.body.brightness(0.7).fade(alpha))
+            s3(rig.drum, side * 0.075, 0.2, 0.155, 0.1, 0.05, 0.1, metal, 90)
+            s3(rig.ring, side * 0.075, 0.2, 0.18, 0.1, 0.1, 0.1, metal.brightness(1.2), 90, 0, 0)
+            g3(rig.drum, side * 0.075, 0.2, 0.18, 0.07, 0.01, 0.07, eyes.fade(0.8 * alpha), 90)
+            s3(rig.drum, side * 0.1, 0.05, 0.19, 0.08, 0.08, 0.08, dark, 90, 0, side * -35)
+            s3(rig.drum, side * 0.125, 0.05, 0.225, 0.09, 0.02, 0.09, metal, 90, 0, side * -35)
+        end
+        s3(rig.soft, 0, 0.21, 0.15, 0.3, 0.035, 0.02, dark)
+        s3(rig.flare, 0, 0.07, 0.19, 0.15, 0.12, 0.14, dark, 90)
+        s3(rig.drum, 0, 0.06, 0.25, 0.08, 0.04, 0.08, metal, 90)
+        g3(rig.orb, 0, 0.06, 0.27, 0.03, 0.03, 0.01, accent)
+        return true
+    else if h == roster.HEAD_SACK do
+        # Burlap tied at the neck, a stitched grin, mismatched glowing button eyes, straw
+        # sticking out, and a broken straw hat.
+        var sack = ap.Color(170, 140, 96).fade(alpha)
+        var straw = ap.Color(226, 196, 100).fade(alpha)
+        var thread = ap.Color(40, 30, 20).fade(alpha)
+        s3(rig.orb, 0, 0.17, 0, 0.32, 0.34, 0.32, sack)
+        s3(rig.soft, 0, 0.18, 0.13, 0.27, 0.26, 0.04, sack)
+        s3(rig.drum, 0, 0.0, 0, 0.22, 0.05, 0.22, look.trim.brightness(0.6).fade(alpha))
+        s3(rig.orb, 0.06, 0.0, 0.11, 0.05, 0.05, 0.04, look.trim.brightness(0.6).fade(alpha))
+        for k in 0..<8 do
+            var a = double(k) / 8 * 2 * math.PI
+            s3(rig.blade, math.sin(a) * 0.1, -0.04, math.cos(a) * 0.1, 0.03, 0.1, 0.01, straw, 180 + 30, a * 180 / math.PI, 0)
+        end
+        g3(rig.orb, -0.07, 0.2, 0.158, 0.07, 0.07, 0.01, eyes)
+        g3(rig.soft, 0.07, 0.2, 0.158, 0.06, 0.05, 0.01, eyes)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.07, 0.2, 0.164, 0.012, 0.012, 0.01, thread, 0, 0, 45)
+        end
+        s3(rig.soft, 0, 0.08, 0.158, 0.2, 0.015, 0.01, thread, 0, 0, 0)
+        for k in 0..<6 do
+            var x = -0.1 + double(k) * 0.04
+            s3(rig.soft, x, 0.08 + math.abs(x) * 0.25, 0.16, 0.008, 0.05, 0.01, thread)
+        end
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.33, 0))
+        ap.rotate_3d(-6, AXIS_Z)
+        s3(rig.drum, 0, 0, 0, 0.66, 0.025, 0.62, trim, 0, 22.5, 0)
+        s3(rig.flare, 0, 0.065, 0, 0.29, 0.11, 0.29, trim, 180)
+        s3(rig.drum, 0, 0.03, 0, 0.3, 0.03, 0.3, accent.brightness(0.6))
+        s3(rig.soft, 0.25, 0.0, 0.16, 0.14, 0.03, 0.14, sack.brightness(0.3), 0, 45, 0)
+        for k in 0..<9 do
+            var a = double(k) / 9 * 2 * math.PI
+            s3(rig.blade, math.sin(a) * 0.3, -0.01, math.cos(a) * 0.28, 0.03, 0.08, 0.01, straw, 90 + 20, a * 180 / math.PI, 0)
+        end
+        ap.pop_3d()
+        return true
+    else if h == roster.HEAD_CONDUCTOR do
         # The peaked cap: a stiff crown flaring to its top, a gold band and badge, a shiny peak,
         # and under it a thick moustache. Grey hair, cut short, shows at the back and sides.
         shape(rig.orb, 0, 0.2, -0.03, 0.295, 0.22, 0.27, ap.Color(120, 116, 110).fade(alpha))
@@ -2274,9 +4251,142 @@ private function faceted_headgear(Rig rig, roster.Look look, double alpha) retur
         for side in [-1.0, 1.0] do
             shape(rig.orb, side * 0.04, 0.09, 0.143, 0.085, 0.035, 0.04, stache, null, ap.Vec3(0, 0, side * -14))
             shape(rig.orb, side * 0.09, 0.1, 0.13, 0.035, 0.035, 0.035, stache)
+            s3(rig.soft, side * 0.14, 0.11, 0.05, 0.03, 0.12, 0.1, ap.Color(120, 116, 110).fade(alpha))
         end
         return true
-    else if look.head == roster.HEAD_PADLOCK do
+    else if h == roster.HEAD_STRONGMAN do
+        # Bald and shining, heavy brows, a great handlebar moustache with curled ends.
+        var stache = ap.Color(40, 26, 20).fade(alpha)
+        g3(rig.orb, -0.04, 0.3, 0.05, 0.08, 0.02, 0.06, skin.lerp(ap.WHITE, 0.5).fade(0.6 * alpha))
+        s3(rig.orb, 0, 0.09, 0.15, 0.16, 0.05, 0.04, stache)
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.11, 0.1, 0.145, 0.08, 0.04, 0.035, stache, 0, 0, side * 20)
+            s3(rig.ring, side * 0.145, 0.125, 0.14, 0.045, 0.045, 0.045, stache, 90, 0, 0)
+            s3(rig.wedge, side * 0.07, 0.24, 0.145, 0.09, 0.035, 0.03, stache, 0, 180, side * 12)
+            s3(rig.soft, side * 0.145, 0.16, -0.01, 0.025, 0.06, 0.06, skin.brightness(0.85))
+        end
+        s3(rig.soft, 0, 0.03, 0.12, 0.12, 0.04, 0.04, stache)
+        return true
+    else if h == roster.HEAD_CLOCK do
+        # A round brass clock: a rim, a cream face with bold hour marks, two hands keeping
+        # time, a lit center, the crown and bow on top, and the winding key turning behind.
+        var brass = metal
+        var cream = ap.Color(244, 236, 212).fade(alpha)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.2, 0))
+        s3(rig.drum, 0, 0, 0, 0.46, 0.2, 0.46, brass, 90, 0, 0)
+        s3(rig.ring, 0, 0, 0.1, 0.5, 0.5, 0.5, brass.brightness(1.15), 90, 0, 0)
+        s3(rig.drum, 0, 0, 0.1, 0.38, 0.02, 0.38, cream, 90, 0, 0)
+        s3(rig.ring, 0, 0, -0.1, 0.46, 0.46, 0.46, brass.brightness(0.8), 90, 0, 0)
+        for k in 0..<12 do
+            var a = double(k) * 30 * math.PI / 180
+            var big = k % 3 == 0
+            s3(rig.soft, math.sin(a) * 0.14, math.cos(a) * 0.14, 0.115, (0.04 if big else 0.025), (0.06 if big else 0.03), 0.012, ink, 0, 0, -double(k) * 30)
+        end
+        for hand in 0..<2 do
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(0, 0, 0.12))
+            ap.rotate_3d(-(now * (36.0 if hand == 0 else 3.0)) % 360, AXIS_Z)
+            var long = 0.13 if hand == 0 else 0.09
+            s3(rig.soft, 0, long / 2, 0, 0.02, long, 0.01, ink)
+            s3(rig.spike, 0, long + 0.015, 0, 0.04, 0.04, 0.01, ink)
+            ap.pop_3d()
+        end
+        g3(rig.orb, 0, 0, 0.13, 0.04, 0.04, 0.015, accent)
+        ap.pop_3d()
+        s3(rig.drum, 0, 0.45, 0, 0.07, 0.05, 0.07, brass)
+        s3(rig.orb, 0, 0.49, 0, 0.09, 0.04, 0.09, brass.brightness(0.8))
+        s3(rig.ring, 0, 0.56, 0, 0.12, 0.12, 0.12, brass, 90, 0, 0)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.2, -0.13))
+        ap.rotate_3d((now * 40) % 360, AXIS_Z)
+        s3(rig.rod, 0, 0, -0.03, 0.03, 0.08, 0.03, brass, 90)
+        s3(rig.soft, 0, 0, -0.08, 0.18, 0.05, 0.02, brass)
+        for side in [-1.0, 1.0] do
+            s3(rig.ring, side * 0.1, 0, -0.08, 0.1, 0.1, 0.1, brass, 90, 0, 0)
+        end
+        ap.pop_3d()
+        return true
+    else if h == roster.HEAD_MOTH do
+        # A furred head, two great dark eyes with a shine, and feathered antennae.
+        var fur = trim
+        s3(rig.orb, 0, 0.16, -0.01, 0.32, 0.34, 0.3, fur)
+        for k in 0..<10 do
+            var a = double(k) / 10 * 2 * math.PI
+            s3(rig.blade, math.sin(a) * 0.16, 0.0, math.cos(a) * 0.15, 0.09, 0.12, 0.03, fur.brightness(0.95 + 0.08 * double(k % 2)), 180 - 30, a * 180 / math.PI, 0)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.1, 0.19, 0.11, 0.14, 0.17, 0.1, eyes)
+            g3(rig.orb, side * 0.08, 0.23, 0.16, 0.03, 0.03, 0.01, ap.WHITE.fade(0.6 * alpha))
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(side * 0.06, 0.32, 0.06))
+            ap.rotate_3d(side * -28 + math.sin(now * 2 + side) * 5, AXIS_Z)
+            ap.rotate_3d(-20, AXIS_X)
+            s3(rig.rod, 0, 0.16, 0, 0.015, 0.32, 0.015, body)
+            for k in 0..<6 do
+                var long = 0.04 + math.sin(double(k + 1) / 7 * math.PI) * 0.06
+                s3(rig.blade, side * long / 2, 0.06 + double(k) * 0.045, 0, 0.012, long, 0.01, body, 0, 0, side * -80)
+                s3(rig.blade, -side * long / 2, 0.06 + double(k) * 0.045, 0, 0.012, long, 0.01, body, 0, 0, side * 80)
+            end
+            ap.pop_3d()
+        end
+        return true
+    else if h == roster.HEAD_HOLLOW do
+        # A dented great helm: a ridge down the face, a sight slit with a faint light behind,
+        # breaths punched in the cheek, a crown of rivets.
+        s3(rig.soft, 0, 0.18, 0, 0.34, 0.38, 0.34, metal)
+        s3(rig.flare, 0, 0.39, 0, 0.36, 0.05, 0.36, metal.brightness(0.85))
+        s3(rig.wedge, 0, 0.16, 0.17, 0.04, 0.34, 0.03, metal.brightness(1.15), 0, 180, 0)
+        s3(rig.soft, 0, 0.2, 0.172, 0.26, 0.035, 0.01, ink)
+        s3(rig.soft, 0, 0.13, 0.172, 0.035, 0.12, 0.01, ink)
+        for side in [-1.0, 1.0] do
+            g3(rig.soft, side * 0.05, 0.2, 0.176, 0.05, 0.02, 0.01, eyes.fade(0.6 * alpha))
+            for k in 0..<6 do
+                s3(rig.orb, side * (0.05 + double(k % 3) * 0.03), 0.06 + double(k // 3) * 0.04, 0.172, 0.014, 0.014, 0.01, ink)
+            end
+        end
+        for k in 0..<8 do
+            var a = double(k) / 8 * 2 * math.PI
+            s3(rig.orb, math.sin(a) * 0.17, 0.33, math.cos(a) * 0.17, 0.025, 0.025, 0.025, metal.brightness(1.2))
+        end
+        s3(rig.orb, 0.1, 0.3, 0.17, 0.07, 0.06, 0.02, metal.brightness(0.6))
+        s3(rig.soft, -0.12, 0.08, 0.17, 0.06, 0.008, 0.01, metal.brightness(0.5), 0, 0, 30)
+        return true
+    else if h == roster.HEAD_WISP do
+        # Where the head was: a cold flame in tongues, flickering, the helm's collar below it.
+        var flick = math.sin(now * 9) * 0.03
+        s3(rig.flare, 0, 0.0, 0, 0.3, 0.06, 0.3, metal.brightness(0.8))
+        g3(rig.orb, 0, 0.12, 0, 0.18, 0.2 + flick, 0.18, accent.fade(0.55 * alpha))
+        for k in 0..<5 do
+            var a = double(k) / 5 * 2 * math.PI + now * 1.5
+            var lick = math.sin(now * 7 + double(k) * 2) * 0.04
+            g3(rig.blade, math.sin(a) * 0.05, 0.22 + lick, math.cos(a) * 0.05, 0.07, 0.22 + lick * 2, 0.07,
+                accent.lerp(ap.WHITE, 0.2).fade(0.5 * alpha), math.cos(a) * 14, 0, -math.sin(a) * 14)
+        end
+        g3(rig.blade, 0, 0.26 + flick, 0, 0.07, 0.26, 0.07, ap.WHITE.lerp(accent, 0.4).fade(0.6 * alpha))
+        g3(rig.orb, 0, 0.42 + flick * 2, 0, 0.03, 0.05, 0.03, ap.WHITE.fade(0.4 * alpha))
+        return true
+    else if h == roster.HEAD_MAESTRO do
+        # A mane of white hair swept back by some great wind, a high collar, a goatee.
+        var hair = white
+        s3(rig.orb, 0, 0.28, -0.04, 0.32, 0.12, 0.32, hair)
+        s3(rig.soft, 0, 0.2, -0.16, 0.34, 0.3, 0.08, hair)
+        for k in 0..<7 do
+            var x = (double(k) - 3) * 0.055
+            s3(rig.blade, x, 0.27 + (0.03 if k % 2 == 0 else 0.0), -0.16, 0.07, 0.3 - math.abs(double(k) - 3) * 0.03, 0.04,
+                hair.brightness(0.92 + 0.08 * double(k % 2)), -100, 0, -x * 60)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.17, 0.19, -0.05, 0.06, 0.18, 0.2, hair)
+            s3(rig.blade, side * 0.2, 0.26, -0.15, 0.06, 0.2, 0.04, hair, -95, 0, side * -30)
+            s3(rig.soft, side * 0.11, 0.0, 0.02, 0.03, 0.16, 0.18, white, 0, 0, side * -18)
+            s3(rig.wedge, side * 0.075, 0.245, 0.145, 0.09, 0.03, 0.03, hair, 0, 180, side * 16)
+        end
+        s3(rig.spike, 0, 0.02, 0.13, 0.05, 0.08, 0.03, hair, 180)
+        s3(rig.soft, 0, -0.02, 0.12, 0.14, 0.05, 0.04, trim)
+        s3(rig.orb, 0, -0.02, 0.15, 0.05, 0.05, 0.02, accent)
+        return true
+    else if h == roster.HEAD_PADLOCK do
         # A padlock for a helmet: the body worked iron with a brass face, the shackle a half
         # ring over the crown, a keyhole for a visor with a light behind it.
         shape(rig.soft, 0, 0.15, 0, 0.35, 0.35, 0.33, metal)
@@ -2284,65 +4394,745 @@ private function faceted_headgear(Rig rig, roster.Look look, double alpha) retur
         for side in [-1.0, 1.0] do
             shape(rig.orb, side * 0.13, 0.27, 0.168, 0.025, 0.025, 0.012, metal.brightness(1.2))
             shape(rig.orb, side * 0.13, 0.03, 0.168, 0.025, 0.025, 0.012, metal.brightness(1.2))
+            s3(rig.soft, side * 0.178, 0.15, 0, 0.012, 0.3, 0.28, metal.brightness(0.85))
         end
         shape(rig.ring, 0, 0.33, 0, 0.27, 0.27, 0.27, metal.brightness(1.25), null, ap.Vec3(90, 0, 0))
         var hole = ap.Color(6, 6, 8).fade(alpha)
         shape(rig.orb, 0, 0.2, 0.17, 0.075, 0.075, 0.01, hole)
         shape(rig.soft, 0, 0.13, 0.17, 0.035, 0.11, 0.01, hole)
         glow_shape(rig.orb, 0, 0.2, 0.174, 0.03, 0.03, 0.01, look.eyes.fade(alpha))
+        for k in 0..<4 do
+            s3(rig.soft, -0.09 + double(k) * 0.06, 0.315, 0.172, 0.04, 0.01, 0.005, trim.brightness(0.7))
+        end
+        return true
+    else if h == roster.HEAD_SCARF do
+        # Messy dark hair falling over one eye, and a long scarf wound up over the mouth and
+        # nose, its two tails streaming behind.
+        var hair = ap.Color(34, 28, 30).fade(alpha)
+        s3(rig.orb, 0, 0.26, -0.02, 0.31, 0.16, 0.31, hair)
+        s3(rig.soft, 0, 0.18, -0.13, 0.3, 0.26, 0.06, hair)
+        # A fringe swept to one side, over the brow but not the eyes.
+        s3(rig.soft, -0.02, 0.29, 0.1, 0.3, 0.05, 0.1, hair)
+        for k in 0..<4 do
+            var x = -0.1 + double(k) * 0.06
+            s3(rig.blade, x, 0.265 - double(k) * 0.006, 0.135, 0.08, 0.09 - double(k) * 0.01, 0.03, hair.brightness(1.0 + 0.1 * double(k % 2)), 180 - 35, 0, 38)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.15, 0.16, -0.02, 0.03, 0.18, 0.22, hair)
+        end
+        # The scarf: wraps round the neck and up over the face below the eyes.
+        s3(rig.orb, 0, 0.085, 0.015, 0.34, 0.19, 0.35, trim)
+        s3(rig.drum, 0, 0.15, 0.012, 0.31, 0.04, 0.33, trim.brightness(1.15), 0, 22.5, 0)
+        s3(rig.soft, 0, 0.155, 0.15, 0.25, 0.05, 0.06, trim.brightness(1.1))
+        s3(rig.drum, 0, -0.01, 0.0, 0.36, 0.07, 0.36, trim.brightness(0.85), 0, 0, 6)
+        for k in 0..<3 do
+            s3(rig.soft, 0, 0.04 + double(k) * 0.04, 0.165, 0.24, 0.008, 0.01, trim.brightness(0.7))
+        end
+        s3(rig.orb, 0.1, 0.0, -0.15, 0.09, 0.08, 0.07, trim)
+        var flap = math.sin(now * 2.7) * 0.04
+        beam_yz(rig.soft, 0.11, 0.0, -0.16, -0.12 + flap, -0.4, 0.09, 0.025, trim)
+        beam_yz(rig.soft, 0.11, -0.12 + flap, -0.4, -0.3 + flap * 2, -0.58, 0.085, 0.025, trim.brightness(0.9))
+        beam_yz(rig.soft, 0.05, -0.02, -0.16, -0.2 - flap, -0.32, 0.08, 0.025, trim.brightness(0.9))
+        beam_yz(rig.soft, 0.05, -0.2 - flap, -0.32, -0.36 - flap, -0.44, 0.075, 0.025, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, side * 0.06, -0.38 - flap * (1 + side), -0.45 - 0.11 * (side + 1), 0.08, 0.04, 0.03, accent.brightness(0.7))
+        end
+        return true
+    else if h == roster.HEAD_SKULL do
+        # A bare skull: deep sockets with a cold light in them, a nose hole, a grin of teeth,
+        # and a crack across the crown.
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.065, 0.19, 0.135, 0.085, 0.085, 0.02, ink)
+            g3(rig.orb, side * 0.065, 0.19, 0.142, 0.03, 0.03, 0.01, eyes)
+            s3(rig.wedge, side * 0.065, 0.24, 0.14, 0.1, 0.03, 0.03, skin.brightness(1.1), 0, 180, side * 10)
+        end
+        s3(rig.spike, 0, 0.12, 0.142, 0.04, 0.05, 0.01, ink, 180)
+        s3(rig.soft, 0, 0.065, 0.135, 0.15, 0.05, 0.02, ink)
+        for k in 0..<5 do
+            s3(rig.soft, -0.06 + double(k) * 0.03, 0.065, 0.142, 0.022, 0.04, 0.01, skin.brightness(1.05))
+        end
+        s3(rig.soft, 0.04, 0.29, 0.06, 0.012, 0.012, 0.14, ink, 0, 30, 0)
+        return true
+    else if h == roster.HEAD_RAVEN do
+        # A hood of layered black feathers, a long black beak, eyes like coals, a crest.
+        var feathers = body
+        s3(rig.orb, 0, 0.18, 0, 0.34, 0.36, 0.34, feathers)
+        for row in 0..<3 do
+            for k in 0..<7 do
+                var a = (double(k) / 6 - 0.5) * 3.2
+                var r = 0.175
+                s3(rig.blade, math.sin(a) * r, 0.33 - double(row) * 0.12, math.cos(a) * r * 0.95 - 0.02, 0.07, 0.16, 0.02,
+                    feathers.brightness(1.0 + 0.15 * double((k + row) % 2)), 180 + 30, a * 180 / math.PI + 180, 0)
+            end
+        end
+        for k in 0..<5 do
+            s3(rig.blade, 0, 0.36 + double(k) * 0.015, -0.04 - double(k) * 0.05, 0.05, 0.18 + double(k % 2) * 0.05, 0.02, feathers.brightness(1.1), -40 - double(k) * 12)
+        end
+        s3(rig.soft, 0, 0.17, 0.155, 0.22, 0.22, 0.04, skin.brightness(0.9))
+        s3(rig.wedge, 0, 0.26, 0.17, 0.22, 0.04, 0.04, feathers, 0, 180, 0)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, 0.15, 0.17))
+        ap.rotate_3d(100, AXIS_X)
+        s3(rig.flare, 0, 0.04, 0, 0.1, 0.08, 0.08, ink, 180)
+        s3(rig.cone, 0, 0.17, 0, 0.08, 0.22, 0.06, ink)
+        ap.pop_3d()
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.065, 0.2, 0.176, 0.08, 0.06, 0.01, ink)
+            g3(rig.orb, side * 0.065, 0.2, 0.182, 0.045, 0.035, 0.01, eyes)
+        end
         return true
     end
     return false
 end
 
-# A weapon drawn sculpted, from the hand along -y; false when it has none yet.
+# A weapon drawn sculpted, from the hand along -y (+z is the side the knuckles face); false when
+# it has none (the boxes draw it).
 private function faceted_weapon(Rig rig, roster.Look look, bool right, double alpha) returns bool
     var metal = look.metal.fade(alpha)
     var accent = look.accent.fade(alpha)
     var trim = look.trim.fade(alpha)
+    var dark = look.legs.brightness(0.55).fade(alpha)
+    var legs = look.legs.fade(alpha)
+    var wood = ap.Color(96, 66, 42).fade(alpha)
+    var leather = ap.Color(70, 46, 32).fade(alpha)
+    var white = ap.Color(236, 234, 228).fade(alpha)
+    var gold = ap.Color(222, 178, 70).fade(alpha)
+    var ink = ap.Color(8, 6, 10).fade(alpha)
+    var lit = look.glowing_weapon
+    var now = ap.time()
     var w = look.weapon
-    if not right and w != roster.WEAPON_FISTS and w != roster.WEAPON_KEY do
-        # Most weapons are in the right hand only; the boxes leave the left empty too.
-        return false
+    var h = look.head
+    var both = w == roster.WEAPON_FISTS or w == roster.WEAPON_CLAWS or w == roster.WEAPON_CANNON or
+        w == roster.WEAPON_CARDS or w == roster.WEAPON_CLOCKBLADES or w == roster.WEAPON_FEATHERS or
+        w == roster.WEAPON_HANDS
+    if not right and not both and w != roster.WEAPON_KEY and w != roster.WEAPON_SHIELD and w != roster.WEAPON_VIOLIN and
+            w != roster.WEAPON_BIGAXE do
+        return true
     end
-    if w == roster.WEAPON_FISTS do
-        # Boxing gloves, laced at the cuff.
+    if w == roster.WEAPON_HANDS do
+        return true
+    else if w == roster.WEAPON_FISTS and h == roster.HEAD_ROBOT do
+        # Iron fists: knuckle plates, bolts, a lit seam.
+        s3(rig.soft, 0, -0.01, 0.01, 0.19, 0.2, 0.2, metal)
+        for k in 0..<4 do
+            s3(rig.soft, -0.06 + double(k) * 0.04, -0.1, 0.06, 0.035, 0.05, 0.08, metal.brightness(0.85))
+        end
+        s3(rig.drum, 0, 0.1, 0, 0.17, 0.06, 0.18, trim)
+        g3(rig.soft, 0, 0.04, 0.105, 0.12, 0.015, 0.01, accent)
+        return true
+    else if w == roster.WEAPON_FISTS and h == roster.HEAD_PONYTAIL do
+        # Fists in stone, cracked through with light.
+        s3(rig.orb, 0, -0.02, 0.01, 0.22, 0.22, 0.22, metal)
+        s3(rig.orb, 0.06, -0.08, 0.06, 0.1, 0.1, 0.1, metal.brightness(0.85))
+        s3(rig.orb, -0.06, 0.03, 0.06, 0.09, 0.09, 0.09, metal.brightness(1.1))
+        g3(rig.soft, 0, -0.02, 0.11, 0.015, 0.14, 0.01, accent, 0, 0, 25)
+        g3(rig.soft, 0.03, -0.05, 0.11, 0.012, 0.08, 0.01, accent, 0, 0, -40)
+        g3(rig.blade, -0.08, 0.02, 0.0, 0.04, 0.1, 0.04, accent, 0, 0, 50)
+        return true
+    else if w == roster.WEAPON_FISTS do
+        # Boxing gloves, laced at the cuff, the thumb tucked.
         shape(rig.soft, 0, -0.01, 0.015, 0.2, 0.21, 0.21, metal)
         shape(rig.orb, 0.07, 0.02, 0.07, 0.07, 0.1, 0.08, metal)
+        s3(rig.soft, 0, -0.06, 0.11, 0.14, 0.06, 0.02, metal.brightness(1.15))
         shape(rig.drum, 0, 0.1, 0, 0.165, 0.07, 0.175, trim)
+        for k in 0..<3 do
+            s3(rig.soft, 0, 0.08 + double(k) * 0.02, 0.09, 0.05, 0.008, 0.01, white)
+        end
+        return true
+    else if w == roster.WEAPON_CLAWS do
+        # Three long hooked blades over the knuckles, on a plate.
+        s3(rig.soft, 0, -0.02, 0.06, 0.13, 0.08, 0.03, metal.brightness(0.7))
+        for i in 0..<3 do
+            var x = (double(i) - 1) * 0.045
+            var long = 0.22 + (0.05 if i == 1 else 0.0)
+            beam_yz(rig.blade, x, -0.04, 0.06, -0.04 - long, 0.09, 0.025, 0.014, metal, lit)
+            s3(rig.spike, x, -0.06 - long, 0.11, 0.022, 0.06, 0.012, metal, 160)
+        end
+        return true
+    else if w == roster.WEAPON_CANNON do
+        # Armored gauntlets, the knuckles studded.
+        s3(rig.soft, 0, 0.02, 0, 0.23, 0.27, 0.24, metal)
+        s3(rig.flare, 0, -0.1, 0, 0.2, 0.08, 0.21, legs, 180)
+        for k in 0..<3 do
+            s3(rig.spike, -0.07 + double(k) * 0.07, -0.08, 0.12, 0.04, 0.06, 0.04, metal.brightness(1.2), 90)
+        end
+        return true
+    else if w == roster.WEAPON_DAGGER do
+        s3(rig.orb, 0, 0.08, 0, 0.05, 0.05, 0.05, gold)
+        s3(rig.rod, 0, 0.02, 0, 0.035, 0.1, 0.035, leather)
+        s3(rig.soft, 0, -0.04, 0, 0.16, 0.03, 0.05, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.09, -0.05, 0, 0.03, 0.05, 0.03, trim, 0, 0, side * 90)
+        end
+        if h == roster.HEAD_COBRA do
+            # A wavy kris, wet at the tip.
+            for k in 0..<4 do
+                var z0 = (0.015 if k % 2 == 0 else -0.015)
+                beam_yz(rig.soft, 0, -0.06 - double(k) * 0.1, -z0, -0.16 - double(k) * 0.1, z0, 0.02, 0.06 - double(k) * 0.006, metal, lit)
+            end
+            s3(rig.blade, 0, -0.5, 0, 0.02, 0.1, 0.04, metal, 180)
+            g3(rig.orb, 0, -0.52 - math.abs(math.sin(now * 2)) * 0.04, 0, 0.02, 0.03, 0.02, accent)
+        else do
+            # A cutpurse's knife with a sawback.
+            s3(rig.blade, 0, -0.27, 0, 0.022, 0.42, 0.07, metal, 180)
+            for k in 0..<4 do
+                s3(rig.spike, 0, -0.1 - double(k) * 0.05, -0.035, 0.015, 0.03, 0.02, metal, -90)
+            end
+            s3(rig.soft, 0, -0.2, 0.01, 0.024, 0.2, 0.01, metal.brightness(0.7))
+        end
+        return true
+    else if w == roster.WEAPON_RAPIER do
+        # A swept hilt: a cup, a knuckle bow, long quillons, a slender blade.
+        s3(rig.orb, 0, 0.1, 0, 0.06, 0.06, 0.06, trim)
+        s3(rig.rod, 0, 0.04, 0, 0.03, 0.12, 0.03, leather)
+        s3(rig.flare, 0, -0.07, 0, 0.15, 0.05, 0.15, trim, 180)
+        s3(rig.rod, 0, -0.04, 0, 0.3, 0.02, 0.02, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, side * 0.15, -0.04, 0, 0.035, 0.035, 0.035, trim)
+        end
+        s3(rig.ring, 0, 0.01, 0.05, 0.03, 0.16, 0.12, trim, 0, 0, 0)
+        s3(rig.blade, 0, -0.68, 0, 0.026, 1.18, 0.012, metal, 180)
+        return true
+    else if w == roster.WEAPON_GUN do
+        # A single-action revolver: an angled grip, the cylinder, a long barrel, a hammer.
+        s3(rig.soft, 0, 0.02, -0.05, 0.05, 0.12, 0.1, wood, -15)
+        s3(rig.soft, 0, -0.08, -0.02, 0.06, 0.08, 0.14, metal.brightness(0.8))
+        s3(rig.drum, 0, -0.1, 0.02, 0.09, 0.09, 0.09, metal, 0, 0, 0)
+        for k in 0..<3 do
+            s3(rig.orb, (double(k) - 1) * 0.03, -0.145, 0.02, 0.02, 0.01, 0.02, ink)
+        end
+        s3(rig.rod, 0, -0.27, 0.02, 0.04, 0.26, 0.045, metal)
+        s3(rig.rod, 0, -0.27, 0.05, 0.02, 0.24, 0.015, metal.brightness(0.8))
+        s3(rig.soft, 0, -0.39, 0.05, 0.01, 0.02, 0.025, metal)
+        s3(rig.spike, 0, -0.03, -0.09, 0.02, 0.05, 0.02, metal, -60)
+        s3(rig.ring, 0, -0.04, 0.06, 0.06, 0.06, 0.06, metal.brightness(0.8), 0, 0, 90)
+        return true
+    else if w == roster.WEAPON_REVOLVER do
+        # A long hand cannon with a fluted cylinder and a scope.
+        s3(rig.soft, 0, 0.02, -0.06, 0.06, 0.13, 0.17, look.body.fade(alpha), -15)
+        s3(rig.drum, 0, -0.12, 0, 0.13, 0.13, 0.13, metal)
+        for k in 0..<6 do
+            var a = double(k) / 6 * 2 * math.PI
+            s3(rig.soft, math.sin(a) * 0.065, -0.12, math.cos(a) * 0.065, 0.015, 0.11, 0.015, metal.brightness(0.7), 0, a * 180 / math.PI, 0)
+        end
+        s3(rig.rod, 0, -0.43, 0, 0.065, 0.5, 0.075, metal)
+        s3(rig.rod, 0, -0.43, 0.05, 0.03, 0.46, 0.02, metal.brightness(0.8))
+        s3(rig.drum, 0, -0.67, 0, 0.08, 0.03, 0.09, metal.brightness(0.8))
+        s3(rig.drum, 0, -0.3, 0.1, 0.045, 0.24, 0.045, ink)
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, 0, -0.3 + side * 0.12, 0.1, 0.055, 0.03, 0.055, metal)
+        end
+        g3(rig.drum, 0, -0.42, 0.1, 0.035, 0.008, 0.035, accent)
+        s3(rig.soft, 0, -0.12, 0.08, 0.03, 0.04, 0.04, metal)
+        return true
+    else if w == roster.WEAPON_KATANA do
+        # A wrapped hilt, a round guard, a long curved blade, lit along its edge.
+        s3(rig.rod, 0, 0.07, 0, 0.042, 0.24, 0.052, legs)
+        for k in 0..<5 do
+            s3(rig.spike, 0, 0.17 - double(k) * 0.045, 0.024, 0.03, 0.03, 0.01, trim, 0, 0, 45)
+        end
+        s3(rig.drum, 0, 0.19, 0, 0.05, 0.02, 0.06, trim)
+        s3(rig.drum, 0, -0.065, 0, 0.13, 0.018, 0.13, trim, 0, 22.5, 0)
+        s3(rig.soft, 0, -0.09, 0, 0.035, 0.03, 0.07, gold)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, -0.1, 0))
+        g3(rig.soft, 0, -0.27, 0, 0.026, 0.54, 0.07, metal)
+        ap.translate_3d(ap.Vec3(0, -0.54, 0))
+        ap.rotate_3d(-7, AXIS_X)
+        g3(rig.soft, 0, -0.22, 0, 0.026, 0.44, 0.066, metal)
+        g3(rig.blade, 0, -0.5, 0.0, 0.026, 0.14, 0.066, metal, 180)
+        if not ap.casting_shadows() do
+            g3(rig.soft, 0, -0.25, -0.036, 0.01, 0.5, 0.005, ap.WHITE.fade(0.8 * alpha))
+        end
+        ap.pop_3d()
+        return true
+    else if w == roster.WEAPON_CROOK do
+        # A long shepherd's crook, its hook a true curve, bound with cord, a bell at the turn.
+        s3(rig.rod, 0, -0.2, 0, 0.045, 1.8, 0.045, wood)
+        for k in 0..<3 do
+            s3(rig.drum, 0, 0.12 - double(k) * 0.03, 0, 0.055, 0.015, 0.055, ap.Color(170, 150, 110).fade(alpha))
+        end
+        var prev_y = -1.1
+        var prev_z = 0.0
+        for k in 1..<9 do
+            var t = double(k) / 8 * math.PI
+            var y = -1.1 - math.sin(t) * 0.13
+            var z = 0.13 - math.cos(t) * 0.13
+            beam_yz(rig.rod, 0, prev_y, prev_z, y, z, 0.045, 0.045, metal)
+            prev_y = y
+            prev_z = z
+        end
+        beam_yz(rig.rod, 0, prev_y, prev_z, -1.0, 0.27, 0.04, 0.04, metal)
+        s3(rig.cone, 0, -1.15, 0.01, 0.05, 0.06, 0.05, gold)
+        s3(rig.orb, 0, -1.19, 0.01, 0.02, 0.02, 0.02, ink)
+        return true
+    else if w == roster.WEAPON_STAFF do
+        # Gnarled wood, a band of runes, three prongs clasping the orb, motes circling it.
+        s3(rig.rod, 0, -0.2, 0, 0.05, 1.7, 0.05, metal)
+        for k in 0..<3 do
+            s3(rig.orb, (0.02 if k % 2 == 0 else -0.02), -0.3 - double(k) * 0.3, 0, 0.07, 0.06, 0.07, metal.brightness(0.85))
+        end
+        s3(rig.drum, 0, -0.98, 0, 0.09, 0.05, 0.09, trim)
+        for k in 0..<3 do
+            var a = double(k) / 3 * 2 * math.PI
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(0, -1.0, 0))
+            ap.rotate_3d(a * 180 / math.PI, AXIS_Y)
+            s3(rig.blade, 0, -0.15, 0.08, 0.04, 0.26, 0.02, metal, 180 + 20)
+            ap.pop_3d()
+        end
+        g3(rig.orb, 0, -1.18, 0, 0.2, 0.2, 0.2, accent)
+        g3(rig.orb, 0, -1.18, 0, 0.1, 0.1, 0.1, ap.WHITE.lerp(accent, 0.3).fade(alpha))
+        for k in 0..<3 do
+            var a = now * 2.5 + double(k) * 2.1
+            g3(rig.spike, math.sin(a) * 0.18, -1.18 + math.sin(a * 1.3) * 0.06, math.cos(a) * 0.18, 0.03, 0.03, 0.03, accent.lerp(ap.WHITE, 0.4))
+        end
+        return true
+    else if w == roster.WEAPON_PHONE do
+        # A heavy old handset and its curly cord, dangling and swinging.
+        s3(rig.rod, 0, -0.1, 0, 0.06, 0.28, 0.06, metal)
+        s3(rig.soft, 0, 0.04, 0.035, 0.09, 0.08, 0.11, metal)
+        s3(rig.soft, 0, -0.24, 0.035, 0.09, 0.08, 0.11, metal)
+        s3(rig.drum, 0, 0.04, 0.095, 0.07, 0.01, 0.07, metal.brightness(0.7), 90)
+        s3(rig.drum, 0, -0.24, 0.095, 0.07, 0.01, 0.07, metal.brightness(0.7), 90)
+        # The cord curls back from the mouthpiece along the arm.
+        var sway = math.sin(now * 2.4) * 0.02
+        for k in 0..<10 do
+            var t = double(k) / 9
+            s3(rig.ring, sway * t, -0.28 + t * 0.5, -0.08 - math.sin(t * math.PI) * 0.06, 0.05, 0.05, 0.05, trim, 10, 0, 0)
+        end
+        return true
+    else if w == roster.WEAPON_SHOTGUN do
+        # A breaching shotgun: twin barrels, a pump, a shell carrier, a stock.
+        s3(rig.soft, 0, 0.14, -0.04, 0.07, 0.3, 0.11, legs, 10)
+        s3(rig.soft, 0, -0.04, 0, 0.09, 0.14, 0.12, metal.brightness(0.7))
+        for k in 0..<4 do
+            s3(rig.drum, 0.05, 0.0 - double(k) * 0.03, 0.0, 0.025, 0.02, 0.03, accent.brightness(0.8), 0, 0, 90)
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.drum, side * 0.026, -0.44, 0, 0.05, 0.76, 0.05, metal)
+            s3(rig.drum, side * 0.026, -0.83, 0, 0.055, 0.02, 0.055, ink)
+        end
+        s3(rig.soft, 0, -0.3, 0.05, 0.1, 0.2, 0.05, legs)
+        for k in 0..<4 do
+            s3(rig.soft, 0, -0.22 - double(k) * 0.05, 0.078, 0.1, 0.012, 0.01, legs.brightness(0.6))
+        end
+        s3(rig.soft, 0, -0.6, -0.045, 0.06, 0.3, 0.02, metal.brightness(0.6))
+        s3(rig.spike, 0, -0.83, -0.04, 0.05, 0.05, 0.02, metal.brightness(0.6), 180)
+        return true
+    else if w == roster.WEAPON_DEVICE and h == roster.HEAD_TV do
+        # A remote control: rows of buttons, a red one, an aerial.
+        s3(rig.soft, 0, -0.1, 0.0, 0.08, 0.32, 0.05, dark)
+        for k in 0..<6 do
+            s3(rig.soft, -0.02 + double(k % 2) * 0.04, -0.06 - double(k // 2) * 0.05, 0.028, 0.025, 0.02, 0.01, trim)
+        end
+        g3(rig.orb, 0, -0.22, 0.028, 0.035, 0.035, 0.012, ap.Color(255, 60, 60).fade(alpha))
+        s3(rig.rod, 0, -0.32, 0, 0.012, 0.12, 0.012, metal)
+        g3(rig.orb, 0, -0.38, 0, 0.03, 0.03, 0.03, accent)
+        return true
+    else if w == roster.WEAPON_DEVICE do
+        # An emitter: a grip, coils round the barrel, cooling fins, a lit core.
+        s3(rig.soft, 0, 0.02, -0.03, 0.06, 0.12, 0.08, dark, -10)
+        s3(rig.drum, 0, -0.1, 0, 0.1, 0.18, 0.1, metal)
+        for k in 0..<3 do
+            s3(rig.ring, 0, -0.06 - double(k) * 0.06, 0, 0.13, 0.13, 0.13, gold)
+        end
+        for k in 0..<4 do
+            var a = double(k) * 90.0
+            ap.push_3d()
+            ap.rotate_3d(a + 45, AXIS_Y)
+            s3(rig.soft, 0.07, -0.12, 0, 0.04, 0.12, 0.01, metal.brightness(0.8))
+            ap.pop_3d()
+        end
+        for side in [-1.0, 1.0] do
+            s3(rig.blade, side * 0.04, -0.24, 0, 0.02, 0.12, 0.02, trim, 180, 0, side * 10)
+        end
+        var pulse = 1 + 0.15 * math.sin(now * 6)
+        g3(rig.orb, 0, -0.28, 0, 0.13 * pulse, 0.13 * pulse, 0.13 * pulse, accent)
+        g3(rig.orb, 0, -0.28, 0, 0.06, 0.06, 0.06, ap.WHITE.fade(alpha))
+        return true
+    else if w == roster.WEAPON_SABER do
+        # A machined hilt, ridged, an emitter shroud, a blade of light with a white core.
+        s3(rig.drum, 0, -0.02, 0, 0.055, 0.2, 0.055, legs)
+        for k in 0..<4 do
+            s3(rig.drum, 0, 0.06 - double(k) * 0.04, 0, 0.065, 0.012, 0.065, trim)
+        end
+        s3(rig.flare, 0, -0.13, 0, 0.075, 0.05, 0.075, trim, 180)
+        s3(rig.soft, 0.03, -0.0, 0, 0.02, 0.04, 0.02, look.accent.fade(alpha))
+        g3(rig.drum, 0, -0.64, 0, 0.05, 1.0, 0.05, metal)
+        g3(rig.drum, 0, -0.64, 0, 0.022, 1.02, 0.022, ap.WHITE.fade(alpha))
+        g3(rig.spike, 0, -1.16, 0, 0.05, 0.04, 0.05, metal, 180)
+        return true
+    else if w == roster.WEAPON_GREATSWORD do
+        # A two-hand grip, a crossguard with swept ends, a blade with a fuller, a pommel.
+        s3(rig.orb, 0, 0.27, 0, 0.07, 0.07, 0.07, trim)
+        s3(rig.rod, 0, 0.12, 0, 0.05, 0.28, 0.05, legs)
+        for k in 0..<4 do
+            s3(rig.drum, 0, 0.04 + double(k) * 0.06, 0, 0.056, 0.012, 0.056, trim.brightness(0.8))
+        end
+        s3(rig.soft, 0, -0.04, 0, 0.3, 0.05, 0.08, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.17, -0.02, 0, 0.05, 0.1, 0.06, trim, 0, 0, side * -60)
+        end
+        s3(rig.orb, 0, -0.04, 0.04, 0.05, 0.05, 0.02, accent)
+        s3(rig.soft, 0, -0.84, 0, 0.11, 1.56, 0.035, metal)
+        s3(rig.soft, 0, -0.78, 0, 0.025, 1.3, 0.04, metal.brightness(0.65))
+        s3(rig.blade, 0, -1.7, 0, 0.11, 0.2, 0.035, metal, 180)
+        return true
+    else if w == roster.WEAPON_SYRINGE do
+        # A plunger ring, a barrel marked off, something green inside, a long needle.
+        s3(rig.ring, 0, 0.15, 0, 0.1, 0.1, 0.1, trim, 0, 0, 90)
+        s3(rig.drum, 0, 0.1, 0, 0.12, 0.025, 0.12, trim)
+        s3(rig.rod, 0, 0.05, 0, 0.025, 0.1, 0.025, trim)
+        s3(rig.drum, 0, -0.14, 0, 0.11, 0.34, 0.11, metal.fade(0.45))
+        var level = 0.24 + 0.02 * math.sin(now * 3)
+        g3(rig.drum, 0, -0.29 + level / 2, 0, 0.075, level, 0.075, accent)
+        for k in 0..<5 do
+            s3(rig.soft, 0.056, -0.05 - double(k) * 0.05, 0, 0.004, 0.006, 0.03, ink)
+        end
+        s3(rig.flare, 0, -0.33, 0, 0.08, 0.04, 0.08, trim, 180)
+        s3(rig.drum, 0, 0.03, 0, 0.18, 0.015, 0.06, trim)
+        s3(rig.rod, 0, -0.47, 0, 0.012, 0.24, 0.012, white)
+        s3(rig.spike, 0, -0.6, 0, 0.012, 0.03, 0.012, white, 180)
+        return true
+    else if w == roster.WEAPON_CANE do
+        # Black lacquer, gold bands, a gold knob with a jewel, a steel ferrule.
+        s3(rig.rod, 0, -0.45, 0, 0.04, 0.98, 0.04, metal)
+        for k in 0..<2 do
+            s3(rig.drum, 0, -0.02 - double(k) * 0.04, 0, 0.05, 0.015, 0.05, trim)
+        end
+        s3(rig.orb, 0, 0.07, 0, 0.11, 0.1, 0.11, trim)
+        s3(rig.spike, 0, 0.13, 0, 0.05, 0.05, 0.05, trim)
+        g3(rig.orb, 0, 0.07, 0.055, 0.035, 0.035, 0.015, accent)
+        s3(rig.drum, 0, -0.93, 0, 0.05, 0.06, 0.05, white.brightness(0.8))
+        return true
+    else if w == roster.WEAPON_SHARD do
+        # A jagged blade of mirror glass, bound to a hilt with wire.
+        s3(rig.rod, 0, 0.05, 0, 0.05, 0.16, 0.05, legs)
+        for k in 0..<3 do
+            s3(rig.drum, 0, 0.0 + double(k) * 0.04, 0, 0.06, 0.01, 0.06, trim)
+        end
+        s3(rig.soft, 0, -0.05, 0, 0.18, 0.04, 0.07, trim)
+        g3(rig.blade, 0, -0.42, 0, 0.1, 0.72, 0.02, metal.fade(0.75), 180)
+        g3(rig.blade, 0.03, -0.62, 0.005, 0.07, 0.62, 0.02, metal.brightness(1.1).fade(0.7), 180, 0, 6)
+        g3(rig.blade, -0.04, -0.3, 0.005, 0.06, 0.4, 0.02, metal.brightness(0.9).fade(0.7), 180, 0, -8)
+        g3(rig.soft, 0.02, -0.5, 0.014, 0.012, 0.6, 0.004, ap.WHITE.fade(alpha), 0, 0, 3)
+        return true
+    else if w == roster.WEAPON_BIGAXE and not right do
+        # A hooked chain wound round the hand, swinging.
+        var swing = math.sin(now * 2.2) * 0.06
+        chain_yz(rig, 0, -0.04, 0, -0.62, swing, 7, 0.06, metal.brightness(0.8))
+        beam_yz(rig.blade, 0, -0.62, swing, -0.74, swing + 0.06, 0.03, 0.03, metal)
+        beam_yz(rig.blade, 0, -0.74, swing + 0.06, -0.66, swing + 0.15, 0.03, 0.03, metal)
+        s3(rig.spike, 0, -0.62, swing + 0.17, 0.035, 0.06, 0.03, metal)
+        return true
+    else if w == roster.WEAPON_BIGAXE do
+        # A haft as tall as a man, wrapped, two great bearded heads, a spike at the top.
+        s3(rig.rod, 0, -0.4, 0, 0.07, 1.4, 0.07, ap.Color(84, 60, 40).fade(alpha))
+        for k in 0..<3 do
+            s3(rig.drum, 0, 0.12 - double(k) * 0.08, 0, 0.08, 0.04, 0.08, leather)
+        end
+        s3(rig.soft, 0, -0.98, 0, 0.1, 0.3, 0.12, metal.brightness(0.8))
+        for side in [-1.0, 1.0] do
+            var far = 0.42 if side < 0 else 0.34
+            s3(rig.soft, 0, -0.98, side * far * 0.5, 0.05, 0.36, far * 0.6, metal)
+            s3(rig.wedge, 0, -0.98, side * (far + 0.02), 0.06, (0.72 if side < 0 else 0.5), 0.08, trim, 0, (0.0 if side < 0 else 180.0), 0)
+            s3(rig.spike, 0, -0.98 - (0.36 if side < 0 else 0.25), side * (far - 0.02), 0.05, 0.12, 0.06, trim, 180)
+            s3(rig.spike, 0, -0.98 + (0.36 if side < 0 else 0.25), side * (far - 0.02), 0.05, 0.12, 0.06, trim)
+        end
+        s3(rig.spike, 0, -1.25, 0, 0.07, 0.2, 0.07, metal, 180)
+        s3(rig.orb, 0, -0.98, 0.07, 0.04, 0.04, 0.01, ap.Color(140, 30, 30).fade(alpha))
+        return true
+    else if w == roster.WEAPON_BO do
+        # Held at the middle: a long staff, capped in iron, bound at the grip and in two places.
+        s3(rig.rod, 0, -0.1, 0, 0.05, 2.1, 0.05, metal)
+        for end_y in [0.95, -1.15] do
+            s3(rig.drum, 0, end_y, 0, 0.065, 0.1, 0.065, trim.brightness(0.6))
+            s3(rig.orb, 0, end_y + (0.06 if end_y > 0 else -0.06), 0, 0.06, 0.04, 0.06, trim.brightness(0.6))
+        end
+        s3(rig.drum, 0, 0.0, 0, 0.065, 0.18, 0.065, look.trim.brightness(0.7).fade(alpha))
+        for y in [0.55, -0.75] do
+            for k in 0..<3 do
+                s3(rig.drum, 0, y + double(k) * 0.025, 0, 0.058, 0.012, 0.058, trim)
+            end
+        end
+        return true
+    else if w == roster.WEAPON_SAW do
+        # A bone saw: a D-shaped grip, a tapering blade toothed along the leading edge.
+        s3(rig.soft, 0, 0.02, 0, 0.05, 0.18, 0.08, trim)
+        s3(rig.ring, 0, 0.04, 0.06, 0.03, 0.2, 0.1, trim, 0, 0, 0)
+        s3(rig.drum, 0, -0.08, -0.02, 0.06, 0.04, 0.14, metal.brightness(0.7), 90)
+        beam_yz(rig.soft, 0, -0.08, -0.06, -0.7, -0.06, 0.02, 0.2, metal)
+        beam_yz(rig.soft, 0, -0.08, 0.04, -0.7, -0.02, 0.025, 0.03, metal.brightness(0.8))
+        for k in 0..<9 do
+            s3(rig.spike, 0, -0.12 - double(k) * 0.065, -0.17, 0.02, 0.05, 0.05, metal.brightness(0.85), -90)
+        end
+        s3(rig.orb, 0, -0.35, -0.05, 0.022, 0.06, 0.06, ap.Color(120, 30, 30).fade(alpha))
+        s3(rig.orb, 0, -0.55, -0.1, 0.022, 0.04, 0.05, ap.Color(120, 30, 30).fade(alpha))
+        return true
+    else if w == roster.WEAPON_CARDS do
+        # A fan of cards between the fingers, each with its pip.
+        for k in 0..<4 do
+            ap.push_3d()
+            ap.translate_3d(ap.Vec3(0, -0.06, 0.03))
+            ap.rotate_3d((double(k) - 1.5) * 18, AXIS_X)
+            if lit do
+                g3(rig.soft, 0, -0.08, 0, 0.012, 0.17, 0.12, metal)
+            else do
+                s3(rig.soft, 0, -0.08, 0, 0.012, 0.17, 0.12, metal)
+            end
+            s3(rig.soft, 0.008, -0.08, 0, 0.004, 0.15, 0.1, metal.brightness(0.85))
+            var pip = accent if k % 2 == 0 else ink
+            s3(rig.spike, 0.012, -0.08, 0, 0.004, 0.05, 0.04, pip, 0, 0, 0)
+            s3(rig.spike, 0.012, -0.08, 0, 0.004, 0.05, 0.04, pip, 0, 0, 180)
+            ap.pop_3d()
+        end
+        return true
+    else if w == roster.WEAPON_FLAIL do
+        # A wrapped haft, a heavy chain, a ball studded with spikes.
+        s3(rig.rod, 0, -0.1, 0, 0.06, 0.36, 0.06, trim)
+        for k in 0..<4 do
+            s3(rig.drum, 0, 0.02 - double(k) * 0.05, 0, 0.07, 0.02, 0.07, leather)
+        end
+        s3(rig.drum, 0, -0.29, 0, 0.08, 0.04, 0.08, metal)
+        chain_yz(rig, 0, -0.3, 0, -0.66, 0, 5, 0.06, metal)
+        s3(rig.orb, 0, -0.78, 0, 0.26, 0.26, 0.26, metal.brightness(0.8))
+        for k in 0..<6 do
+            var a = double(k) * 60
+            s3(rig.spike, math.sin(a * math.PI / 180) * 0.14, -0.78, math.cos(a * math.PI / 180) * 0.14, 0.06, 0.1, 0.06, metal, 90, a, 0)
+        end
+        s3(rig.spike, 0, -0.92, 0, 0.06, 0.1, 0.06, metal, 180)
+        s3(rig.spike, 0, -0.64, 0, 0.06, 0.08, 0.06, metal)
+        return true
+    else if w == roster.WEAPON_GAUNTLET do
+        # A great mechanical fist: a cuff of pistons, a gear turning, a vent glowing, fingers.
+        s3(rig.drum, 0, 0.08, 0, 0.26, 0.3, 0.26, metal)
+        for k in 0..<3 do
+            var a = double(k) / 3 * 2 * math.PI + 0.5
+            s3(rig.rod, math.sin(a) * 0.14, 0.06, math.cos(a) * 0.14, 0.03, 0.26, 0.03, metal.brightness(1.25))
+        end
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0.14, 0.1, 0))
+        ap.rotate_3d((now * 120) % 360, AXIS_X)
+        s3(rig.gear, 0, 0, 0, 0.03, 0.18, 0.18, trim, 0, 0, 90)
+        ap.pop_3d()
+        s3(rig.soft, 0, -0.12, 0, 0.32, 0.22, 0.3, metal)
+        s3(rig.soft, 0, -0.12, 0.155, 0.24, 0.13, 0.02, trim)
+        g3(rig.soft, 0, -0.12, 0.168, 0.18, 0.06, 0.01, accent)
+        for k in 0..<4 do
+            var x = -0.105 + double(k) * 0.07
+            s3(rig.soft, x, -0.27, 0.05, 0.06, 0.1, 0.09, metal.brightness(0.8))
+            s3(rig.orb, x, -0.23, 0.1, 0.03, 0.03, 0.03, trim)
+        end
+        s3(rig.soft, 0.17, -0.16, 0.06, 0.06, 0.1, 0.09, metal.brightness(0.8), 0, 0, 30)
+        return true
+    else if w == roster.WEAPON_SCYTHE do
+        # A crooked snath with two grips, and a long blade sweeping round from the top.
+        var pole = ap.Color(60, 50, 40).fade(alpha)
+        s3(rig.rod, 0, -0.5, 0, 0.05, 1.3, 0.05, pole)
+        beam_yz(rig.rod, 0, 0.15, 0, 0.6, -0.06, 0.05, 0.05, pole)
+        s3(rig.rod, 0, 0.0, -0.08, 0.035, 0.035, 0.16, pole)
+        s3(rig.rod, 0, -0.7, -0.08, 0.035, 0.035, 0.16, pole)
+        s3(rig.drum, 0, -1.14, 0, 0.07, 0.06, 0.07, metal.brightness(0.6))
+        var prev_y = -1.14
+        var prev_z = 0.0
+        for k in 1..<8 do
+            var t = double(k) / 7
+            var y = -1.14 + math.sin(t * 1.6) * 0.16
+            var z = -t * 0.8
+            beam_yz(rig.blade, 0, prev_y, prev_z, y, z, 0.025, 0.14 - t * 0.09, metal)
+            prev_y = y
+            prev_z = z
+        end
+        s3(rig.spike, 0, prev_y + 0.03, prev_z - 0.02, 0.025, 0.08, 0.04, metal, -60)
+        s3(rig.soft, 0, -1.18, -0.38, 0.03, 0.02, 0.62, metal.brightness(1.25))
+        return true
+    else if w == roster.WEAPON_CROSSBOW or w == roster.WEAPON_KEY do
+        if w == roster.WEAPON_KEY and not right do
+            # An iron key as long as an arm: the ring of the bow, the shank, the bit, wards.
+            shape(rig.ring, 0, 0.1, 0, 0.22, 0.22, 0.22, metal, null, ap.Vec3(90, 0, 90))
+            s3(rig.orb, 0, 0.1, 0, 0.06, 0.06, 0.06, gold)
+            shape(rig.orb, 0, -0.03, 0, 0.07, 0.06, 0.07, metal)
+            shape(rig.rod, 0, -0.32, 0, 0.05, 0.56, 0.05, metal)
+            for k in 0..<2 do
+                s3(rig.drum, 0, -0.1 - double(k) * 0.06, 0, 0.065, 0.02, 0.065, metal.brightness(1.2))
+            end
+            shape(rig.soft, 0, -0.54, 0.06, 0.04, 0.12, 0.1, metal)
+            shape(rig.soft, 0, -0.5, 0.11, 0.04, 0.04, 0.04, metal)
+            s3(rig.soft, 0, -0.58, 0.11, 0.04, 0.04, 0.04, metal)
+            return true
+        end
+        # The crossbow: a wooden stock and tiller, a steel bow swept back, a cord, the latch,
+        # and (repeating) a box of bolts on top with a lever.
+        var stockwood = ap.Color(90, 64, 40).fade(alpha)
+        shape(rig.soft, 0, -0.06, -0.04, 0.065, 0.22, 0.11, trim)
+        shape(rig.soft, 0, -0.32, 0, 0.07, 0.52, 0.075, stockwood)
+        for side in [-1.0, 1.0] do
+            shape(rig.sleeve, side * 0.15, -0.49, -0.025, 0.045, 0.32, 0.05, metal, null, ap.Vec3(0, side * -14, side * 90))
+            s3(rig.spike, side * 0.31, -0.5, -0.06, 0.03, 0.06, 0.03, metal, 0, 0, side * -90)
+        end
+        shape(rig.rod, 0, -0.43, -0.06, 0.008, 0.56, 0.008, ap.Color(220, 220, 220).fade(alpha), null, ap.Vec3(0, 0, 90))
+        shape(rig.soft, 0, -0.18, 0.06, 0.08, 0.15, 0.06, metal.brightness(0.8))
+        s3(rig.blade, 0, -0.52, 0.055, 0.02, 0.16, 0.02, metal, 180)
+        if w == roster.WEAPON_CROSSBOW do
+            s3(rig.soft, 0, -0.3, 0.1, 0.08, 0.2, 0.1, stockwood.brightness(0.8))
+            for k in 0..<3 do
+                s3(rig.wedge, -0.025 + double(k) * 0.025, -0.2, 0.12, 0.012, 0.04, 0.03, accent)
+            end
+            s3(rig.rod, 0, -0.2, 0.18, 0.02, 0.2, 0.02, metal, 30)
+        end
+        return true
+    else if w == roster.WEAPON_CUTLASS do
+        # A brass basket guard, a curved and notched blade, rust along it.
+        s3(rig.orb, 0, 0.08, 0, 0.05, 0.05, 0.05, trim)
+        s3(rig.rod, 0, 0.02, 0, 0.035, 0.1, 0.035, leather)
+        s3(rig.orb, 0, -0.01, 0.04, 0.16, 0.16, 0.14, trim)
+        s3(rig.orb, 0, -0.01, 0.06, 0.12, 0.12, 0.1, ink)
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, -0.06, 0.02))
+        s3(rig.soft, 0, -0.2, 0, 0.03, 0.4, 0.09, metal)
+        ap.translate_3d(ap.Vec3(0, -0.4, 0))
+        ap.rotate_3d(-12, AXIS_X)
+        s3(rig.soft, 0, -0.16, 0, 0.03, 0.32, 0.1, metal)
+        s3(rig.blade, 0, -0.38, 0.02, 0.03, 0.14, 0.08, metal, 180, 0, 0)
+        s3(rig.orb, 0, -0.1, 0.03, 0.032, 0.06, 0.04, ap.Color(140, 70, 40).fade(alpha))
+        ap.pop_3d()
+        s3(rig.orb, 0, -0.2, 0.06, 0.032, 0.05, 0.03, ap.Color(140, 70, 40).fade(alpha))
+        s3(rig.spike, 0, -0.3, -0.03, 0.032, 0.03, 0.02, look.body.fade(alpha), -90)
+        return true
+    else if w == roster.WEAPON_LAUNCHER do
+        s3(rig.soft, 0, 0.02, -0.05, 0.07, 0.14, 0.12, trim)
+        s3(rig.drum, 0, -0.16, 0, 0.2, 0.2, 0.2, metal)
+        var brews = [ap.Color(130, 230, 60), ap.Color(255, 120, 40), ap.Color(140, 210, 255), ap.Color(255, 230, 80)]
+        for k in 0..<4 do
+            var a = double(k) * 90 * math.PI / 180
+            g3(rig.drum, math.cos(a) * 0.1, -0.16, math.sin(a) * 0.1, 0.05, 0.12, 0.05, brews[k].fade(alpha))
+        end
+        s3(rig.drum, 0, -0.4, 0, 0.11, 0.3, 0.11, metal.brightness(0.8))
+        s3(rig.drum, 0, -0.56, 0, 0.13, 0.04, 0.13, metal)
+        return true
+    else if w == roster.WEAPON_PITCHFORK do
+        # A long, knotted handle, an iron socket, three tines bent from use.
+        var handle = ap.Color(120, 90, 56).fade(alpha)
+        s3(rig.rod, 0, -0.25, 0, 0.05, 1.8, 0.05, handle)
+        for k in 0..<3 do
+            s3(rig.orb, 0.02, -0.2 - double(k) * 0.4, 0, 0.04, 0.05, 0.04, handle.brightness(0.8))
+        end
+        s3(rig.drum, 0, -1.12, 0, 0.07, 0.1, 0.07, metal.brightness(0.7))
+        s3(rig.soft, 0, -1.18, 0, 0.28, 0.04, 0.04, metal)
+        for k in 0..<3 do
+            var x = -0.12 + double(k) * 0.12
+            var bend = [8.0, -3.0, -12.0][k]
+            s3(rig.blade, x, -1.36, 0, 0.03, 0.36, 0.03, metal, 180 + bend, 0, 0)
+        end
         return true
     else if w == roster.WEAPON_LANTERN do
         # A railway lantern on a short pole: a hooped handle, a chimney, the glass, the base.
-        var wood = ap.Color(70, 50, 36).fade(alpha)
-        shape(rig.rod, 0, -0.18, 0, 0.04, 0.46, 0.04, wood)
+        var pole = ap.Color(70, 50, 36).fade(alpha)
+        shape(rig.rod, 0, -0.18, 0, 0.04, 0.46, 0.04, pole)
         shape(rig.ring, 0, -0.4, 0, 0.12, 0.12, 0.12, metal, null, ap.Vec3(90, 0, 0))
         shape(rig.flare, 0, -0.45, 0, 0.1, 0.05, 0.1, metal, null, ap.Vec3(180, 0, 0))
         shape(rig.drum, 0, -0.475, 0, 0.19, 0.03, 0.19, metal)
+        var flicker = 1 + 0.08 * math.sin(now * 11) + 0.05 * math.sin(now * 17)
         glow_shape(rig.drum, 0, -0.585, 0, 0.145, 0.2, 0.145, accent)
+        g3(rig.blade, 0, -0.6, 0, 0.05 * flicker, 0.1 * flicker, 0.05 * flicker, ap.WHITE.lerp(accent, 0.3).fade(alpha), 180)
         for k in 0..<4 do
             var a = (double(k) * 90 + 45) * math.PI / 180
             shape(rig.rod, math.cos(a) * 0.08, -0.585, math.sin(a) * 0.08, 0.018, 0.2, 0.018, metal)
         end
         shape(rig.drum, 0, -0.7, 0, 0.2, 0.04, 0.2, metal)
         return true
-    else if w == roster.WEAPON_KEY and not right do
-        # An iron key as long as an arm: the ring of the bow, the shank, the bit.
-        shape(rig.ring, 0, 0.1, 0, 0.22, 0.22, 0.22, metal, null, ap.Vec3(90, 0, 90))
-        shape(rig.orb, 0, -0.03, 0, 0.07, 0.06, 0.07, metal)
-        shape(rig.rod, 0, -0.32, 0, 0.05, 0.56, 0.05, metal)
-        shape(rig.soft, 0, -0.54, 0.06, 0.04, 0.12, 0.1, metal)
-        shape(rig.soft, 0, -0.5, 0.11, 0.04, 0.04, 0.04, metal)
-        return true
-    else if w == roster.WEAPON_KEY do
-        # The crossbow: a wooden stock and tiller, a steel bow swept back, a cord, the latch.
-        var wood = ap.Color(90, 64, 40).fade(alpha)
-        shape(rig.soft, 0, -0.06, -0.04, 0.065, 0.22, 0.11, trim)
-        shape(rig.soft, 0, -0.32, 0, 0.07, 0.52, 0.075, wood)
-        for side in [-1.0, 1.0] do
-            shape(rig.sleeve, side * 0.15, -0.49, -0.025, 0.045, 0.32, 0.05, metal, null, ap.Vec3(0, side * -14, side * 90))
+    else if w == roster.WEAPON_DUMBBELL do
+        # A knurled bar and two iron globes with bands, far too big.
+        s3(rig.rod, 0, -0.05, 0, 0.06, 0.7, 0.06, metal.brightness(1.4))
+        for k in 0..<4 do
+            s3(rig.drum, 0, -0.1 + double(k) * 0.035, 0, 0.065, 0.012, 0.065, metal.brightness(1.1))
         end
-        shape(rig.rod, 0, -0.43, -0.06, 0.008, 0.56, 0.008, ap.Color(220, 220, 220).fade(alpha), null, ap.Vec3(0, 0, 90))
-        shape(rig.soft, 0, -0.18, 0.06, 0.08, 0.15, 0.06, metal.brightness(0.8))
+        for side in [-1.0, 1.0] do
+            s3(rig.orb, 0, -0.05 + side * 0.38, 0, 0.34, 0.3, 0.34, metal)
+            s3(rig.drum, 0, -0.05 + side * 0.38, 0, 0.35, 0.05, 0.35, metal.brightness(0.75))
+            s3(rig.drum, 0, -0.05 + side * 0.24, 0, 0.12, 0.04, 0.12, metal.brightness(0.75))
+            s3(rig.soft, 0, -0.05 + side * 0.38, 0.175, 0.1, 0.06, 0.01, white)
+        end
+        return true
+    else if w == roster.WEAPON_CLOCKBLADES do
+        # A clock's hand for a blade, its arrow tip, a gear turning at the hilt.
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, -0.03, 0))
+        ap.rotate_3d((now * (60.0 if right else -60.0)) % 360, AXIS_Y)
+        s3(rig.gear, 0, 0, 0, 0.14, 0.04, 0.14, trim)
+        ap.pop_3d()
+        g3(rig.orb, 0, -0.03, 0, 0.04, 0.05, 0.04, accent)
+        s3(rig.soft, 0, -0.28, 0, 0.022, 0.44, 0.05, metal)
+        s3(rig.ring, 0, -0.32, 0, 0.022, 0.1, 0.1, metal, 0, 0, 90)
+        s3(rig.spike, 0, -0.55, 0, 0.022, 0.14, 0.13, metal, 180)
+        s3(rig.soft, 0, -0.12, 0, 0.022, 0.06, 0.09, metal.brightness(0.8))
+        return true
+    else if w == roster.WEAPON_FEATHERS do
+        # A fan of black feather blades, each edged with a thin line of light.
+        for k in 0..<4 do
+            ap.push_3d()
+            ap.rotate_3d((double(k) - 1.5) * 15, AXIS_X)
+            s3(rig.blade, 0, -0.25, 0, 0.012, 0.42, 0.07, metal, 180)
+            s3(rig.rod, 0, -0.18, 0, 0.008, 0.3, 0.008, metal.brightness(1.6))
+            g3(rig.blade, 0.008, -0.25, 0.03, 0.004, 0.4, 0.012, accent.fade(0.7 * alpha), 180)
+            ap.pop_3d()
+        end
+        s3(rig.drum, 0, -0.03, 0, 0.06, 0.06, 0.06, trim)
+        return true
+    else if w == roster.WEAPON_SHIELD and not right do
+        # The greatshield on the forearm: a heater's shape, a raised border, a boss, an old
+        # device in faded paint, scars.
+        ap.push_3d()
+        ap.translate_3d(ap.Vec3(0, -0.02, 0.1))
+        s3(rig.soft, 0, 0.08, 0, 0.56, 0.66, 0.06, metal)
+        s3(rig.spike, 0, -0.38, 0, 0.56, 0.28, 0.06, metal, 180)
+        s3(rig.soft, 0, 0.08, 0.035, 0.48, 0.58, 0.02, trim)
+        s3(rig.spike, 0, -0.32, 0.035, 0.48, 0.22, 0.02, trim, 180)
+        s3(rig.soft, 0, 0.0, 0.05, 0.06, 0.6, 0.01, look.cape_color.fade(alpha))
+        s3(rig.soft, 0, 0.18, 0.05, 0.4, 0.06, 0.01, look.cape_color.fade(alpha))
+        s3(rig.orb, 0, 0.05, 0.06, 0.12, 0.12, 0.06, accent.brightness(0.6))
+        s3(rig.spike, 0, 0.05, 0.09, 0.05, 0.06, 0.05, metal, 90)
+        s3(rig.soft, 0.12, -0.12, 0.05, 0.12, 0.012, 0.01, metal.brightness(0.6), 0, 0, 35)
+        s3(rig.soft, -0.15, 0.25, 0.05, 0.1, 0.012, 0.01, metal.brightness(0.6), 0, 0, -20)
+        ap.pop_3d()
+        return true
+    else if w == roster.WEAPON_SHIELD or w == roster.WEAPON_BROKEN do
+        # The sword snapped a hand's width past the guard, the break jagged.
+        s3(rig.orb, 0, 0.16, 0, 0.06, 0.06, 0.06, trim)
+        s3(rig.rod, 0, 0.06, 0, 0.04, 0.18, 0.05, legs)
+        s3(rig.soft, 0, -0.04, 0, 0.22, 0.045, 0.07, trim)
+        for side in [-1.0, 1.0] do
+            s3(rig.spike, side * 0.12, -0.03, 0, 0.04, 0.06, 0.05, trim, 0, 0, side * -90)
+        end
+        s3(rig.soft, 0, -0.27, 0, 0.03, 0.42, 0.08, metal)
+        s3(rig.spike, 0, -0.5, -0.02, 0.03, 0.08, 0.04, metal, 180)
+        s3(rig.spike, 0, -0.5, 0.025, 0.03, 0.05, 0.03, metal, 180)
+        return true
+    else if w == roster.WEAPON_VIOLIN and not right do
+        # The violin, held up toward the chin: two bouts, a waist, f-holes, the neck and
+        # its scroll, the strings.
+        var varnish = metal
+        s3(rig.orb, 0, -0.06, 0.08, 0.07, 0.17, 0.2, varnish)
+        s3(rig.orb, 0, -0.22, 0.08, 0.07, 0.13, 0.16, varnish)
+        s3(rig.soft, 0, -0.14, 0.08, 0.06, 0.06, 0.12, varnish)
+        for side in [-1.0, 1.0] do
+            s3(rig.soft, 0.036, -0.14, 0.08 + side * 0.04, 0.005, 0.06, 0.01, ink)
+        end
+        s3(rig.soft, 0.03, -0.05, 0.08, 0.02, 0.03, 0.08, ap.Color(30, 24, 20).fade(alpha))
+        s3(rig.soft, 0, -0.4, 0.08, 0.04, 0.22, 0.04, ap.Color(30, 24, 20).fade(alpha))
+        s3(rig.ring, 0, -0.53, 0.08, 0.05, 0.06, 0.06, varnish.brightness(0.8), 0, 0, 90)
+        for k in 0..<2 do
+            s3(rig.rod, 0, -0.5, 0.08 + (double(k) - 0.5) * 0.04, 0.08, 0.01, 0.01, ap.Color(30, 24, 20).fade(alpha))
+        end
+        s3(rig.soft, 0.033, -0.25, 0.08, 0.004, 0.44, 0.03, ap.Color(230, 230, 230).fade(alpha))
+        return true
+    else if w == roster.WEAPON_VIOLIN do
+        # The bow: a frog, a long stick, a ribbon of horsehair.
+        s3(rig.soft, 0, -0.04, 0, 0.04, 0.08, 0.05, trim)
+        s3(rig.rod, 0, -0.42, 0, 0.015, 0.76, 0.015, ap.Color(90, 60, 30).fade(alpha))
+        s3(rig.soft, 0, -0.42, 0.025, 0.012, 0.72, 0.005, ap.Color(240, 240, 230).fade(alpha))
+        s3(rig.soft, 0, -0.8, 0.012, 0.015, 0.03, 0.03, ap.Color(90, 60, 30).fade(alpha))
         return true
     end
     return false

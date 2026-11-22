@@ -1,0 +1,8 @@
+# playerversus_purgatory_ambience: part of the soundtrack of PLAYER VERSUS's PURGATORY mode (the
+# menu, the threshold, the dojos and exploring). It comes in as a dependency of
+# danny.playerversus_purgatory (the mode's code); its fight and boss tracks are in
+# playerversus_purgatory_fights. The tracks are the .ogg files in music/ (credits in
+# music/SOURCES.md); the game finds this package's folder itself (see its music.fw).
+
+# The folder inside this package that holds the tracks.
+const string MUSIC_FOLDER = "music"

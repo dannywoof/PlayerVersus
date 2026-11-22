@@ -30,6 +30,9 @@ const int ANIM_COUNTER = 17   # a still guard, then a stab
 const int ANIM_PLANT = 18     # kneeling to set something down
 const int ANIM_FOCUS = 19     # arms pulled in, then flung down: powering up
 const int ANIM_TWIRL = 20     # the gun spun in the hand; set off, it snaps level and fires
+const int ANIM_KICK = 21      # a low kick: the leg drawn back, then swept in at the shins
+const int ANIM_HIGH_KICK = 22 # the knee chambered, then the leg snapped up to head height
+const int ANIM_KNEE = 23     # a hop into a rising knee, the arms dragging the target down
 
 # --- What a move launches (0 is a melee hit) ---------------------------------------------------
 const int SHOT_NONE = 0
@@ -133,6 +136,8 @@ const int HEAD_MAESTRO = 41  # wild swept-back white hair
 const int HEAD_PADLOCK = 42  # a padlock for a helmet, a keyhole for a visor
 const int HEAD_RAVEN = 43    # a feathered hood with a black beak
 const int HEAD_WISP = 44     # no head at all: a cold flame where one was (HOLLOW, its helm gone)
+const int HEAD_SCARF = 45    # messy hair and a long scarf wound up over the mouth (SCARF, the Purgatory's wanderer)
+const int HEAD_SKULL = 46    # a bare skull, light in the sockets (the Purgatory's skeletons)
 
 const int WEAPON_CLAWS = 0
 const int WEAPON_FISTS = 1

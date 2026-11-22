@@ -9,6 +9,7 @@ import "../save.fw" as save
 import "../editor.fw" as editor
 import "../item_api.fw" as api
 import "../custom_items.fw" as custom
+import "../purgatory_mode.fw" as purgatory
 
 function test_every_track_is_there
     # music.fw finds the tracks next to itself, from any folder; they are the playerversus_music_*
@@ -88,5 +89,12 @@ function test_custom_items_answer_their_hooks
         custom.hit(it.id, c)
         custom.hurt(it.id, c)
         testing.assert(c.damage >= 0)
+    end
+end
+
+# PURGATORY's own checks (its levels, dojos, moves), when the package is built in.
+function test_purgatory_checks_out
+    for problem in purgatory.self_test() do
+        testing.assert(false, problem)
     end
 end

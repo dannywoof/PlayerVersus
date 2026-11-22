@@ -34,6 +34,7 @@ import "save.fw" as save
 import "editor.fw" as editor
 import "item_api.fw" as api
 import "custom_items.fw" as custom
+import "purgatory_mode.fw" as purgatory   # PURGATORY, or its stub (see loader.fw)
 
 const int VIEW_W = 640               # the HUD's resolution; the window scales it up
 const int VIEW_H = 360
@@ -105,6 +106,7 @@ const int SCREEN_TITLE = 0
 const int SCREEN_SELECT = 1
 const int SCREEN_FIGHT = 2
 const int SCREEN_RESULT = 3
+const int SCREEN_PURGATORY = 4       # the second mode (purgatory.fw)
 
 const int STATE_IDLE = 0
 const int STATE_ATTACK = 1
@@ -858,6 +860,32 @@ var snd_rumble = ap.tone(ap.WAVE_NOISE, 1, 1.4, 0, 0.5)
 # --- State -------------------------------------------------------------------------------------
 
 var cast = roster.build()
+purgatory.setup(rig, cast)
+
+# The tracks PURGATORY may ask for that are really there (looked up again after an install).
+function refresh_purgatory_tracks()
+    string[] names = ["purgatory_menu", "purgatory_threshold", "purgatory_dojo", "purgatory_finale", "purgatory_satan",
+        "purgatory_meadow", "title", "shop", "finale_1", "finale_2"]
+    for k in 1..<5 do
+        names.push("purgatory_explore_{k}")
+        names.push("purgatory_combat_{k}")
+        names.push("purgatory_boss_{k}")
+    end
+    for k in 1..<10 do
+        names.push("fight_{k}")
+    end
+    for c in cast do
+        names.push(music.super_track(c.name))
+    end
+    string[] there = []
+    for n in names do
+        if music.exists(n) do
+            there.push(n)
+        end
+    end
+    purgatory.known_tracks = there
+end
+refresh_purgatory_tracks()
 var screen = SCREEN_TITLE
 var ticks = 0                        # since the game opened
 var screen_ticks = 0                 # since this screen appeared
@@ -12871,6 +12899,30 @@ function grid_columns() returns int
     return 12
 end
 
+# --- The title: two doors ----------------------------------------------------------------------
+# The whole screen is two great buttons, PURGATORY on the left and ARENA on the right, with the
+# logo over both. The one you point at (mouse, or A/D and the arrows) springs out toward you.
+
+var title_pick = -1                  # 0 PURGATORY, 1 ARENA, -1 neither yet
+var title_pop = [0.0, 0.0]           # how far each has sprung out (springy, so it overshoots)
+var title_pop_speed = [0.0, 0.0]
+var title_mouse = ap.Vec2(-1, -1)
+
+# The install prompt for PURGATORY's content.
+const int INSTALL_NONE = 0
+const int INSTALL_RUNNING = 2
+const int INSTALL_FAILED = 3
+const int INSTALL_RESTART = 4         # installed: the game restarts to build the mode in
+var install_state = INSTALL_NONE
+var install_pid = -1
+var install_ticks = 0
+var install_error = ""
+const string INSTALL_LOG = fs.join(fs.temp_dir(), "playerversus_purgatory_install.log")
+
+function title_seam() returns double
+    return 320 + 46 * (title_pop[0] - title_pop[1])
+end
+
 function update_title()
     if select_world >= 0 do
         select_world = -1
@@ -12878,12 +12930,128 @@ function update_title()
     end
     camera = ap.orbit(ap.Vec3(0, 1.4, 0), double(ticks) * 0.08, 12, 15)
     update_effects()
-    if confirm_pressed() do
+    for i in 0..<2 do
+        var want = 1.0 if title_pick == i else 0.0
+        title_pop_speed[i] = (title_pop_speed[i] + (want - title_pop[i]) * 0.16) * 0.72
+        title_pop[i] += title_pop_speed[i]
+    end
+    update_install()
+    var m = ap.mouse()
+    if m.x != title_mouse.x or m.y != title_mouse.y do
+        title_mouse = m
+        if m.y > 0 and m.y < VH do
+            var pick = 0 if m.x < title_seam() else 1
+            if pick != title_pick do
+                title_pick = pick
+                snd_move.play(0.35, 0.9 + 0.2 * double(pick))
+            end
+        end
+    end
+    if left_pressed() and title_pick != 0 do
+        title_pick = 0
+        snd_move.play(0.35, 0.9)
+    end
+    if right_pressed() and title_pick != 1 do
+        title_pick = 1
+        snd_move.play(0.35, 1.1)
+    end
+    var chosen = ap.mouse_pressed(1) and title_pick >= 0
+    if ap.key_pressed(ap.KEY_ENTER) or ap.key_pressed(ap.KEY_SPACE) or ap.pad_pressed(ap.PAD_SOUTH) or ap.pad_pressed(ap.PAD_START) do
+        if title_pick < 0 do
+            title_pick = 1
+        end
+        chosen = true
+    end
+    if chosen do
         snd_pick.play(0.5)
-        open_select()
+        if title_pick == 1 and install_state != INSTALL_RESTART do
+            open_select()
+        else if title_pick == 0 and purgatory.INSTALLED do
+            enter_purgatory()
+        else if title_pick == 0 and (install_state == INSTALL_NONE or install_state == INSTALL_FAILED) do
+            # Not installed (or out of date): the button itself is the prompt; choosing it installs.
+            start_install()
+        end
     end
     if ap.key_pressed(ap.KEY_ESCAPE) do
         ap.quit()
+    end
+end
+
+# What the prompt runs: install PURGATORY (its code, which brings its two music packages), or
+# update an install that does not match this game (see loader.fw).
+function install_command() returns string[]
+    if purgatory.STATUS == "outdated" do
+        return ["pulley", "update", "--user", "-q", music.PURGATORY_PACKAGE]
+    else if purgatory.STATUS == "newer" do
+        return ["pulley", "update", "--user", "-q", "playerversus"]
+    end
+    return ["pulley", "pull", "-q", music.PURGATORY_DIST]
+end
+
+function update_install()
+    install_ticks += 1
+    if install_state == INSTALL_RUNNING do
+        if install_pid < 0 do
+            install_state = INSTALL_FAILED
+            return
+        end
+        if not os.alive(install_pid) do
+            var status = os.wait(install_pid)
+            install_pid = -1
+            music.setup()
+            refresh_purgatory_tracks()
+            if status == 0 and (music.purgatory_code(GAME_DIR) != "" or purgatory.STATUS != "missing") do
+                install_state = INSTALL_RESTART
+                install_ticks = 0
+                snd_bell.play(0.5)
+            else do
+                install_state = INSTALL_FAILED
+                var log = fs.read(INSTALL_LOG) if fs.exists(INSTALL_LOG) else ""
+                install_error = "PULLEY COULD NOT INSTALL IT" if purgatory.STATUS == "missing" else "PULLEY COULD NOT UPDATE IT"
+                for line in log.split("\n") do
+                    if line.trim() != "" do
+                        install_error = line.trim()
+                    end
+                end
+                if status == 0 do
+                    install_error = "INSTALLED, BUT NOT WHERE THE GAME LOOKS FOR IT"
+                end
+                snd_deny.play(0.6)
+            end
+        end
+        return
+    end
+    if install_state == INSTALL_RESTART do
+        # The mode's code is built into the game by the loader: start it again, and go.
+        if install_ticks == 90 do
+            var loader = fs.join(GAME_DIR, ".loader")
+            try
+                if fs.exists(loader) do
+                    os.start([loader])
+                else do
+                    os.start(["flywheel", fs.join(GAME_DIR, "loader.fw")])
+                end
+                ap.quit()
+            catch e
+                install_error = "RESTART THE GAME TO PLAY PURGATORY"
+            end
+        end
+        return
+    end
+end
+
+function start_install()
+    install_state = INSTALL_RUNNING
+    install_ticks = 0
+    install_error = ""
+    try
+        install_pid = os.start(install_command(), INSTALL_LOG)
+    catch e
+        install_pid = -1
+        install_state = INSTALL_FAILED
+        install_error = "PULLEY IS NOT INSTALLED (SEE PULLEY'S README)"
+        snd_deny.play(0.6)
     end
 end
 
@@ -13053,7 +13221,9 @@ end
 function update_music()
     var want = ""
     var loop = true
-    if screen == SCREEN_TITLE do
+    if screen == SCREEN_PURGATORY do
+        want = purgatory.music_now()
+    else if screen == SCREEN_TITLE do
         want = "title"
     else if screen == SCREEN_SELECT do
         want = "shop" if menu_open() else "select"
@@ -13219,9 +13389,28 @@ function update()
         update_select()
     else if screen == SCREEN_FIGHT do
         update_fight()
+    else if screen == SCREEN_PURGATORY do
+        purgatory.typed_text = typed_now     # for copying out cursed books
+        purgatory.update()
+        if purgatory.wants_leave() do
+            leave_purgatory()
+        end
     else do
         update_result()
     end
+end
+
+function enter_purgatory()
+    purgatory.open()
+    go(SCREEN_PURGATORY)
+end
+function leave_purgatory()
+    purgatory.close()
+    ap.shadows(true, 2048, 0.8)
+    apply_area()
+    title_pop = [0.0, 0.0]
+    title_pick = -1
+    go(SCREEN_TITLE)
 end
 
 # --- The mode list and the item menu (select screen) --------------------------------------------
@@ -14886,6 +15075,10 @@ function draw_title_scene()
 end
 
 function set_lights()
+    if screen == SCREEN_PURGATORY do
+        purgatory.set_lights()
+        return
+    end
     for i in 0..<8 do
         ap.light_off(i)
     end
@@ -15614,18 +15807,171 @@ function draw_fight_hud()
 end
 
 function draw_title_hud()
-    ap.rect(0, 0, VW, VH, ap.BLACK.fade(0.25))
     var rise = math.min(double(screen_ticks) / 50, 1.0)
-    label_centered("PLAYER", 320, 92, 48, ap.WHITE.fade(rise))
-    label_centered("VERSUS", 320, 142, 48, ap.Color(170, 110, 255).fade(rise))
-    ap.rect(196, 196, 248 * rise, 2, ap.Color(170, 110, 255).fade(rise))
-    label_centered("TESTING PROTOTYPE", 320, 206, 8, ap.Color(150, 145, 175).fade(rise))
-    var breathe = 0.55 + 0.35 * math.sin(double(ticks) * 0.05)
-    label_centered("PRESS ENTER", 320, 268, 16, ap.WHITE.fade(breathe * rise))
-    label_centered("ESC QUITS", 320, 340, 8, ap.Color(110, 106, 130))
-    if GAME_VERSION != "" do
-        label("VERSION {GAME_VERSION}", 12, 340, 8, ap.Color(110, 106, 130))
+    var seam = title_seam()
+    var t = double(ticks)
+    # ARENA: the arena itself behind a violet glass, its sigil turning, light from above.
+    var q = title_pop[1]
+    ap.clip(ap.Rect(seam - 30, 0, VW - seam + 30, VH))
+    ap.rect(seam - 30, 0, VW - seam + 30, VH, ap.Color(40, 16, 80, int(150 - 60 * q)))
+    ap.gradient(seam - 30, 0, VW - seam + 30, VH, ap.Color(170, 110, 255, int(40 + 40 * q)), ap.Color(20, 8, 40, 160))
+    var cx = 470 + 30 * q
+    var cy = 200.0
+    for k in 0..<4 do
+        var r = 40 + double(k) * 34 + 6 * math.sin(t * 0.03 + double(k))
+        ap.circle_lines(cx, cy, r, 1, ap.Color(190, 150, 255, int(70 + 40 * q)))
     end
+    for k in 0..<8 do
+        var a = t * 0.01 + double(k) * math.PI / 4
+        ap.line(cx + math.cos(a) * 40, cy + math.sin(a) * 40, cx + math.cos(a) * 142, cy + math.sin(a) * 142, 1, ap.Color(190, 150, 255, int(50 + 50 * q)))
+    end
+    for k in 0..<5 do
+        var x = seam + 30 + double(k) * 70 + math.sin(t * 0.007 + double(k)) * 20
+        ap.triangle(ap.Vec2(x, 0), ap.Vec2(x + 30, 0), ap.Vec2(x + 70, VH), ap.Color(220, 190, 255, int(16 + 20 * q)))
+    end
+    var ascale = 1 + 0.22 * q
+    var aw = ap.measure("ARENA", 32).x
+    ap.push()
+    ap.translate(610 - aw * ascale - 20 * q, 252 - 14 * q)
+    ap.scale(ascale, ascale)
+    label("ARENA", 4, 4, 32, ap.Color(0, 0, 0, int(160 * q)))
+    label("ARENA", 0, 0, 32, ap.Color(200, 160, 255).lerp(ap.WHITE, 0.2 * q))
+    label_right("1V1 OR 2V2, PVP OR CPU", aw - 2, 40, 8, ap.Color(220, 210, 240).fade(0.5 + 0.5 * q))
+    label_right("44 FIGHTERS", aw - 2, 52, 8, ap.Color(200, 170, 255).fade(0.4 + 0.6 * q))
+    ap.pop()
+    ap.unclip()
+    # PURGATORY: the dark, brick showing only where a light wanders, embers, a red scarf.
+    var p = title_pop[0]
+    var lean = 26.0
+    ap.polygon([ap.Vec2(0, 0), ap.Vec2(seam + lean, 0), ap.Vec2(seam - lean, VH), ap.Vec2(0, VH)], ap.Color(4, 3, 6))
+    ap.clip(ap.Rect(0, 0, seam + lean, VH))
+    for band in 0..<10 do
+        var y0 = VH * 0.45 + double(band) * VH * 0.055
+        var edge = seam + lean - 2 * lean * (y0 + VH * 0.0275) / VH
+        ap.rect(0, y0, edge, VH * 0.055 + 1, ap.Color(70, 10, 18, int((150 + 80 * p) * double(band + 1) / 10)))
+    end
+    var lamp_x = seam * 0.45 + math.sin(t * 0.011) * seam * 0.25
+    var lamp_y = 230 + math.cos(t * 0.017) * 40
+    if title_pick == 0 do
+        lamp_x = ap.lerp(lamp_x, title_mouse.x, 0.7)
+        lamp_y = ap.lerp(lamp_y, title_mouse.y, 0.7)
+    end
+    var glow = 90 + 60 * p
+    for row in 0..<24 do
+        for col in 0..<12 do
+            var bx = double(col) * 32 - (16.0 if row % 2 == 1 else 0.0)
+            var by = double(row) * 16
+            var d = math.sqrt((bx + 15 - lamp_x) * (bx + 15 - lamp_x) + (by + 7 - lamp_y) * (by + 7 - lamp_y))
+            var lit = math.clamp(1 - d / glow, 0.0, 1.0)
+            if lit > 0 and bx + 30 < seam + lean - 2 * lean * (by + 14) / VH do
+                var shade = 0.55 + 0.45 * math.abs(math.sin(double(row * 12 + col) * 1.7))
+                ap.rect(bx + 1, by + 1, 30, 14, ap.Color(int(120 * shade), int(70 * shade), int(62 * shade), int(255 * lit * lit)))
+            end
+        end
+    end
+    for k in 0..<26 do
+        var life = (t * (0.6 + 0.05 * double(k % 5)) + double(k) * 37) % 360
+        var ex = (double(k) * 53 + math.sin(life * 0.03 + double(k)) * 14) % math.max(seam - lean, 1.0)
+        var ey = VH - life
+        ap.rect(ex, ey, 2, 2, ap.Color(255, 120 + (k % 3) * 40, 60, int(200 * (1 - life / 360))))
+    end
+    # The scarf: a red ribbon streaming across.
+    ap.Vec2[] top = []
+    for k in 0..<22 do
+        var x = -10 + double(k) * (seam + 4) / 21
+        var wave = math.sin(t * 0.05 - double(k) * 0.45) * (10 + double(k) * 0.9) * (1 + 0.5 * p)
+        top.push(ap.Vec2(x, 300 - double(k) * 3.2 + wave))
+    end
+    for k in 0..<(top.length - 1) do
+        var a = top[k]
+        var b = top[k + 1]
+        var thick = 9 - double(k) * 0.25
+        var c = ap.Color(170 + (k % 2) * 25, 30, 44)
+        ap.triangle(a, b, ap.Vec2(b.x, b.y + thick), c)
+        ap.triangle(a, ap.Vec2(b.x, b.y + thick), ap.Vec2(a.x, a.y + thick + 0.25), c)
+    end
+    var pscale = 1 + 0.22 * p
+    ap.push()
+    ap.translate(30 + 20 * p, 252 - 14 * p)
+    ap.scale(pscale, pscale)
+    label("PURGATORY", 4, 4, 32, ap.Color(0, 0, 0, int(160 * p)))
+    label("PURGATORY", 0, 0, 32, ap.Color(230, 60, 70).lerp(ap.WHITE, 0.15 * p))
+    label("SINGLE-PLAYER: 44 LEVELS", 2, 40, 8, ap.Color(210, 190, 200).fade(0.5 + 0.5 * p))
+    label("EXPLORE, FIGHT, LEARN SKILLS", 2, 52, 8, ap.Color(255, 150, 140).fade(0.4 + 0.6 * p))
+    ap.pop()
+    if not purgatory.INSTALLED do
+        # Not installed: the whole door is darkened, and its install prompt is right on it.
+        ap.polygon([ap.Vec2(0, 0), ap.Vec2(seam + lean, 0), ap.Vec2(seam - lean, VH), ap.Vec2(0, VH)], ap.Color(0, 0, 0, 170))
+        draw_install(seam - 22, p)
+    end
+    ap.unclip()
+    # The seam: a slanted bright edge between the two.
+    ap.triangle(ap.Vec2(seam - 2 + lean, 0), ap.Vec2(seam + 2 + lean, 0), ap.Vec2(seam + 2 - lean, VH), ap.Color(255, 230, 240, 200))
+    ap.triangle(ap.Vec2(seam - 2 + lean, 0), ap.Vec2(seam + 2 - lean, VH), ap.Vec2(seam - 2 - lean, VH), ap.Color(255, 230, 240, 200))
+    # The one not chosen sinks back.
+    if title_pick == 0 do
+        ap.polygon([ap.Vec2(seam + lean, 0), ap.Vec2(VW, 0), ap.Vec2(VW, VH), ap.Vec2(seam - lean, VH)], ap.Color(0, 0, 0, int(90 * p)))
+    else if title_pick == 1 do
+        ap.polygon([ap.Vec2(0, 0), ap.Vec2(seam + lean, 0), ap.Vec2(seam - lean, VH), ap.Vec2(0, VH)], ap.Color(0, 0, 0, int(90 * q)))
+    end
+    # The logo over both.
+    label_centered("PLAYER", 320, 46, 48, ap.WHITE.fade(rise))
+    label_centered("VERSUS", 320, 96, 48, ap.Color(170, 110, 255).fade(rise))
+    label_centered("TESTING PROTOTYPE", 320, 156, 8, ap.Color(170, 165, 195).fade(rise))
+    label_centered("ESC QUITS", 320, 344, 8, ap.Color(120, 116, 140))
+    if GAME_VERSION != "" do
+        label("VERSION {GAME_VERSION}", 12, 344, 8, ap.Color(120, 116, 140))
+    end
+    if title_pick < 0 do
+        label_centered("POINT AT ONE (OR A / D) AND CLICK (OR ENTER)", 320, 326, 8, ap.Color(200, 195, 215).fade(0.4 + 0.3 * math.sin(t * 0.05)))
+    end
+end
+
+# PURGATORY's install prompt, drawn on its own (darkened) door: what it is, and what clicking does.
+function draw_install(double width, double p)
+    var cx = width / 2
+    var t = double(ticks)
+    var head = ap.Color(255, 210, 200)
+    var soft = ap.Color(200, 190, 210)
+    var warm = ap.Color(255, 220, 160)
+    label_centered("NOT INSTALLED" if purgatory.STATUS == "missing" else ("NEEDS AN UPDATE" if purgatory.STATUS == "outdated" else "NEEDS A NEWER GAME"), cx, 168, 16, head)
+    if install_state == INSTALL_RESTART do
+        label_centered("INSTALLED", cx, 194, 16, ap.WHITE)
+        label_centered(install_error if install_error != "" else "RESTARTING THE GAME...", cx, 216, 8, soft)
+        return
+    end
+    if install_state == INSTALL_RUNNING do
+        var dots = ".".repeat(1 + (install_ticks // 20) % 3)
+        label_centered("INSTALLING{dots}" if purgatory.STATUS == "missing" else "UPDATING{dots}", cx, 196, 8, ap.WHITE)
+        ap.rect(cx - 90, 212, 180, 4, ap.Color(40, 30, 40))
+        var x = (double(install_ticks) * 3) % 220 - 40
+        ap.rect(cx - 90 + math.max(x, 0.0), 212, math.min(40.0, 180 - math.max(x, 0.0)), 4, ap.Color(230, 70, 80))
+        return
+    end
+    if install_state == INSTALL_FAILED do
+        var err = install_error if install_error.length < 40 else install_error[0..<40]
+        label_centered("IT DID NOT INSTALL" if purgatory.STATUS == "missing" else "IT DID NOT UPDATE", cx, 192, 8, ap.Color(255, 120, 110))
+        label_centered(err, cx, 204, 8, ap.Color(200, 180, 190))
+    else if purgatory.STATUS == "outdated" do
+        label_centered("Made for an older version of the game.", cx, 192, 8, soft)
+        label_centered("Updating gets its newest code and music.", cx, 204, 8, warm)
+    else if purgatory.STATUS == "newer" do
+        label_centered("It needs a newer game than {GAME_VERSION}.", cx, 192, 8, soft)
+        label_centered("Updating gets the newest game.", cx, 204, 8, warm)
+    else do
+        label_centered("A separate download, about 10 MB:", cx, 188, 8, soft)
+        label_centered("its CODE, built into the game,", cx, 198, 8, warm)
+        label_centered("and 16 human-made CC0 tracks.", cx, 208, 8, soft)
+    end
+    # The button: brighter while the door is pointed at.
+    var words = ("TRY AGAIN" if install_state == INSTALL_FAILED else ("INSTALL AND RESTART" if purgatory.STATUS == "missing" else "UPDATE AND RESTART"))
+    var bw = 170.0
+    var on = title_pick == 0
+    var pulse = 0.5 + 0.5 * math.sin(t * 0.12)
+    var r = ap.Rect(cx - bw / 2, 220, bw, 18)
+    ap.rect(r.x, r.y, r.w, r.h, ap.Color(200, 50, 60, int(150 + 80 * pulse)) if on else ap.Color(40, 30, 44, 220))
+    ap.rect_lines(r.x, r.y, r.w, r.h, 1, ap.Color(255, 140, 140) if on else ap.Color(110, 90, 110))
+    label_centered(words, cx, r.y + 5, 8, ap.WHITE if on else ap.Color(190, 180, 200))
 end
 
 # A small bust for a select card.
@@ -16575,7 +16921,12 @@ function render()
     set_lights()
     ap.listen_from(camera)
     render_alpha = ap.alpha()
-    if screen == SCREEN_TITLE do
+    if screen == SCREEN_PURGATORY do
+        ap.clear(purgatory.sky())
+        set_lights()
+        ap.scene_3d(purgatory.camera, purgatory.draw_scene, 16)
+        purgatory.after_scene(sw, sh)
+    else if screen == SCREEN_TITLE do
         ap.scene_3d(camera, draw_title_scene, 16)
     else if screen == SCREEN_SELECT do
         ap.scene_3d(camera, draw_select_scene, 8)
@@ -16606,6 +16957,8 @@ function render()
     ap.no_shader()
     if screen == SCREEN_TITLE do
         draw_title_hud()
+    else if screen == SCREEN_PURGATORY do
+        purgatory.draw_hud()
     else if screen == SCREEN_SELECT do
         draw_select_hud()
     else if screen == SCREEN_FIGHT do
@@ -16635,8 +16988,9 @@ if ready_path != "" do
 end
 
 while ap.frame() do
-    # Text typed this frame is read once, however many ticks the frame runs.
-    typed_now = ap.typed()
+    # Text typed is read once, by the next tick, however many ticks the frame runs. A frame that
+    # runs none (the display faster than the ticks) keeps it for the next frame, not losing it.
+    typed_now = typed_now + ap.typed()
     if hot.enabled() and ap.frame_count() % 60 == 0 and screen != SCREEN_FIGHT do
         # Running with --hot: custom_items.fw may have changed under us.
         gather_items()

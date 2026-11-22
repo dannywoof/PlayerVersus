@@ -1,0 +1,13 @@
+# playerversus_purgatory: PLAYER VERSUS's PURGATORY mode. It is not a dependency of the game: the
+# game offers to install it (`pulley pull danny.playerversus_purgatory`) the first time you choose
+# PURGATORY, and says that it contains code. Its soundtrack comes with it, as its two dependencies
+# (playerversus_purgatory_ambience and playerversus_purgatory_fights), pinned to the versions this
+# code was written for.
+#
+# purgatory.fw is the mode itself. It is not imported from here: it imports the game's own modules
+# (roster.fw, puppet.fw, save.fw), so the game's loader copies it into the game's folder as
+# purgatory_mode.fw and builds it in, but only when its GAME_API matches the game's
+# PURGATORY_API (see the game's loader.fw and music.fw); otherwise the game offers an update.
+
+# The mode's source file.
+const string MODE_SOURCE = "purgatory.fw"

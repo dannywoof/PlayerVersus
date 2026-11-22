@@ -15,6 +15,7 @@ import fs
 import math
 import os
 import time
+import "music.fw" as music
 
 const string CACHE = fs.join(__dir__, ".cache")
 const string GAME = fs.join(__dir__, ".playerversus")
@@ -63,6 +64,37 @@ function start_game() returns int
     end
     return os.start(command)
 end
+
+# PURGATORY's code comes in its own package (playerversus_purgatory, installed when you first
+# choose it): the game imports purgatory_mode.fw, which is that package's purgatory.fw when it is
+# installed and purgatory_stub.fw (no mode, and the offer to download it) when it is not. Rewritten
+# only when it changes, so it does not force a rebuild.
+#
+# The installed code must be written for this game's modules (its GAME_API equal to
+# music.PURGATORY_API); when it is not, the stub goes in, told why, so the title can offer an update
+# (of the mode, or of the game) instead of the build failing.
+function sync_purgatory()
+    var mode = fs.join(__dir__, "purgatory_mode.fw")
+    try
+        var want = fs.read(fs.join(__dir__, "purgatory_stub.fw"))
+        var code = music.purgatory_code(__dir__)
+        if code != "" do
+            var source = fs.read(code)
+            var api = music.purgatory_api(source)
+            if api == music.PURGATORY_API do
+                want = source
+            else do
+                var why = "outdated" if api < music.PURGATORY_API else "newer"
+                want = want.replace("const string STATUS = \"missing\"", "const string STATUS = \"{why}\"")
+            end
+        end
+        if not fs.exists(mode) or fs.read(mode) != want do
+            fs.write(mode, want)
+        end
+    catch e
+    end
+end
+sync_purgatory()
 
 if not fs.is_dir(CACHE) do
     fs.mkdir(CACHE)

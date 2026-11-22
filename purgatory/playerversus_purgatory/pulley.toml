@@ -1,0 +1,14 @@
+[package]
+name = "playerversus_purgatory"
+author = "danny"
+version = "1.7.6"
+description = "PLAYER VERSUS's PURGATORY mode: its code (purgatory.fw, Flywheel source that the game's loader builds into the game). Brings its soundtrack with it: danny.playerversus_purgatory_ambience and danny.playerversus_purgatory_fights (16 human-made CC0 tracks). Needs PLAYER VERSUS alpha-6 (1.6) or later."
+main = "playerversus_purgatory.fw"
+
+[dependencies]
+playerversus_purgatory_ambience = "danny.playerversus_purgatory_ambience=^1.2"
+playerversus_purgatory_fights = "danny.playerversus_purgatory_fights=^1.2"
+
+[dev-dependencies]
+
+[scripts]

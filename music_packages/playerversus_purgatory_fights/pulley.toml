@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_purgatory_fights"
+author = "danny"
+version = "1.2"
+description = "PLAYER VERSUS's PURGATORY mode, its soundtrack: its fights and its bosses (8 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md)"
+main = "playerversus_purgatory_fights.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

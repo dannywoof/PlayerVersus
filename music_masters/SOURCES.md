@@ -80,3 +80,27 @@ deciding round), the item draft, the result jingle, and each fighter's own theme
 Credit is not required by any of these licenses, but several authors ask kindly for it (Joth,
 Cleyton Kauffman, Section 31, Bojidar Marinov, Kistol, Alex McCulloch, Ville Nousiainen and XCVG,
 Juhani Junkala, Bobjt, The Cynic Project, Indieteur), and all of them are worth thanking in the game's credits.
+
+## PURGATORY
+
+The second mode's tracks (packages playerversus_purgatory and playerversus_purgatory_fights,
+installed on demand), chosen and converted the same way.
+
+| File | Track | Author | Published | Page |
+|---|---|---|---|---|
+| purgatory_menu.ogg | Tragic ambient main menu | haeldb | 2010 | [tragic-ambient-main-menu](https://opengameart.org/content/tragic-ambient-main-menu) |
+| purgatory_threshold.ogg | Deep Humidity | tinyworlds | 2014 | [deep-humidity](https://opengameart.org/content/deep-humidity) |
+| purgatory_dojo.ogg | Dream 2 (Ambience) | tokyogeisha | 2014 | [dream-2-ambience](https://opengameart.org/content/dream-2-ambience) |
+| purgatory_explore_1.ogg | Dungeon Ambience | yd | 2014 | [dungeon-ambience](https://opengameart.org/content/dungeon-ambience) |
+| purgatory_explore_2.ogg | Telos Ruins Creepy | Tozan | 2016 | [telos-ruins-creepy](https://opengameart.org/content/telos-ruins-creepy) |
+| purgatory_explore_3.ogg | Dark Shrine Loop | qubodup, remixing yd's "Shrine" | 2012 | [dark-shrine-loop](https://opengameart.org/content/dark-shrine-loop) |
+| purgatory_explore_4.ogg | The Birth of Evil | spiderdave | 2015 | [the-birth-of-evil](https://opengameart.org/content/the-birth-of-evil) |
+| purgatory_combat_1.ogg | Swordfight III | Kistol | 2016 | [swordfight-iii](https://opengameart.org/content/swordfight-iii) |
+| purgatory_combat_2.ogg | Fighting is not an option (RPG Battle Theme II) | Cleyton Kauffman | 2015 | [rpg-battle-theme-ii](https://opengameart.org/content/rpg-battle-theme-ii) |
+| purgatory_combat_3.ogg | Running from something | haeldb | 2010 | [running-from-something](https://opengameart.org/content/running-from-something) |
+| purgatory_boss_1.ogg | Sinister Boss Appears! | cynicmusic | 2018 | [sinister-boss-appears](https://opengameart.org/content/sinister-boss-appears) |
+| purgatory_boss_2.ogg | Most Stereotypical Boss Theme Ever | spring spring | 2017 | [most-stereotypical-boss-theme-ever](https://opengameart.org/content/most-stereotypical-boss-theme-ever) |
+| purgatory_boss_3.ogg | Last Battle (Free Vapour 2013 Soundtrack) | Alexander Ehlers (tricksntraps) | 2013 (page 2020) | [free-vapour-2013-soundtrack](https://opengameart.org/content/free-vapour-2013-soundtrack) |
+| purgatory_finale.ogg | Battle Theme A | cynicmusic (The Cynic Project) | 2013 | [battle-theme-a](https://opengameart.org/content/battle-theme-a) |
+| purgatory_satan.ogg | Determined Pursuit (epic orchestra loop) | Emma_MA | 2017 | [determined-pursuit-epic-orchestra-loop](https://opengameart.org/content/determined-pursuit-epic-orchestra-loop) |
+| purgatory_meadow.ogg | Ambient Bird Sounds | isaiah658 | 2017 | [ambient-bird-sounds](https://opengameart.org/content/ambient-bird-sounds) |

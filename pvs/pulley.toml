@@ -1,10 +1,10 @@
 [package]
 name = "playerversus"
 author = "danny"
-version = "1.4.1"
-description = "PLAYER VERSUS: a 3D arena fighter prototype (44 fighters, 1v1 and 2v2 modes, merging supers with their own themes, 70+ items and your own, a CPU opponent)"
+version = "1.6"
+description = "PLAYER VERSUS: a 3D arena fighter prototype (44 fighters, 1v1 and 2v2 modes, merging supers with their own themes, 70+ items and your own, a CPU opponent, and the PURGATORY single-player mode as an optional download)"
 main = "playerversus.fw"
-exclude = [".cache/", ".loader", ".playerversus"]
+exclude = [".cache/", ".loader", ".playerversus", "purgatory_mode.fw"]
 
 [dependencies]
 aperture = "polymorphia.aperture"

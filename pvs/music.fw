@@ -9,6 +9,7 @@
 # small enough to publish. Every track is a human-made CC0 piece: see each one's music/SOURCES.md.
 import aperture as ap
 import fs
+import os
 
 const int FADE_OUT = 36              # ticks to fade the old track away...
 const int FADE_IN = 50               # ...and to bring the new one up
@@ -36,32 +37,159 @@ var director = Director()
 # Where the tracks are. They come in several packages (each small enough for the registry), and
 # Pulley puts those dependencies in the project's .flywheel-modules/ when you run from the source,
 # and next to this package (in the same .flywheel-modules/) when the game is installed. A local
-# assets/music/ still works too.
+# assets/music/ still works too. PURGATORY's own package is not a dependency: the game offers to
+# install it (`pulley pull danny.playerversus_purgatory`, whose dependencies are its two music
+# packages) the first time you go there. That is a library install, found through its link file in
+# Flywheel's modules folder, with its dependencies installed beside it.
+const string PURGATORY_PACKAGE = "playerversus_purgatory"    # the mode's code; it depends on...
+const string PURGATORY_AMBIENCE = "playerversus_purgatory_ambience"   # ...its exploring music...
+const string PURGATORY_FIGHTS = "playerversus_purgatory_fights"       # ...and its fight music
+const string PURGATORY_DIST = "danny.playerversus_purgatory"
+# What PURGATORY's code is written against: the game modules it imports (roster.fw, puppet.fw,
+# save.fw) as they are now. Its purgatory.fw says `const int GAME_API = n`; the loader builds it
+# in only when n is this, and otherwise offers an update. Raise it whenever those modules change
+# in a way that breaks it (and publish a purgatory.fw with the new number).
+const int PURGATORY_API = 2
 const string[] MUSIC_PACKAGES = ["playerversus_music_menus", "playerversus_music_fights",
     "playerversus_music_supers_1", "playerversus_music_supers_2", "playerversus_music_supers_3",
-    "playerversus_music_supers_4", "playerversus_music_supers_5", "playerversus_music_supers_6"]
+    "playerversus_music_supers_4", "playerversus_music_supers_5", "playerversus_music_supers_6",
+    PURGATORY_AMBIENCE, PURGATORY_FIGHTS]
+
+function home() returns string
+    try
+        return os.env("HOME")
+    catch e
+        return ""
+    end
+end
+
+# Folders where Pulley keeps library installs: a `<name>.link` file in each names the package.
+function library_dirs() returns string[]
+    string[] at = []
+    try
+        at.push(os.env("FLYWHEEL_HOME") + "/modules")
+    catch e
+    end
+    var h = home()
+    if h != "" do
+        at.push(fs.join(h, ".local", "flywheel", "modules"))
+    end
+    return at
+end
+
 function find_dirs(string game_dir) returns string[]
     string[] at = [fs.join(game_dir, "assets", "music")]
     var installed_beside = fs.dirname(fs.absolute(game_dir))
     for pkg in MUSIC_PACKAGES do
         at.push(fs.join(game_dir, ".flywheel-modules", pkg, "music"))
         at.push(fs.join(installed_beside, pkg, "music"))
+        for lib in library_dirs() do
+            var link = fs.join(lib, "{pkg}.link")
+            try
+                if fs.exists(link) do
+                    at.push(fs.join(fs.read(link).trim(), "music"))
+                end
+            catch e
+            end
+            at.push(fs.join(lib, pkg, "music"))
+        end
+    end
+    # PURGATORY's music packages are dependencies of its code package: beside it.
+    var code = package_dir(game_dir, PURGATORY_PACKAGE)
+    if code != "" do
+        for pkg in [PURGATORY_AMBIENCE, PURGATORY_FIGHTS] do
+            at.push(fs.join(fs.dirname(code), pkg, "music"))
+            at.push(fs.join(code, ".flywheel-modules", pkg, "music"))
+        end
     end
     string[] found = []
     for dir in at do
         if fs.is_dir(dir) do
-            found.push(dir)
+            var seen = false
+            for f in found do
+                if f == dir do
+                    seen = true
+                end
+            end
+            if not seen do
+                found.push(dir)
+            end
         end
     end
     return found
 end
 
+# Where an installed package's folder is, or "": among the game's dependencies, beside the game
+# when it is installed, or a library install (through its link file). Running from the source
+# repository with PVS_PURGATORY_SOURCE=1 set, its folder in music_packages/ counts too (to work
+# on the mode without publishing it); without it the source checkout behaves like any install.
+function package_dir(string game_dir, string pkg) returns string
+    var beside = fs.dirname(fs.absolute(game_dir))
+    string[] at = [fs.join(game_dir, ".flywheel-modules", pkg), fs.join(beside, pkg)]
+    for lib in library_dirs() do
+        var link = fs.join(lib, "{pkg}.link")
+        try
+            if fs.exists(link) do
+                at.push(fs.read(link).trim())
+            end
+        catch e
+        end
+        at.push(fs.join(lib, pkg))
+    end
+    var from_source = ""
+    try
+        from_source = os.env("PVS_PURGATORY_SOURCE")
+    catch e
+    end
+    if from_source == "1" do
+        # Asked for: the repository's copy comes before any install.
+        at.insert(0, fs.join(beside, "music_packages", pkg))
+    end
+    for dir in at do
+        if fs.is_dir(dir) do
+            return dir
+        end
+    end
+    return ""
+end
+
+# PURGATORY's code, from its package: the path of its purgatory.fw, or "" when not installed.
+function purgatory_code(string game_dir) returns string
+    var dir = package_dir(game_dir, PURGATORY_PACKAGE)
+    if dir == "" do
+        return ""
+    end
+    var file = fs.join(dir, "purgatory.fw")
+    return file if fs.exists(file) else ""
+end
+
+# The GAME_API a purgatory.fw was written for (0 when it does not say).
+function purgatory_api(string source) returns int
+    var mark = "const int GAME_API = "
+    var at = source.find(mark)
+    if at < 0 do
+        return 0
+    end
+    var rest = source[(at + mark.length)..<source.length]
+    var digits = ""
+    for k in 0..<rest.length do
+        var c = rest[k..<(k + 1)]
+        if "0123456789".contains(c) do
+            digits = digits + c
+        else do
+            break
+        end
+    end
+    return int(digits) if digits != "" else 0
+end
+
 # Finds the music next to the game (music.fw sits beside playerversus.fw, so that is __dir__),
-# wherever it is started from.
+# wherever it is started from. Called again after installing a package.
 function setup()
     director.dirs = find_dirs(__dir__)
     director.missing = director.dirs.length == 0
 end
+
 
 # The file for a track, or "" when no music folder has it.
 function path_of(string name) returns string

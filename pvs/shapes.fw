@@ -187,3 +187,48 @@ end
 function drum(double top = 1, int around = 6) returns ap.Mesh
     return loft([Ring(-0.5, 0, 0), Ring(-0.5, 0.5, 0.5), Ring(0.5, 0.5 * top, 0.5 * top), Ring(0.5, 0, 0)], around)
 end
+
+# A blade filling the unit cube, point up: diamond in section (edges along x, the flat faces
+# toward ±z), straight to 0.3 then tapering to its point. Blades, claws, feathers, spikes of hair.
+function blade() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.5, 0.5, 0.5), Ring(0.3, 0.5, 0.5), Ring(0.5, 0, 0)], 4)
+end
+
+# A four-sided pyramid filling the unit cube, point up: studs, fangs, horns, the points of crowns.
+function spike() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.5, 0.5, 0.5), Ring(0.5, 0, 0)], 4)
+end
+
+# A three-sided bar filling the unit cube along y: its ridge toward -z, its flat face toward +z.
+# Lapels, folds of cloth, the jagged hem of a cape, feather vanes.
+function wedge() returns ap.Mesh
+    return loft([Ring(-0.5, 0, 0), Ring(-0.5, 0.5, 0.5), Ring(0.5, 0.5, 0.5), Ring(0.5, 0, 0)], 3)
+end
+
+# A flat cog filling the unit cube, its faces toward ±y: `teeth` square teeth round a hub.
+function gear(int teeth = 8) returns ap.Mesh
+    var b = ap.MeshBuilder()
+    double[] xs = []
+    double[] zs = []
+    var n = teeth * 4
+    for i in 0..<n do
+        var a = (double(i) + 0.5) / double(n) * 2 * math.PI
+        var r = 0.5 if (i % 4 == 1 or i % 4 == 2) else 0.39
+        xs.push(math.sin(a) * r)
+        zs.push(math.cos(a) * r)
+    end
+    var seed = 0
+    for i in 0..<n do
+        var j = (i + 1) % n
+        var lo_i = ap.Vec3(xs[i], -0.5, zs[i])
+        var lo_j = ap.Vec3(xs[j], -0.5, zs[j])
+        var hi_i = ap.Vec3(xs[i], 0.5, zs[i])
+        var hi_j = ap.Vec3(xs[j], 0.5, zs[j])
+        facet_triangle(b, lo_i, hi_i, hi_j, ap.Vec3(0, 0, 0), seed)
+        facet_triangle(b, lo_i, hi_j, lo_j, ap.Vec3(0, 0, 0), seed + 1)
+        facet_triangle(b, ap.Vec3(0, 0.5, 0), hi_i, hi_j, ap.Vec3(0, -1, 0), seed + 2)
+        facet_triangle(b, ap.Vec3(0, -0.5, 0), lo_i, lo_j, ap.Vec3(0, 1, 0), seed + 3)
+        seed += 4
+    end
+    return b.build()
+end

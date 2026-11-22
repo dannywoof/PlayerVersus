@@ -1,0 +1,12 @@
+[package]
+name = "playerversus_purgatory_ambience"
+author = "danny"
+version = "1.2"
+description = "Part of PLAYER VERSUS's PURGATORY soundtrack: the menu, threshold, dojo and exploring tracks (8 human-made CC0 tracks, Ogg Vorbis, credited in music/SOURCES.md). Installed with danny.playerversus_purgatory."
+main = "playerversus_purgatory_ambience.fw"
+
+[dependencies]
+
+[dev-dependencies]
+
+[scripts]

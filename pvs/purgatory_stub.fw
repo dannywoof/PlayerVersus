@@ -1,0 +1,45 @@
+# What the game builds in place of PURGATORY when the optional playerversus_purgatory package is
+# not installed: the same interface (see that package's purgatory.fw), and no mode. The loader
+# (loader.fw) copies this or the real one to purgatory_mode.fw before building; the title screen
+# sees INSTALLED false and offers to download the package.
+import aperture as ap
+import "roster.fw" as roster
+import "puppet.fw" as puppet
+
+const bool INSTALLED = false
+# Why: "missing" (not installed), "outdated" (installed, written for an older game) or "newer"
+# (installed, written for a newer game). The loader rewrites this line.
+const string STATUS = "missing"
+
+var camera = ap.orbit(ap.Vec3(0, 1.4, 0), 0, 18, 5.6)
+string[] known_tracks = []
+
+function setup(puppet.Rig r, roster.Character[] everyone)
+end
+function open()
+end
+function close()
+end
+function update()
+end
+function wants_leave() returns bool
+    return true
+end
+function set_lights()
+end
+function sky() returns ap.Color
+    return ap.Color(0, 0, 0)
+end
+function draw_scene()
+end
+function after_scene(double sw, double sh)
+end
+function draw_hud()
+end
+function music_now() returns string
+    return ""
+end
+function self_test() returns string[]
+    return []
+end
+string typed_text = ""
